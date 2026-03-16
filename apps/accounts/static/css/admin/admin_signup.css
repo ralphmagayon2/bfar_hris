@@ -307,6 +307,11 @@ body::before {
 .field-wrap.error select {
   border-color: var(--danger, #E53935);
 }
+
+.field-wrap.error .field-icon {
+    color: var(--danger, #E53935);
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60%  { transform: translateX(-5px); }
