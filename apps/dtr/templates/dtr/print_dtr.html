@@ -1,0 +1,134 @@
+{% extends 'base_print.html' %}
+{% load static %}
+
+{% block toolbar_title %}DTR — {{ employee.get_full_name }} — {{ selected_month|date:"F Y" }}{% endblock %}
+
+{% block extra_print_css %}
+  <link rel="stylesheet" href="{% static 'css/dtr_print.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="dtr-doc-title">Daily Time Record</div>
+<div class="dtr-doc-subtitle">
+  Bureau of Fisheries and Aquatic Resources — Regional Office III, San Fernando, Pampanga
+</div>
+
+<!-- Employee Info -->
+<div class="dtr-info-grid">
+  <div>
+    <div class="dtr-info-row">
+      <span class="dtr-info-label">Name:</span>
+      <span class="dtr-info-value"><strong>{{ employee.get_full_name }}</strong></span>
+    </div>
+    <div class="dtr-info-row">
+      <span class="dtr-info-label">Position:</span>
+      <span class="dtr-info-value">{{ employee.position.title|default:"—" }}</span>
+    </div>
+    <div class="dtr-info-row">
+      <span class="dtr-info-label">Division:</span>
+      <span class="dtr-info-value">{{ employee.division.name|default:"—" }}</span>
+    </div>
+  </div>
+  <div>
+    <div class="dtr-info-row">
+      <span class="dtr-info-label">Month / Year:</span>
+      <span class="dtr-info-value"><strong>{{ selected_month|date:"F Y" }}</strong></span>
+    </div>
+    <div class="dtr-info-row">
+      <span class="dtr-info-label">Employment:</span>
+      <span class="dtr-info-value">{{ employee.employment_type|upper }}</span>
+    </div>
+    <div class="dtr-info-row">
+      <span class="dtr-info-label">Employee ID:</span>
+      <span class="dtr-info-value">{{ employee.employee_id|default:"—" }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- DTR Table -->
+<table class="dtr-print-table">
+  <thead>
+    <tr>
+      <th class="left" style="width:22mm;">Day</th>
+      <th colspan="2" style="width:32mm;">A.M.</th>
+      <th colspan="2" style="width:32mm;">P.M.</th>
+      <th style="width:18mm;">Late (min)</th>
+      <th style="width:18mm;">Undertime</th>
+      <th style="width:22mm;">Status</th>
+      <th class="left">Remarks</th>
+    </tr>
+    <tr style="background:#2c387e;">
+      <th class="left"></th>
+      <th style="font-size:7pt;">ARRIVAL</th>
+      <th style="font-size:7pt;">DEPARTURE</th>
+      <th style="font-size:7pt;">ARRIVAL</th>
+      <th style="font-size:7pt;">DEPARTURE</th>
+      <th></th><th></th><th></th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for rec in dtr_records %}
+    <tr class="{% if rec.is_holiday %}holiday-row{% endif %}">
+      <td class="left">
+        <strong>{{ rec.date|date:"d" }}</strong>
+        <span style="font-size:7.5pt;color:#777;"> {{ rec.date|date:"D" }}</span>
+      </td>
+      <td class="{% if rec.is_late %}late-time{% endif %}">
+        {{ rec.am_in|time:"h:i A"|default:"—" }}
+      </td>
+      <td>{{ rec.am_out|time:"h:i A"|default:"—" }}</td>
+      <td>{{ rec.pm_in|time:"h:i A"|default:"—" }}</td>
+      <td>{{ rec.pm_out|time:"h:i A"|default:"—" }}</td>
+      <td>{{ rec.late_minutes|default:"" }}</td>
+      <td>{{ rec.undertime_minutes|default:"" }}</td>
+      <td style="font-size:7.5pt;">
+        {% if rec.status == 'absent' %}<span class="absent-marker">ABSENT</span>
+        {% elif rec.status == 'holiday' %}Holiday
+        {% elif rec.status == 'to' %}T.O.
+        {% elif rec.status == 'leave' %}Leave
+        {% elif rec.status == 'halfday' %}Half-day
+        {% elif rec.status == 'late' %}Late
+        {% elif rec.status == 'present' %}
+        {% endif %}
+      </td>
+      <td class="left" style="font-size:7.5pt;">{{ rec.remarks|default:"" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td class="left" colspan="5" style="text-align:right;padding-right:4mm;">TOTALS FOR THE MONTH:</td>
+      <td>{{ month_totals.total_late_minutes|default:"0" }}</td>
+      <td>{{ month_totals.total_undertime_minutes|default:"0" }}</td>
+      <td colspan="2" style="text-align:left;font-size:8pt;">
+        Present: {{ month_totals.days_present|default:"0" }} &nbsp;
+        Absent: {{ month_totals.days_absent|default:"0" }}
+      </td>
+    </tr>
+  </tfoot>
+</table>
+
+<!-- Certification & Signature -->
+<div class="sig-section">
+  <div class="sig-block">
+    <div class="sig-label">I certify on my honor that the above is a true and correct report of the hours of work performed, record of which was made daily at the time of arrival and departure from office.</div>
+    <div style="margin-top:10mm;">
+      <div class="sig-name">{{ employee.get_full_name }}</div>
+      <div class="sig-title">{{ employee.position.title|default:"Employee" }}</div>
+    </div>
+  </div>
+  <div class="sig-block">
+    <div class="certify-box">
+      <div class="certify-label">Verified as to prescribed office hours</div>
+      <div class="certify-text">
+        In charge of attendance records for the month of
+        <strong>{{ selected_month|date:"F Y" }}</strong>.
+      </div>
+      <div class="certify-sig-line">
+        <div class="certify-sig-name">ZENAIDA S. SIMON</div>
+        <div class="certify-sig-title">Administrative Officer V</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

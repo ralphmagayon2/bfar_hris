@@ -1,0 +1,458 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Account — BFAR HRIS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="icon" href="{% static 'img/HRIS.png' %}" type="image/png" />
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
+    <!-- login.css first (base styles, variables, left panel, field styles) -->
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+    <!-- signup.css second (wizard panes, responsive overrides) -->
+    <link rel="stylesheet" href="{% static 'css/signup.css' %}">
+</head>
+<body>
+
+{% comment %} Messages for different templates/html file {% endcomment %}
+{% include 'includes/messages.html' %}
+
+<div class="login-container">
+
+    <!-- ── LEFT panel (unchanged — same as login.html) ── -->
+    <div class="login-left">
+        <div class="left-content">
+            <div class="agency-badge">
+                <div class="agency-badge-icon"><i class="fas fa-fish"></i></div>
+                <span>Republic of the Philippines — BFAR Region III</span>
+            </div>
+            <h1 class="left-heading">Employee<br /><em>Self-Service Portal</em></h1>
+            <p class="left-sub">
+                Create your personal account to view your Daily Time Record,
+                payslip, and leave credits — from any LAN-connected workstation.
+            </p>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="feature-icon teal"><i class="fas fa-clock"></i></div>
+                    <div class="feature-text">
+                        <strong>View Your DTR</strong>
+                        Check attendance for any month
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon blue"><i class="fas fa-peso-sign"></i></div>
+                    <div class="feature-text">
+                        <strong>View Your Payslip / SED</strong>
+                        Access latest payroll records
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon amber"><i class="fas fa-umbrella-beach"></i></div>
+                    <div class="feature-text">
+                        <strong>View Leave Credits</strong>
+                        Check VL and SL balances anytime
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon green"><i class="fas fa-user-shield"></i></div>
+                    <div class="feature-text">
+                        <strong>Your Data Only</strong>
+                        You can only see your own records
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="deco-blob"></div>
+    </div>
+
+    <!-- ── RIGHT panel — step wizard ── -->
+    <div class="login-right">
+
+        <!-- Logo -->
+        <div class="form-logo">
+            <div class="form-logo-icon">
+                <img src="{% static 'img/bfar_logo.png' %}" alt="BFAR Logo" />
+            </div>
+            <div class="form-logo-text">
+                <span class="form-logo-title">BFAR HRIS</span>
+                <span class="form-logo-sub">Region III — San Fernando, Pampanga</span>
+            </div>
+        </div>
+
+        <!-- Step progress bar -->
+        <div class="wz-progress">
+            <div class="wz-step active" id="ws1">
+                <span class="wz-num">1</span><span>Verify ID</span>
+            </div>
+            <div class="wz-line" id="wl1"></div>
+            <div class="wz-step" id="ws2">
+                <span class="wz-num">2</span><span>Set Password</span>
+            </div>
+            <div class="wz-line" id="wl2"></div>
+            <div class="wz-step" id="ws3">
+                <span class="wz-num">3</span><span>Done</span>
+            </div>
+        </div>
+
+        <!-- Django server-side messages -->
+        {% if messages %}
+            {% for message in messages %}
+            <div class="dj-msg">
+                <i class="fas fa-circle-exclamation"></i> {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- ── Panes wrapper ── -->
+        <div class="wz-panes">
+
+            <!-- ══ PANE 1 — Verify Employee ID ══ -->
+            <div class="wz-pane active" id="pane1">
+                <div class="wz-heading">Verify your Employee ID</div>
+                <div class="wz-sub">
+                    Enter the biometric ID number assigned to you by HR.
+                </div>
+
+                <div class="f-group">
+                    <label class="f-label" for="id_number">
+                        Employee ID Number <span class="req">*</span>
+                    </label>
+                    <div class="verify-row">
+                        <div class="f-wrap">
+                            <i class="fas fa-id-badge f-icon"></i>
+                            <input type="text" class="f-input mono"
+                                   id="id_number"
+                                   placeholder="e.g. 000000001"
+                                   autocomplete="off" />
+                        </div>
+                        <button type="button" class="btn-verify" id="btn-verify">
+                            <i class="fas fa-search"></i> Verify
+                        </button>
+                    </div>
+                    <p class="f-hint">Ask HR if you don't know your Employee ID number.</p>
+                    <div class="f-error" id="err-lookup">
+                        <i class="fas fa-circle-exclamation"></i>
+                        <span id="err-lookup-text"> Employee not found.</span>
+                    </div>
+                </div>
+
+                <!-- Lookup result card (shown after successful verify) -->
+                <div class="lookup-card" id="lookup-card">
+                    <div class="lookup-av" id="lookup-av">--</div>
+                    <div>
+                        <div class="lookup-name" id="lookup-name">—</div>
+                        <div class="lookup-meta" id="lookup-meta">—</div>
+                    </div>
+                    <i class="fas fa-circle-check lookup-tick"></i>
+                </div>
+
+                <div class="wz-nav">
+                    <button type="button" class="btn-next" id="btn-next1" disabled>
+                        Continue &nbsp;<i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <div class="wz-footer" style="margin-top: 15px;">
+                    Already have an account?
+                    <a href="{% url 'accounts:login' %}">Sign in</a>
+                </div>
+            </div>
+            <!-- /PANE 1 -->
+
+            <!-- ══ PANE 2 — Create credentials ══ -->
+            <div class="wz-pane" id="pane2">
+                <div class="wz-heading">Create your login</div>
+                <div class="wz-sub">Choose a username and a strong password.</div>
+
+                <form method="post" id="signup-form" novalidate>
+                    {% csrf_token %}
+                    <!-- Hidden fields carry verified data from pane 1 -->
+                    <input type="hidden" name="id_number"   id="h-id" />
+                    <input type="hidden" name="employee_pk" id="h-pk" />
+
+                    <div class="f-group">
+                        <label class="f-label" for="id_username">
+                            Username <span class="req">*</span>
+                        </label>
+                        <div class="f-wrap">
+                            <i class="fas fa-user f-icon"></i>
+                            <input type="text" class="f-input"
+                                   id="id_username" name="username"
+                                   placeholder="e.g. juan.dela.cruz"
+                                   autocomplete="username"
+                                   value="{{ form.username.value|default:'' }}"
+                                   required />
+                        </div>
+                        <p class="f-hint">Letters, numbers, dots, underscores. No spaces.</p>
+                        {% if form.username.errors %}
+                        <div class="f-error show">
+                            <i class="fas fa-circle-exclamation"></i>
+                            {{ form.username.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="f-group">
+                        <label class="f-label" for="id_password1">
+                            Password <span class="req">*</span>
+                        </label>
+                        <div class="f-wrap">
+                            <i class="fas fa-lock f-icon"></i>
+                            <input type="password" class="f-input"
+                                   id="id_password1" name="password1"
+                                   placeholder="Create a strong password"
+                                   autocomplete="new-password"
+                                   required oninput="checkStr(this.value)" />
+                            <button type="button" class="pw-tog"
+                                    onclick="togPw('id_password1','eye1')">
+                                <i class="fas fa-eye" id="eye1"></i>
+                            </button>
+                        </div>
+                        <div class="pw-track">
+                            <div class="pw-fill" id="pw-fill"></div>
+                        </div>
+                        <div class="pw-lbl" id="pw-lbl">Enter a password</div>
+                        {% if form.password1.errors %}
+                        <div class="f-error show">
+                            <i class="fas fa-circle-exclamation"></i>
+                            {{ form.password1.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="f-group" style="margin-bottom: 0;">
+                        <label class="f-label" for="id_password2">
+                            Confirm Password <span class="req">*</span>
+                        </label>
+                        <div class="f-wrap">
+                            <i class="fas fa-lock f-icon"></i>
+                            <input type="password" class="f-input"
+                                   id="id_password2" name="password2"
+                                   placeholder="Re-enter your password"
+                                   autocomplete="new-password"
+                                   required oninput="checkMatch()" />
+                            <button type="button" class="pw-tog"
+                                    onclick="togPw('id_password2','eye2')">
+                                <i class="fas fa-eye" id="eye2"></i>
+                            </button>
+                        </div>
+                        <div class="pw-lbl" id="match-lbl" style="margin-top: 4px;">—</div>
+                        {% if form.password2.errors %}
+                        <div class="f-error show">
+                            <i class="fas fa-circle-exclamation"></i>
+                            {{ form.password2.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="wz-nav">
+                        <button type="button" class="btn-back" onclick="goStep(1)">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <button type="submit" class="btn-finish" id="btn-submit">
+                            <span class="btn-text">
+                                <i class="fas fa-user-plus"></i>&nbsp; Create Account
+                            </span>
+                            <span class="btn-spinner">
+                                <div class="spin-ring"></div>
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <!-- /PANE 2 -->
+
+            <!-- ══ PANE 3 — Success ══ -->
+            <div class="wz-pane" id="pane3">
+                <div style="text-align: center; padding: 8px 0;">
+                    <div class="success-circle">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="wz-heading" style="text-align: center;">
+                        Account Created!
+                    </div>
+                    <div class="wz-sub"
+                         style="text-align: center; max-width: 280px; margin: 0 auto 16px;">
+                        Your BFAR HRIS account is ready.
+                        Sign in to view your records.
+                    </div>
+                    <a href="{% url 'accounts:login' %}"
+                       style="display:inline-flex;align-items:center;gap:7px;
+                              padding:11px 32px;
+                              background:var(--navy-900);color:white;
+                              border-radius:var(--r-md);
+                              font-family:var(--font);font-size:.88rem;font-weight:700;
+                              text-decoration:none;transition:background .2s;">
+                        <i class="fas fa-right-to-bracket"></i> Sign In Now
+                    </a>
+                </div>
+            </div>
+            <!-- /PANE 3 -->
+
+        </div><!-- /wz-panes -->
+
+        <p class="form-version">
+            bfar_hris &nbsp;·&nbsp; v1.0.0 &nbsp;·&nbsp; March 2026
+        </p>
+
+    </div><!-- /login-right -->
+</div><!-- /login-container -->
+
+<script>
+// ── Step navigation ──────────────────────────────────────────────────────────
+let cur = 1;
+function goStep(to) {
+    if (to === cur) return;
+    const from  = cur;
+    const pFrom = document.getElementById('pane' + from);
+    const pTo   = document.getElementById('pane' + to);
+
+    pFrom.classList.remove('active');
+    pFrom.classList.add('exit');
+    setTimeout(() => pFrom.classList.remove('exit'), 380);
+
+    pTo.classList.add('active');
+    cur = to;
+
+    // Update progress indicators
+    [1, 2, 3].forEach(n => {
+        const s = document.getElementById('ws' + n);
+        s.classList.remove('active', 'done');
+        if (n < to)  s.classList.add('done');
+        if (n === to) s.classList.add('active');
+    });
+    [1, 2].forEach(n =>
+        document.getElementById('wl' + n).classList.toggle('done', n < to)
+    );
+
+    // Scroll to top when changing steps on mobile
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Step 1: Employee ID lookup ───────────────────────────────────────────────
+let empPk = '', empId = '';
+
+async function doLookup() {
+    const val  = document.getElementById('id_number').value.trim();
+    const card = document.getElementById('lookup-card');
+    const err  = document.getElementById('err-lookup');
+    const next = document.getElementById('btn-next1');
+    const btnV = document.getElementById('btn-verify');
+
+    card.classList.remove('show');
+    err.classList.remove('show');
+    next.disabled = true;
+
+    if (!val) {
+        document.getElementById('err-lookup-text').textContent =
+            ' Please enter your Employee ID first.';
+        err.classList.add('show');
+        return;
+    }
+
+    btnV.disabled = true;
+    btnV.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking…';
+
+    try {
+        const res  = await fetch(
+            `/accounts/api/employee-lookup-public/?id_number=${encodeURIComponent(val)}`
+        );
+        const data = await res.json();
+
+        if (data.found) {
+            document.getElementById('lookup-av').textContent   = data.initials;
+            document.getElementById('lookup-name').textContent = data.full_name;
+            document.getElementById('lookup-meta').textContent =
+                `${data.position} · ${data.division}`;
+            card.classList.add('show');
+            empPk = data.employee_pk;
+            empId = val;
+            next.disabled = false;
+        } else {
+            document.getElementById('err-lookup-text').textContent =
+                ' ' + (data.message || 'Employee ID not found. Contact HR.');
+            err.classList.add('show');
+            empPk = '';
+        }
+    } catch {
+        document.getElementById('err-lookup-text').textContent =
+            ' Server unreachable. Please try again.';
+        err.classList.add('show');
+    } finally {
+        btnV.disabled = false;
+        btnV.innerHTML = '<i class="fas fa-search"></i> Verify';
+    }
+}
+
+document.getElementById('btn-verify')
+    .addEventListener('click', doLookup);
+
+document.getElementById('id_number')
+    .addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); doLookup(); }
+    });
+
+document.getElementById('btn-next1')
+    .addEventListener('click', () => {
+        document.getElementById('h-id').value = empId;
+        document.getElementById('h-pk').value = empPk;
+        goStep(2);
+    });
+
+// ── Step 2: Password strength + match ───────────────────────────────────────
+function checkStr(pw) {
+    const fill = document.getElementById('pw-fill');
+    const lbl  = document.getElementById('pw-lbl');
+    let s = 0;
+    if (pw.length >= 8)            s++;
+    if (/[A-Z]/.test(pw))         s++;
+    if (/[0-9]/.test(pw))         s++;
+    if (/[^A-Za-z0-9]/.test(pw))  s++;
+    const lvl = [
+        { w: '0%',   bg: '',                  t: 'Enter a password', c: 'var(--gray-400)'  },
+        { w: '25%',  bg: 'var(--danger)',     t: 'Weak',             c: 'var(--danger)'    },
+        { w: '50%',  bg: 'var(--amber-700)', t: 'Fair',              c: 'var(--amber-700)' },
+        { w: '75%',  bg: '#1976D2',           t: 'Good',             c: '#1976D2'           },
+        { w: '100%', bg: 'var(--success)',    t: 'Strong ✓',         c: 'var(--success)'   },
+    ][pw.length ? s : 0];
+    fill.style.width      = lvl.w;
+    fill.style.background = lvl.bg;
+    lbl.textContent       = lvl.t;
+    lbl.style.color       = lvl.c;
+    checkMatch();
+}
+
+function checkMatch() {
+    const p1  = document.getElementById('id_password1').value;
+    const p2  = document.getElementById('id_password2').value;
+    const lbl = document.getElementById('match-lbl');
+    if (!p2) { lbl.textContent = '—'; lbl.style.color = 'var(--gray-400)'; return; }
+    lbl.textContent = (p1 === p2) ? '✓ Passwords match' : '✗ Passwords do not match';
+    lbl.style.color = (p1 === p2) ? 'var(--success)' : 'var(--danger)';
+}
+
+function togPw(inputId, eyeId) {
+    const el = document.getElementById(inputId);
+    const ey = document.getElementById(eyeId);
+    const h  = el.type === 'password';
+    el.type       = h ? 'text' : 'password';
+    ey.className  = h ? 'fas fa-eye-slash' : 'fas fa-eye';
+}
+
+document.getElementById('signup-form')
+    .addEventListener('submit', () => {
+        document.getElementById('btn-submit').classList.add('loading');
+    });
+
+// ── Auto-advance ─────────────────────────────────────────────────────────────
+// After successful registration, view redirects to ?registered=1 → show pane 3
+if (new URLSearchParams(location.search).get('registered') === '1') goStep(3);
+
+// If Django re-rendered with form errors, jump straight to pane 2
+{% if form.errors %}goStep(2);{% endif %}
+</script>
+</body>
+</html>

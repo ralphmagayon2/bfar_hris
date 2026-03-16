@@ -1,0 +1,139 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 — Page Not Found | BFAR HRIS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: linear-gradient(135deg, #0A2342 0%, #1565C0 60%, #0D2D5A 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .error-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+      padding: 52px 48px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    .error-icon-wrap {
+      width: 90px; height: 90px;
+      background: #E3F2FD;
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .error-icon-wrap i {
+      font-size: 2.4rem;
+      color: #1565C0;
+    }
+    .error-code {
+      font-size: 5rem;
+      font-weight: 800;
+      color: #1565C0;
+      line-height: 1;
+      letter-spacing: -2px;
+    }
+    .error-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #0A2342;
+      margin: 8px 0 12px;
+    }
+    .error-message {
+      font-size: .9rem;
+      color: #546E7A;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+    .error-url {
+      display: inline-block;
+      background: #F0F4F8;
+      border: 1px solid #CFD8DC;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-family: 'Consolas', monospace;
+      font-size: .82rem;
+      color: #37474F;
+      margin-bottom: 24px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #1565C0;
+      color: #fff;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: .9rem;
+      text-decoration: none;
+      transition: background .2s, transform .15s;
+    }
+    .btn-home:hover { background: #0A2342; transform: translateY(-1px); }
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: #546E7A;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: .9rem;
+      text-decoration: none;
+      border: 1px solid #CFD8DC;
+      margin-left: 8px;
+      transition: background .2s;
+    }
+    .btn-back:hover { background: #F8FAFC; }
+    .bfar-footer {
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid #ECEFF1;
+      font-size: .75rem;
+      color: #90A4AE;
+    }
+  </style>
+</head>
+<body>
+  <div class="error-card">
+    <div class="error-icon-wrap">
+      <i class="fas fa-magnifying-glass"></i>
+    </div>
+    <div class="error-code">404</div>
+    <h1 class="error-title">Page Not Found</h1>
+    <p class="error-message">
+      The page you were looking for doesn't exist or may have been moved.
+    </p>
+    <div class="error-url">{{ request.path }}</div>
+    <div>
+      <a href="{% url 'core:dashboard' %}" class="btn-home">
+        <i class="fas fa-gauge-high"></i> Go to Dashboard
+      </a>
+      <a href="javascript:history.back()" class="btn-back">
+        <i class="fas fa-arrow-left"></i> Go Back
+      </a>
+    </div>
+    <div class="bfar-footer">
+      BFAR Region III &mdash; Human Resource Information System
+    </div>
+  </div>
+</body>
+</html>

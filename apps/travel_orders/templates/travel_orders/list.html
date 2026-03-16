@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Travel Orders — BFAR HRIS{% endblock %}
+{% block page_title %}Travel Orders{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/travel_list.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Travel Orders</h1>
+    <p class="page-sub">Official travel orders and trip tickets — {{ total_to|default:0 }} records</p>
+  </div>
+  <div class="travel-actions" style="display:flex;gap:8px;">
+    <a href="#" class="btn btn-outline btn-sm"><i class="fas fa-file-excel"></i> Export</a>
+    {# BUG FIX 1: was 'travel_orders:form' → correct name is 'travel_orders:create' #}
+    <a href="{% url 'travel_orders:create' %}" class="btn btn-primary">
+      <i class="fas fa-plus"></i> New TO/TT
+    </a>
+  </div>
+</div>
+
+<!-- Summary chips -->
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+  <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:var(--white);border-radius:999px;border:1px solid var(--gray-200);box-shadow:var(--shadow);font-size:.8rem;">
+    <span class="to-type-badge to">TO</span>
+    <span style="font-weight:700;font-family:var(--font-mono);">{{ summary.to_count|default:0 }}</span>
+  </div>
+  <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:var(--white);border-radius:999px;border:1px solid var(--gray-200);box-shadow:var(--shadow);font-size:.8rem;">
+    <span class="to-type-badge tt">TT</span>
+    <span style="font-weight:700;font-family:var(--font-mono);">{{ summary.tt_count|default:0 }}</span>
+  </div>
+  <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:var(--white);border-radius:999px;border:1px solid var(--gray-200);box-shadow:var(--shadow);font-size:.8rem;">
+    <i class="fas fa-route" style="color:var(--teal-700);"></i>
+    <span style="color:var(--gray-500);">On travel today:</span>
+    <span style="font-weight:700;font-family:var(--font-mono);">{{ summary.active_today|default:0 }}</span>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" id="to-search" placeholder="Search name or destination…" oninput="filterTO()">
+    </div>
+    <div class="filter-row">
+      <select class="filter-select" id="to-type-filter" onchange="filterTO()">
+        <option value="">All Types</option>
+        {# BUG FIX 2: values must match data-type which uses ticket_type (TO/TT uppercase) lowercased #}
+        <option value="to">Travel Order (TO)</option>
+        <option value="tt">Trip Ticket (TT)</option>
+      </select>
+      <input type="month" id="to-month-filter"
+             style="padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.82rem;font-family:var(--font);"
+             onchange="filterTO()">
+    </div>
+  </div>
+  {# BUG FIX 3: travel_orders is a Page object — use paginator.count not |length #}
+  <span id="to-count" style="font-size:.76rem;color:var(--gray-400);">
+    {{ travel_orders.paginator.count }} shown
+  </span>
+</div>
+
+<!-- Table -->
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;">
+  <div class="table-wrap">
+    <table class="table-hris">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Type</th>
+          <th>Destination</th>
+          <th>Date From</th>
+          <th>Date To</th>
+          <th>Days</th>
+          <th>Purpose</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="to-tbody">
+        {% for to in travel_orders %}
+        <tr
+          {# BUG FIX 4: to.travel_type → model field is ticket_type (aliased by view) #}
+          data-name="{{ to.employee.get_full_name|lower }}"
+          data-dest="{{ to.destination|lower|default:'' }}"
+          data-type="{{ to.ticket_type|lower }}"
+          data-from="{{ to.date_from|date:'Y-m' }}">
+
+          <td>
+            <div class="emp-cell">
+              <div class="emp-avatar">
+                {# BUG FIX 5: Employee has no profile_picture — use get_initials() #}
+                {{ to.employee.get_initials }}
+              </div>
+              <div>
+                <div class="emp-name-text">{{ to.employee.get_full_name }}</div>
+                {# BUG FIX 6: Division has no .name field — use division_name #}
+                <div class="emp-div-text">{{ to.employee.division.division_name|default:"—" }}</div>
+              </div>
+            </div>
+          </td>
+
+          {# BUG FIX 4 (cont): to.travel_type → use ticket_type directly #}
+          <td>
+            <span class="to-type-badge {{ to.ticket_type|lower }}">
+              {{ to.ticket_type }}
+            </span>
+          </td>
+
+          <td style="font-size:.82rem;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+              title="{{ to.destination|default:'' }}">
+            {{ to.destination|default:"—" }}
+          </td>
+
+          <td style="font-family:var(--font-mono);font-size:.8rem;white-space:nowrap;">
+            {{ to.date_from|date:"M d, Y" }}
+          </td>
+
+          <td style="font-family:var(--font-mono);font-size:.8rem;white-space:nowrap;">
+            {{ to.date_to|date:"M d, Y" }}
+          </td>
+
+          {# BUG FIX 7: to.num_days → no such field; use get_duration_days() #}
+          <td style="text-align:center;font-family:var(--font-mono);font-weight:700;">
+            {{ to.get_duration_days }}
+          </td>
+
+          <td style="font-size:.78rem;color:var(--gray-500);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+              title="{{ to.purpose|default:'' }}">
+            {{ to.purpose|default:"—" }}
+          </td>
+
+          <td>
+            <div class="row-actions">
+              {# BUG FIX 8: to.id → PK is to_id, not id #}
+              <a href="{% url 'travel_orders:edit' to.to_id %}" class="row-btn edit" title="Edit">
+                <i class="fas fa-pen"></i>
+              </a>
+              {#
+                BUG FIX 9: Delete form action was empty string → use correct named URL.
+                Also uses to_id not id.
+              #}
+              <form method="post" action="{% url 'travel_orders:delete' to.to_id %}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Delete {{ to.to_code }}? This will remove it from all DTR records.')">
+                {% csrf_token %}
+                <button type="submit" class="row-btn del" title="Delete">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" style="text-align:center;padding:48px;color:var(--gray-400);">
+            <i class="fas fa-route" style="font-size:2rem;display:block;opacity:.2;margin-bottom:10px;"></i>
+            No travel orders found.
+            <a href="{% url 'travel_orders:create' %}" style="color:var(--navy-700);font-weight:600;">
+              Create one.
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if travel_orders.has_other_pages %}
+  <div style="padding:12px 18px;border-top:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div class="page-info">
+      Showing {{ travel_orders.start_index }}–{{ travel_orders.end_index }}
+      of {{ travel_orders.paginator.count }}
+    </div>
+    <div class="page-btns">
+      {% if travel_orders.has_previous %}
+        <a href="?page={{ travel_orders.previous_page_number }}" class="page-btn">
+          <i class="fas fa-chevron-left"></i>
+        </a>
+      {% endif %}
+      {% for num in travel_orders.paginator.page_range %}
+        {% if travel_orders.number == num %}
+          <span class="page-btn active">{{ num }}</span>
+        {% elif num > travel_orders.number|add:"-3" and num < travel_orders.number|add:"3" %}
+          <a href="?page={{ num }}" class="page-btn">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if travel_orders.has_next %}
+        <a href="?page={{ travel_orders.next_page_number }}" class="page-btn">
+          <i class="fas fa-chevron-right"></i>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/travel_list.js' %}"></script>
+{% endblock %}

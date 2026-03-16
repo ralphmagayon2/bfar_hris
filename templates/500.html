@@ -1,0 +1,141 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>500 — Server Error | BFAR HRIS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: linear-gradient(135deg, #0A2342 0%, #B71C1C 60%, #0D2D5A 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .error-card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      padding: 52px 48px;
+      max-width: 520px;
+      width: 100%;
+      text-align: center;
+    }
+    .error-icon-wrap {
+      width: 90px; height: 90px;
+      background: #FFEBEE;
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .error-icon-wrap i {
+      font-size: 2.4rem;
+      color: #B71C1C;
+    }
+    .error-code {
+      font-size: 5rem;
+      font-weight: 800;
+      color: #B71C1C;
+      line-height: 1;
+      letter-spacing: -2px;
+    }
+    .error-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #0A2342;
+      margin: 8px 0 12px;
+    }
+    .error-message {
+      font-size: .9rem;
+      color: #546E7A;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .error-hint {
+      background: #FFF8E1;
+      border: 1px solid #FFE082;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: .82rem;
+      color: #E65100;
+      margin-bottom: 32px;
+      text-align: left;
+    }
+    .error-hint strong { display: block; margin-bottom: 4px; }
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #0A2342;
+      color: #fff;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: .9rem;
+      text-decoration: none;
+      transition: background .2s, transform .15s;
+    }
+    .btn-home:hover { background: #1565C0; transform: translateY(-1px); }
+    .btn-reload {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: #546E7A;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: .9rem;
+      text-decoration: none;
+      border: 1px solid #CFD8DC;
+      margin-left: 8px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-reload:hover { background: #F8FAFC; }
+    .bfar-footer {
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid #ECEFF1;
+      font-size: .75rem;
+      color: #90A4AE;
+    }
+  </style>
+</head>
+<body>
+  <div class="error-card">
+    <div class="error-icon-wrap">
+      <i class="fas fa-triangle-exclamation"></i>
+    </div>
+    <div class="error-code">500</div>
+    <h1 class="error-title">Internal Server Error</h1>
+    <p class="error-message">
+      Something went wrong on the server. This is not your fault.
+      The system encountered an unexpected error.
+    </p>
+    <div class="error-hint">
+      <strong>&#128274; What to do:</strong>
+      Try refreshing the page. If the problem persists, contact your
+      system administrator and provide the time this error occurred.
+    </div>
+    <div>
+      <a href="{% url 'core:dashboard' %}" class="btn-home">
+        <i class="fas fa-gauge-high"></i> Go to Dashboard
+      </a>
+      <button class="btn-reload" onclick="window.location.reload()">
+        <i class="fas fa-rotate-right"></i> Try Again
+      </button>
+    </div>
+    <div class="bfar-footer">
+      BFAR Region III &mdash; Human Resource Information System
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,105 @@
+{% extends 'base_print.html' %}
+{% load static %}
+
+{% block toolbar_title %}Payslip — {{ record.employee.get_full_name }} — {{ record.period.label }}{% endblock %}
+
+{% block extra_print_css %}
+<style>
+body { font-size: 10pt; }
+.payslip-title { text-align:center;font-size:11pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:1mm; }
+.payslip-subtitle { text-align:center;font-size:8pt;color:#555;margin-bottom:4mm; }
+.payslip-type-label { text-align:center;font-size:9pt;font-weight:700;text-transform:uppercase;
+  background:#0a2342;color:#fff;padding:2mm 0;border-radius:2mm;margin-bottom:4mm;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact; }
+.ps-info-grid { display:grid;grid-template-columns:1fr 1fr;gap:0 12mm;margin-bottom:4mm; }
+.ps-info-row { display:flex;gap:3mm;padding:1.5mm 0;border-bottom:1px solid #ddd;font-size:9pt; }
+.ps-info-label { font-weight:700;color:#333;min-width:28mm;flex-shrink:0;font-size:8pt;text-transform:uppercase; }
+.breakdown-grid { display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-bottom:4mm; }
+.breakdown-box { border:1px solid #ccc;border-radius:3mm;overflow:hidden; }
+.bb-header { background:#1a237e;color:#fff;padding:2.5mm 4mm;font-size:8pt;font-weight:700;text-transform:uppercase;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact; }
+.bb-row { display:flex;justify-content:space-between;padding:2mm 4mm;border-bottom:1px solid #eee;font-size:9pt; }
+.bb-row:last-child { border-bottom:none; }
+.bb-row-label { color:#444; }
+.bb-row-val   { font-weight:600;font-family:monospace; }
+.bb-total { display:flex;justify-content:space-between;padding:2.5mm 4mm;background:#f5f7fa;font-weight:800;font-size:10pt;
+  border-top:2px solid #1a237e;-webkit-print-color-adjust:exact;print-color-adjust:exact; }
+.net-box { background:#0a2342;color:#fff;border-radius:3mm;padding:5mm;text-align:center;margin-bottom:4mm;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact; }
+.net-label { font-size:8pt;text-transform:uppercase;letter-spacing:.5px;color:#90caf9;margin-bottom:2mm; }
+.net-amount { font-size:24pt;font-weight:900;letter-spacing:1px; }
+.sig-section { display:grid;grid-template-columns:1fr 1fr;gap:12mm;margin-top:6mm; }
+.sig-line { border-top:1px solid #000;padding-top:2mm;margin-top:10mm; }
+.sig-name  { font-weight:700;font-size:10pt; }
+.sig-title { font-size:8pt;color:#555; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="payslip-title">Payslip</div>
+<div class="payslip-subtitle">Bureau of Fisheries and Aquatic Resources — Regional Office III, San Fernando, Pampanga</div>
+<div class="payslip-type-label">{{ record.employee.employment_type|upper }} Payslip</div>
+
+<!-- Employee Info -->
+<div class="ps-info-grid">
+  <div>
+    <div class="ps-info-row"><span class="ps-info-label">Name:</span><span><strong>{{ record.employee.get_full_name }}</strong></span></div>
+    <div class="ps-info-row"><span class="ps-info-label">Position:</span><span>{{ record.employee.position.title|default:"—" }}</span></div>
+    <div class="ps-info-row"><span class="ps-info-label">Division:</span><span>{{ record.employee.division.name|default:"—" }}</span></div>
+  </div>
+  <div>
+    <div class="ps-info-row"><span class="ps-info-label">Period:</span><span><strong>{{ record.period.label }}</strong></span></div>
+    <div class="ps-info-row"><span class="ps-info-label">Dates:</span><span>{{ record.period.date_from|date:"M d" }} – {{ record.period.date_to|date:"M d, Y" }}</span></div>
+    <div class="ps-info-row"><span class="ps-info-label">Release:</span><span>{{ record.period.release_date|date:"M d, Y" }}</span></div>
+  </div>
+</div>
+
+<!-- Earnings & Deductions -->
+<div class="breakdown-grid">
+  <div class="breakdown-box">
+    <div class="bb-header">Earnings</div>
+    <div class="bb-row"><span class="bb-row-label">Monthly Rate</span><span class="bb-row-val">₱{{ record.employee.monthly_salary|floatformat:2 }}</span></div>
+    <div class="bb-row"><span class="bb-row-label">Days Present</span><span class="bb-row-val">{{ record.days_present }} days</span></div>
+    <div class="bb-row"><span class="bb-row-label">Daily Rate</span><span class="bb-row-val">₱{{ record.daily_rate|floatformat:4 }}</span></div>
+    {% if record.gross_pay != record.employee.monthly_salary %}
+    <div class="bb-row"><span class="bb-row-label">Computed Gross</span><span class="bb-row-val">₱{{ record.gross_pay|floatformat:2 }}</span></div>
+    {% endif %}
+    <div class="bb-total"><span>Gross Pay</span><span>₱{{ record.gross_pay|floatformat:2 }}</span></div>
+  </div>
+  <div class="breakdown-box">
+    <div class="bb-header">Deductions</div>
+    {% if record.gsis_deduction %}<div class="bb-row"><span class="bb-row-label">GSIS (Employee)</span><span class="bb-row-val">₱{{ record.gsis_deduction|floatformat:2 }}</span></div>{% endif %}
+    {% if record.philhealth_deduction %}<div class="bb-row"><span class="bb-row-label">PhilHealth</span><span class="bb-row-val">₱{{ record.philhealth_deduction|floatformat:2 }}</span></div>{% endif %}
+    {% if record.pagibig_deduction %}<div class="bb-row"><span class="bb-row-label">Pag-IBIG</span><span class="bb-row-val">₱{{ record.pagibig_deduction|floatformat:2 }}</span></div>{% endif %}
+    {% if record.tax_deduction %}<div class="bb-row"><span class="bb-row-label">Withholding Tax</span><span class="bb-row-val">₱{{ record.tax_deduction|floatformat:2 }}</span></div>{% endif %}
+    {% if record.late_deduction %}<div class="bb-row"><span class="bb-row-label">Late Deduction</span><span class="bb-row-val">₱{{ record.late_deduction|floatformat:2 }}</span></div>{% endif %}
+    {% if record.absent_deduction %}<div class="bb-row"><span class="bb-row-label">Absence Deduction</span><span class="bb-row-val">₱{{ record.absent_deduction|floatformat:2 }}</span></div>{% endif %}
+    {% if record.other_deductions %}<div class="bb-row"><span class="bb-row-label">Other Deductions</span><span class="bb-row-val">₱{{ record.other_deductions|floatformat:2 }}</span></div>{% endif %}
+    <div class="bb-total"><span>Total Deductions</span><span>₱{{ record.total_deductions|floatformat:2 }}</span></div>
+  </div>
+</div>
+
+<!-- Net Pay -->
+<div class="net-box">
+  <div class="net-label">Net Pay</div>
+  <div class="net-amount">₱{{ record.net_pay|floatformat:2 }}</div>
+</div>
+
+<!-- Signatures -->
+<div class="sig-section">
+  <div>
+    <div style="font-size:8pt;color:#777;margin-bottom:10mm;">Received by:</div>
+    <div class="sig-line">
+      <div class="sig-name">{{ record.employee.get_full_name }}</div>
+      <div class="sig-title">Date: _________________</div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:8pt;color:#777;margin-bottom:10mm;">Approved by:</div>
+    <div class="sig-line">
+      <div class="sig-name">ZENAIDA S. SIMON</div>
+      <div class="sig-title">Administrative Officer V</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

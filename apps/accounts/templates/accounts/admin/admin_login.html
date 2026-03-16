@@ -1,0 +1,148 @@
+{% extends 'base_admin_auth.html' %}
+{% load static %}
+
+{% block title %}Admin Sign In — BFAR HRIS{% endblock title %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'css/admin/admin_login.css' %}">
+{% endblock css %}
+
+{% block content %}
+
+{% comment %} <div class="bg-blob bg-blob-1"></div>
+<div class="bg-blob bg-blob-2"></div> {% endcomment %}
+
+<div class="card">
+
+  <!-- Logo -->
+  <div class="card-logo">
+    <div class="card-logo-icon">
+      <img src="{% static 'img/bfar_logo.png' %}" alt="BFAR Logo" />
+    </div>
+    <div>
+      <span class="card-logo-title">BFAR HRIS</span>
+      <span class="card-logo-sub">Region III — San Fernando, Pampanga</span>
+    </div>
+  </div>
+
+  <!-- Admin badge + role chips -->
+  <div class="admin-wrap">
+    <div class="admin-badge">
+        {% comment %} <i class="fas fa-shield-halved"></i> {% endcomment %}
+        Administration Portal — Sign In
+    </div>
+
+    <div class="role-chips">
+        <span class="role-chip superadmin"><i class="fas fa-crown" style="margin-right:3px;font-size:.6rem;"></i> Super Admin</span>
+        <span class="role-chip hr_admin"><i class="fas fa-user-tie" style="margin-right:3px;font-size:.6rem;"></i> HR Admin</span>
+        <span class="role-chip hr_staff"><i class="fas fa-user" style="margin-right:3px;font-size:.6rem;"></i> HR Staff</span>
+    </div>
+  </div>
+  
+  {% comment %} <h2 class="card-heading">Admin Sign In</h2> {% endcomment %}
+
+  <div class="subheading-box">
+    <p class="card-subheading">
+        This portal is for authorized HR and system administrators only.
+        Unauthorized access is logged and monitored.
+    </p>
+  </div>
+
+  {% comment %} <!-- Messages -->
+  {% if messages %}
+  <div class="form-messages">
+    {% for message in messages %}
+    <div class="msg-error">
+      <i class="fas fa-circle-exclamation"></i>
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if form.non_field_errors %}
+  <div class="form-messages">
+    {% for error in form.non_field_errors %}
+    <div class="msg-error">
+      <i class="fas fa-circle-exclamation"></i>{{ error }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %} {% endcomment %}
+
+  <!-- Form -->
+  <form method="post" id="admin-form" novalidate>
+    {% csrf_token %}
+
+    <div class="field-group">
+      <label class="field-label" for="id_username">Username</label>
+      <div class="field-wrap" id="username-wrap">
+        <i class="fas fa-user field-icon"></i>
+        <input
+          type="text"
+          name="username"
+          id="id_username"
+          placeholder="Enter admin username"
+          autocomplete="username"
+          value="{{ form.username.value|default:'' }}"
+          required
+        />
+      </div>
+      {% if form.username.errors %}
+        <span style="font-size:.78rem;color:#FCA5A5;">{{ form.username.errors.0 }}</span>
+      {% endif %}
+      <span id="username-error" style="font-size:.78rem;color:var(--danger);display:none;"></span>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="id_password">Password</label>
+      <div class="field-wrap" id="password-wrap">
+        <i class="fas fa-lock field-icon"></i>
+        <input
+          type="password"
+          name="password"
+          id="id_password"
+          placeholder="Enter password"
+          autocomplete="current-password"
+          required
+        />
+        <button type="button" class="toggle-pw" id="toggle-pw">
+          <i class="fas fa-eye" id="pw-eye"></i>
+        </button>
+      </div>
+      {% if form.password.errors %}
+        <span style="font-size:.78rem;color:#FCA5A5;">{{ form.password.errors.0 }}</span>
+      {% endif %}
+      <span id="password-error" style="font-size:.78rem;color:var(--danger);display:none;"></span>
+    </div>
+
+    <div class="field-row">
+      <label class="remember-label">
+        <input type="checkbox" name="remember_me" />
+        Keep me signed in
+      </label>
+      <a href="{% url 'accounts:admin_forgot_password' %}" class="forgot-link">Forgot password?</a>
+    </div>
+
+    <button type="submit" class="btn-admin" id="btn-submit">
+      <span class="btn-text"><i class="fas fa-shield-halved"></i>&nbsp; Sign In to Admin</span>
+      <span class="btn-spinner"><div class="spinner-ring"></div></span>
+    </button>
+
+  </form>
+
+  <div class="card-divider">or</div>
+
+  <div class="employee-link">
+    Regular employee? <a href="{% url 'accounts:login' %}">Sign in here instead</a>
+  </div>
+
+  <p class="card-version">bfar_hris &nbsp;·&nbsp; Admin Portal &nbsp;·&nbsp; v1.0.0</p>
+
+</div>
+
+{% endblock content %}
+
+{% block js %}
+    <script src="{% static 'js/admin/admin_login.js' %}"></script>
+{% endblock js %}

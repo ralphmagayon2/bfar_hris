@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Audit Log — BFAR HRIS{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/audit_list.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Audit Log</h1>
+    <p class="page-sub">Complete trail of all system actions — {{ total_logs|default:0 }} total entries</p>
+  </div>
+  {# Export only for superadmin and hr_admin — hr_staff sees nothing here #}
+  {% if can_export %}
+  <a href="?export=csv{% if request.GET.action %}&action={{ request.GET.action }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}"
+     class="btn btn-outline btn-sm">
+    <i class="fas fa-file-excel"></i> Export
+  </a>
+  {% endif %}
+</div>
+
+<!-- Stats row -->
+<div class="audit-grid">
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:12px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-400);margin-bottom:3px;">Today's Actions</div>
+    <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-mono);color:var(--navy-900);">{{ stats.today|default:0 }}</div>
+  </div>
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:12px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-400);margin-bottom:3px;">Unique Users Today</div>
+    <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-mono);color:var(--navy-900);">{{ stats.unique_users_today|default:0 }}</div>
+  </div>
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:12px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--success);margin-bottom:3px;">Logins (7 days)</div>
+    <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-mono);color:var(--success);">{{ stats.logins_7d|default:0 }}</div>
+  </div>
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:12px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--danger);margin-bottom:3px;">Deletes (7 days)</div>
+    <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-mono);color:var(--danger);">{{ stats.deletes_7d|default:0 }}</div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<form method="get" id="audit-filter-form">
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" name="q" id="audit-search"
+             placeholder="Search user or description…"
+             value="{{ request.GET.q }}"
+             oninput="submitFilterDebounced()">
+    </div>
+
+    <div class="filter-row">
+      <select class="filter-select" name="action" id="action-filter" onchange="this.form.submit()">
+        <option value="">All Actions</option>
+        <option value="create"  {% if request.GET.action == 'create'  %}selected{% endif %}>Create</option>
+        <option value="update"  {% if request.GET.action == 'update'  %}selected{% endif %}>Update</option>
+        <option value="delete"  {% if request.GET.action == 'delete'  %}selected{% endif %}>Delete</option>
+        <option value="approve" {% if request.GET.action == 'approve' %}selected{% endif %}>Approve</option>
+        <option value="print"   {% if request.GET.action == 'print'   %}selected{% endif %}>Print</option>
+      </select>
+      <input type="date" name="date" id="audit-date-filter"
+             value="{{ request.GET.date }}"
+             style="padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.82rem;font-family:var(--font);"
+             onchange="this.form.submit()">
+    </div>
+  </div>
+  <span id="audit-count" style="font-size:.76rem;color:var(--gray-400);">
+    {{ logs|length }} of {{ total_logs }} entries shown
+  </span>
+</div>
+</form>
+
+<!-- Table -->
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;">
+  <div class="table-wrap">
+    <table class="table-hris">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Role</th>
+          <th>Action</th>
+          <th>Table / Record</th>
+          <th>Description</th>
+          <th>IP Address</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="audit-tbody">
+        {% for log in logs %}
+        <tr>
+          <td style="font-family:var(--font-mono);font-size:.78rem;white-space:nowrap;color:var(--gray-500);">
+            {{ log.get_ph_date_short }}<br>
+            <span style="color:var(--gray-400);">{{ log.get_ph_time_only }}</span>
+          </td>
+          <td>
+            <div class="user-cell">
+              <div class="user-avatar-sm">
+                {{ log.performed_by.username|first|upper }}
+              </div>
+              <div style="font-size:.82rem;font-weight:500;color:var(--navy-900);">
+                {{ log.performed_by.get_display_name }}
+              </div>
+            </div>
+          </td>
+          <td>
+            <span style="font-size:.72rem;color:var(--gray-400);text-transform:uppercase;letter-spacing:.4px;">
+              {{ log.performed_by.get_role_display }}
+            </span>
+          </td>
+          <td>
+            <span class="action-badge {{ log.action|lower }}">{{ log.get_action_display }}</span>
+          </td>
+          <td style="font-size:.78rem;font-family:var(--font-mono);color:var(--navy-700);">
+            {{ log.table_affected }}<br>
+            <span style="color:var(--gray-400);">#{{ log.record_id }}</span>
+          </td>
+          <td class="detail-cell" title="{{ log.reason|default:log.description|default:'' }}">
+            {% if log.reason %}
+              <span style="color:var(--danger);" title="Correction reason">
+                <i class="fas fa-edit" style="font-size:.65rem;"></i>
+                {{ log.reason|truncatechars:60 }}
+              </span>
+            {% else %}
+              {{ log.description|default:"—"|truncatechars:60 }}
+            {% endif %}
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.78rem;color:var(--gray-400);">
+            {{ log.ip_address|default:"—" }}
+          </td>
+          <td>
+            <a href="{% url 'audit:detail' log.log_id %}"
+               style="font-size:.72rem;color:var(--navy-600);text-decoration:none;">
+              View
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" style="text-align:center;padding:48px;color:var(--gray-400);">
+            <i class="fas fa-clipboard-list" style="font-size:2rem;display:block;opacity:.2;margin-bottom:10px;"></i>
+            No audit log entries yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if logs.has_other_pages %}
+  <div style="padding:12px 18px;border-top:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div class="page-info">Showing {{ logs.start_index }}–{{ logs.end_index }} of {{ logs.paginator.count }}</div>
+    <div class="page-btns">
+      {% if logs.has_previous %}
+        <a href="?page={{ logs.previous_page_number }}{% if request.GET.action %}&action={{ request.GET.action }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="page-btn">
+          <i class="fas fa-chevron-left"></i>
+        </a>
+      {% endif %}
+      {% for num in logs.paginator.page_range %}
+        {% if logs.number == num %}
+          <span class="page-btn active">{{ num }}</span>
+        {% elif num > logs.number|add:"-3" and num < logs.number|add:"3" %}
+          <a href="?page={{ num }}{% if request.GET.action %}&action={{ request.GET.action }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="page-btn">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if logs.has_next %}
+        <a href="?page={{ logs.next_page_number }}{% if request.GET.action %}&action={{ request.GET.action }}{% endif %}{% if request.GET.date %}&date={{ request.GET.date }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="page-btn">
+          <i class="fas fa-chevron-right"></i>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/audit_list.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,347 @@
+.login-right {
+    padding: 78px 48px;
+}
+
+/* ── 3. PROGRESS INDICATOR ───────────────────────────────────────────────── */
+.wz-progress {
+    display: flex;
+    align-items: center;
+    margin-bottom: 22px;
+    flex-shrink: 0;             /* never squish */
+}
+.wz-step {
+    display: flex; align-items: center; gap: 7px;
+    font-size: .76rem; font-weight: 600;
+    color: var(--gray-300);
+    transition: color .3s; white-space: nowrap;
+}
+.wz-step.active { color: var(--navy-700); }
+.wz-step.done   { color: var(--success); }
+.wz-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 2px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 700; flex-shrink: 0;
+    transition: background .3s;
+}
+.wz-step.active .wz-num { background: var(--navy-700); color: white; }
+.wz-step.done   .wz-num { background: var(--success);  color: white; }
+.wz-line {
+    flex: 1; height: 2px; margin: 0 10px;
+    background: var(--gray-100); border-radius: 2px;
+    overflow: hidden; position: relative;
+}
+.wz-line::after {
+    content: ''; position: absolute; inset: 0;
+    background: var(--success);
+    transform: scaleX(0); transform-origin: left;
+    transition: transform .4s ease;
+}
+.wz-line.done::after { transform: scaleX(1); }
+
+/* ── 4. PANE SYSTEM ──────────────────────────────────────────────────────────
+   On DESKTOP:
+     .wz-panes is a flex child that takes remaining space (flex:1, min-height:0).
+     All panes are position:absolute so they overlap.
+     Only .active becomes position:relative to push the wrapper to the right height.
+
+   On MOBILE (see responsive section below):
+     All panes are position:relative and stacked — inactive ones are hidden
+     via opacity + pointer-events. The wrapper scrolls naturally.            */
+.wz-panes {
+    position: relative;
+    flex: 1;
+    min-height: 0;              /* critical — lets flex child shrink below content */
+}
+
+/* Default state: hidden, slid right, non-interactive */
+.wz-pane {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(36px);
+    transition: opacity .32s ease, transform .32s ease;
+}
+
+/* Active pane: visible, in flow (position:relative so wrapper gets height) */
+.wz-pane.active {
+    position: relative;
+    opacity: 1;
+    pointer-events: all;
+    transform: translateX(0);
+}
+
+/* Exit pane: sliding out left, stays absolute so it doesn't push layout */
+.wz-pane.exit {
+    position: absolute;
+    opacity: 0;
+    transform: translateX(-36px);
+    pointer-events: none;
+}
+
+/* ── 5. PANE CONTENT STYLES ──────────────────────────────────────────────── */
+.wz-heading {
+    font-size: 1.6rem; font-weight: 700;
+    color: var(--navy-900); margin-bottom: 4px;
+}
+.wz-sub {
+    font-size: .82rem; color: var(--gray-500);
+    margin-bottom: 18px; line-height: 1.5;
+}
+
+/* Fields */
+.f-group { margin-bottom: 14px; }
+.f-label {
+    display: block; font-size: .77rem; font-weight: 600;
+    color: var(--navy-900); margin-bottom: 5px;
+}
+.f-label .req { color: var(--danger); margin-left: 2px; }
+.f-hint  { font-size: .7rem; color: var(--gray-400); margin-top: 4px; }
+.f-wrap  { position: relative; }
+.f-icon  {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--gray-300); font-size: .85rem; pointer-events: none;
+}
+.f-input {
+    width: 100%; padding: 10px 14px 10px 38px;
+    background: #F8FAFC; border: 1.5px solid #DDE3EC;
+    border-radius: var(--r-md);
+    font-family: var(--font); font-size: .88rem; color: var(--navy-900);
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    box-sizing: border-box;
+}
+.f-input::placeholder { color: var(--gray-300); }
+.f-input:focus {
+    border-color: var(--navy-700);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(21,101,192,.1);
+}
+.f-input.mono { font-family: var(--font-mono); }
+.f-error { font-size: .75rem; color: var(--danger); margin-top: 4px; display: none; }
+.f-error.show { display: flex; align-items: center; gap: 5px; }
+
+/* Verify row (ID input + button side by side) */
+.verify-row { display: flex; gap: 8px; }
+.verify-row .f-wrap { flex: 1; }
+.btn-verify {
+    padding: 0 16px; height: 42px; flex-shrink: 0;
+    background: var(--navy-50); border: 1.5px solid var(--navy-200);
+    border-radius: var(--r-md);
+    font-family: var(--font); font-size: .8rem; font-weight: 700;
+    color: var(--navy-700); cursor: pointer;
+    white-space: nowrap;
+    transition: background .2s;
+}
+.btn-verify:hover    { background: var(--navy-200); }
+.btn-verify:disabled { opacity: .5; cursor: default; }
+
+/* Employee lookup result card */
+.lookup-card {
+    display: none; align-items: center; gap: 12px;
+    background: #F0FDF4; border: 1.5px solid #86EFAC;
+    border-radius: var(--r-md); padding: 11px 15px; margin-top: 10px;
+}
+.lookup-card.show { display: flex; }
+.lookup-av {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--navy-900); color: white;
+    font-weight: 700; font-size: .85rem;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.lookup-name { font-size: .87rem; font-weight: 700; color: var(--navy-900); }
+.lookup-meta { font-size: .73rem; color: var(--gray-500); margin-top: 1px; }
+.lookup-tick { margin-left: auto; color: var(--success); font-size: 1.1rem; }
+
+/* Password strength bar */
+.pw-track {
+    height: 3px; border-radius: 3px;
+    background: var(--gray-100); overflow: hidden; margin-top: 6px;
+}
+.pw-fill {
+    height: 100%; width: 0; border-radius: 3px;
+    transition: width .3s, background .3s;
+}
+.pw-lbl { font-size: .7rem; color: var(--gray-400); margin-top: 3px; }
+
+/* Password show/hide toggle */
+.pw-tog {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--gray-300); font-size: .85rem; transition: color .2s;
+}
+.pw-tog:hover { color: var(--navy-700); }
+
+/* ── 6. NAVIGATION BUTTONS ───────────────────────────────────────────────── */
+.wz-nav { display: flex; gap: 10px; margin-top: 18px; }
+.btn-back {
+    padding: 10px 20px;
+    background: none; border: 1.5px solid #DDE3EC;
+    border-radius: var(--r-md);
+    font-family: var(--font); font-size: .87rem; font-weight: 600;
+    color: var(--gray-500); cursor: pointer;
+    transition: border-color .2s, color .2s;
+}
+.btn-back:hover { border-color: var(--navy-700); color: var(--navy-700); }
+
+.btn-next,
+.btn-finish {
+    flex: 1; padding: 11px;
+    background: var(--navy-900); color: white; border: none;
+    border-radius: var(--r-md);
+    font-family: var(--font); font-size: .88rem; font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    transition: background .2s, transform .15s;
+    letter-spacing: .2px;
+}
+.btn-next:hover,   .btn-finish:hover  { background: var(--navy-800); transform: translateY(-1px); }
+.btn-next:active,  .btn-finish:active { transform: translateY(0); }
+.btn-next:disabled { opacity: .45; cursor: default; transform: none; }
+
+/* Spinner inside btn-finish */
+.btn-finish .btn-spinner { display: none; }
+.btn-finish.loading .btn-text    { display: none; }
+.btn-finish.loading .btn-spinner { display: flex; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin-ring {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+}
+
+/* ── 7. SUCCESS SCREEN ───────────────────────────────────────────────────── */
+.success-circle {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: #DCFCE7; border: 3px solid #86EFAC;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.7rem; color: var(--success);
+    margin: 0 auto 18px;
+    animation: popIn .5s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+
+/* ── 8. MISC SMALL ELEMENTS ──────────────────────────────────────────────── */
+.wz-footer {
+    text-align: center; font-size: .79rem;
+    color: var(--gray-400); margin-top: 14px; flex-shrink: 0;
+}
+.wz-footer a { color: var(--navy-700); font-weight: 600; text-decoration: none; }
+.wz-footer a:hover { text-decoration: underline; }
+
+/* Django error message banner */
+.dj-msg {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 13px; border-radius: var(--r-md);
+    margin-bottom: 12px; flex-shrink: 0;
+    background: #FFEBEE; border-left: 3px solid var(--danger);
+    font-size: .81rem; color: var(--danger);
+}
+
+.form-version {
+    margin-bottom: 30px;
+}
+
+/* ── 9. RESPONSIVE ───────────────────────────────────────────────────────────
+
+   STRATEGY:
+   ─ ≤ 900px : left panel hides, right panel becomes full width.
+               The pane system switches from absolute-overlay to
+               position:relative stacking. Inactive panes are hidden
+               with opacity/pointer-events only (NOT display:none — that
+               breaks the JS transition). The wrapper becomes a normal
+               block and the right panel scrolls freely.
+   ─ ≤ 480px : tighter padding.
+   ─ The key rule that makes scroll work: override the html,body
+               overflow:hidden that was set for desktop.               */
+
+@media (max-width: 900px) {
+
+    /* Allow scrolling — override the desktop lock */
+    html, body {
+        height: auto;           /* let content define height */
+        overflow: auto;         /* scroll when needed */
+    }
+
+    /* Right panel: full width, scrollable, top-aligned */
+    .login-right {
+        width: 100%;            /* override login.css width:460px */
+        padding: 36px 32px 48px; /* top + side + extra bottom breathing room */
+        overflow-y: auto;
+        justify-content: flex-start;
+        min-height: 100vh;      /* at least full screen even when short */
+    }
+
+    /* Pane system: switch from absolute overlay to stacked blocks */
+    .wz-panes {
+        flex: none;             /* stop it fighting the flex layout */
+        position: static;       /* no longer a positioning context */
+        min-height: 0;
+    }
+
+    .wz-pane {
+        position: relative;     /* all panes in normal flow */
+        inset: auto;
+        transform: none;        /* no slide animation on mobile */
+        transition: opacity .25s ease;
+    }
+
+    /* Inactive panes: visually hidden but still in the DOM flow.
+       height:0 + overflow:hidden collapses them without breaking JS. */
+    .wz-pane:not(.active):not(.exit) {
+        opacity: 0;
+        pointer-events: none;
+        height: 0;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+    }
+
+    .wz-pane.active {
+        opacity: 1;
+        pointer-events: all;
+        height: auto;
+        overflow: visible;
+        transform: none;
+    }
+
+    .wz-pane.exit {
+        opacity: 0;
+        pointer-events: none;
+        height: 0;
+        overflow: hidden;
+    }
+}
+
+@media (max-width: 900px) {
+    .form-version {
+        margin-top: 70px;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-right { padding: 28px 20px 40px; }
+    .btn-verify  { padding: 0 12px; font-size: .75rem; }
+    .wz-heading {
+        font-size: 1.4rem;
+    }
+}
+
+@media (max-width: 400px) {
+    .wz-heading {
+        font-size: 1.4rem;
+    }
+    .wz-sub {
+        font-size: .80rem;
+    }
+}

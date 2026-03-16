@@ -1,0 +1,634 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if travel_order %}Edit{% else %}New{% endif %} Travel Order — BFAR HRIS{% endblock %}
+{% block page_title %}Travel Orders{% endblock %}
+
+{% block css %}
+<style>
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .form-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
+.form-card {
+  background: var(--white);
+  border-radius: 10px;
+  border: 1px solid var(--gray-100);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.form-card:last-child { margin-bottom: 0; }
+.form-card-header {
+  padding: 13px 20px;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.form-card-header i { font-size: .82rem; color: var(--navy-700); }
+.form-card-title {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--navy-900);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.form-card-body { padding: 20px; }
+
+/* ── Type toggle ─────────────────────────────────────────────────────────── */
+.type-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.type-radio { display: none; }
+.type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 18px 12px;
+  border-radius: 9px;
+  border: 2px solid var(--gray-200);
+  cursor: pointer;
+  text-align: center;
+  transition: all .18s;
+}
+.type-card i { font-size: 1.4rem; color: var(--gray-300); transition: color .18s; }
+.type-card-label {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--gray-400);
+  transition: color .18s;
+}
+.type-card-sub {
+  font-size: .68rem;
+  color: var(--gray-300);
+  transition: color .18s;
+}
+.type-radio:checked + .type-card {
+  border-color: var(--navy-700);
+  background: var(--navy-50);
+}
+.type-radio:checked + .type-card i        { color: var(--navy-700); }
+.type-radio:checked + .type-card .type-card-label { color: var(--navy-800); }
+.type-radio:checked + .type-card .type-card-sub   { color: var(--navy-600); }
+.type-radio#type_tt:checked + .type-card {
+  border-color: #0288D1;
+  background: #E1F5FE;
+}
+.type-radio#type_tt:checked + .type-card i           { color: #0277BD; }
+.type-radio#type_tt:checked + .type-card .type-card-label { color: #01579B; }
+
+/* ── Field styles ────────────────────────────────────────────────────────── */
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.field-row.three { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 600px) {
+  .field-row, .field-row.three { grid-template-columns: 1fr; }
+}
+.field-group { margin-bottom: 16px; }
+.field-group:last-child { margin-bottom: 0; }
+.field-label {
+  display: block;
+  font-size: .76rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: 5px;
+}
+.field-label .required { color: var(--danger); margin-left: 2px; }
+.field-hint { font-size: .7rem; color: var(--gray-400); margin-top: 4px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: .83rem;
+  font-family: var(--font);
+  color: var(--navy-900);
+  background: var(--white);
+  transition: border-color .18s, box-shadow .18s;
+  box-sizing: border-box;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  outline: none;
+  border-color: var(--navy-700);
+  box-shadow: 0 0 0 3px rgba(30,64,175,.08);
+}
+.form-input.is-error { border-color: var(--danger); }
+.form-textarea { resize: vertical; min-height: 76px; }
+.form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2378909C' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+/* ── Checkbox toggle ─────────────────────────────────────────────────────── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+.toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+.toggle-label { font-size: .81rem; font-weight: 500; color: var(--navy-900); }
+.toggle-sub   { font-size: .71rem; color: var(--gray-400); margin-top: 1px; }
+.toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0;
+  background: var(--gray-200);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .2s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  left: 3px; bottom: 3px;
+  background: var(--white);
+  border-radius: 50%;
+  transition: transform .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--navy-700); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+/* ── OT fields (shown/hidden) ────────────────────────────────────────────── */
+#ot-fields {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--navy-25, #f7f9ff);
+  border-radius: 7px;
+  border: 1px solid var(--gray-100);
+  display: none;
+}
+#ot-fields.visible { display: block; }
+
+/* ── Duration badge ──────────────────────────────────────────────────────── */
+.duration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  background: var(--navy-50);
+  border: 1px solid var(--navy-100, #c7d2fe);
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--navy-800);
+  font-family: var(--font-mono);
+}
+.duration-badge.over-limit {
+  background: #FFF3E0;
+  border-color: #FFCC02;
+  color: #7B5E00;
+}
+
+/* ── Sidebar info ────────────────────────────────────────────────────────── */
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: .79rem;
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { color: var(--gray-500); }
+.info-val   { font-weight: 600; color: var(--navy-900); font-family: var(--font-mono); font-size: .77rem; }
+
+/* ── Rule box ────────────────────────────────────────────────────────────── */
+.rule-box {
+  background: var(--navy-50);
+  border: 1px solid var(--navy-100, #c7d2fe);
+  border-radius: 8px;
+  padding: 13px 15px;
+  font-size: .76rem;
+  color: var(--navy-800);
+  margin-bottom: 16px;
+}
+.rule-box ul { margin: 6px 0 0; padding-left: 16px; }
+.rule-box li { margin-bottom: 4px; line-height: 1.5; }
+
+/* ── Actions ─────────────────────────────────────────────────────────────── */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Back link -->
+<div style="margin-bottom:16px;">
+  <a href="{% url 'travel_orders:list' %}" class="btn btn-ghost btn-sm">
+    <i class="fas fa-arrow-left"></i> Back to Travel Orders
+  </a>
+</div>
+
+<!-- Page title -->
+<div class="page-header" style="margin-bottom:20px;">
+  <div>
+    <h1 class="page-heading">
+      {% if travel_order %}Edit Travel Order{% else %}New Travel Order / Trip Ticket{% endif %}
+    </h1>
+    <p class="page-sub">
+      {% if travel_order %}
+        Editing {{ travel_order.to_code }} — {{ travel_order.employee.get_full_name }}
+      {% else %}
+        Encode a new travel order or trip ticket for a BFAR-III employee.
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<!-- Messages -->
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{{ message.tags }}" style="margin-bottom:16px;">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<form method="post" action="" id="to-form">
+  {% csrf_token %}
+
+  <div class="form-grid">
+
+    <!-- ── LEFT — Main form ───────────────────────────────────────────────── -->
+    <div>
+
+      <!-- Type selector -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <i class="fas fa-tags"></i>
+          <span class="form-card-title">Document Type</span>
+        </div>
+        <div class="form-card-body">
+          <div class="type-toggle">
+
+            <div>
+              <input type="radio" class="type-radio" name="ticket_type" id="type_to" value="TO"
+                     {% if not travel_order or travel_order.ticket_type == 'TO' %}checked{% endif %}>
+              <label class="type-card" for="type_to">
+                <i class="fas fa-route"></i>
+                <span class="type-card-label">Travel Order</span>
+                <span class="type-card-sub">All employees · Max 5 days</span>
+              </label>
+            </div>
+
+            <div>
+              <input type="radio" class="type-radio" name="ticket_type" id="type_tt" value="TT"
+                     {% if travel_order and travel_order.ticket_type == 'TT' %}checked{% endif %}>
+              <label class="type-card" for="type_tt">
+                <i class="fas fa-car"></i>
+                <span class="type-card-label">Trip Ticket</span>
+                <span class="type-card-sub">Drivers only</span>
+              </label>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Employee & TO Code -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <i class="fas fa-user"></i>
+          <span class="form-card-title">Employee & Reference</span>
+        </div>
+        <div class="form-card-body">
+
+          <div class="field-group">
+            <label class="field-label" for="employee_id">
+              Employee <span class="required">*</span>
+            </label>
+            <select name="employee_id" id="employee_id" class="form-select" required>
+              <option value="">— Select Employee —</option>
+              {% for emp in employees %}
+              <option value="{{ emp.employee_id }}"
+                data-type="{{ emp.employment_type|lower }}"
+                {% if travel_order and travel_order.employee.employee_id == emp.employee_id %}selected{% endif %}>
+                {{ emp.get_full_name }} ({{ emp.employment_type }})
+              </option>
+              {% endfor %}
+            </select>
+            <p class="field-hint" id="tt-warning" style="color:var(--warning);display:none;">
+              <i class="fas fa-exclamation-triangle"></i>
+              Trip Tickets are for drivers only. Ensure the selected employee is a driver.
+            </p>
+          </div>
+
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label" for="to_code">
+              TO / TT Code <span class="required">*</span>
+            </label>
+            <input type="text" name="to_code" id="to_code" class="form-input"
+                   placeholder="e.g. TO#26-02-1375HR or TT#26-02-0042"
+                   value="{{ travel_order.to_code|default:'' }}"
+                   required maxlength="50">
+            <p class="field-hint">
+              TO format: <strong>TO#YY-MM-XXXXHR</strong> &nbsp;|&nbsp;
+              TT format: <strong>TT#YY-MM-XXXX</strong>
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Destination & Purpose -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <i class="fas fa-map-marker-alt"></i>
+          <span class="form-card-title">Destination & Purpose</span>
+        </div>
+        <div class="form-card-body">
+
+          <div class="field-group">
+            <label class="field-label" for="destination">Destination</label>
+            <input type="text" name="destination" id="destination" class="form-input"
+                   placeholder="e.g. San Fernando, Pampanga — BFAR Central Office"
+                   value="{{ travel_order.destination|default:'' }}"
+                   maxlength="200">
+          </div>
+
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label" for="purpose">Purpose of Travel</label>
+            <textarea name="purpose" id="purpose" class="form-textarea"
+                      placeholder="Describe the purpose of this travel order…">{{ travel_order.purpose|default:'' }}</textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Dates & Times -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <i class="fas fa-calendar-alt"></i>
+          <span class="form-card-title">Travel Dates</span>
+        </div>
+        <div class="form-card-body">
+
+          <div class="field-row" style="margin-bottom:14px;">
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label" for="date_from">
+                Date From <span class="required">*</span>
+              </label>
+              <input type="date" name="date_from" id="date_from" class="form-input"
+                     value="{{ travel_order.date_from|date:'Y-m-d'|default:'' }}"
+                     required>
+            </div>
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label" for="date_to">
+                Date To <span class="required">*</span>
+              </label>
+              <input type="date" name="date_to" id="date_to" class="form-input"
+                     value="{{ travel_order.date_to|date:'Y-m-d'|default:'' }}"
+                     required>
+            </div>
+          </div>
+
+          <!-- Duration display -->
+          <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+            <span style="font-size:.76rem;color:var(--gray-500);">Duration:</span>
+            <span class="duration-badge" id="duration-badge">
+              <i class="fas fa-calendar-check"></i>
+              <span id="duration-text">— days</span>
+            </span>
+            <span id="max-days-warning" style="font-size:.72rem;color:var(--warning);display:none;">
+              <i class="fas fa-exclamation-triangle"></i> Exceeds 5-day maximum for Travel Orders
+            </span>
+          </div>
+
+          <!-- Partial day times (optional) -->
+          <p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-400);margin-bottom:10px;">
+            Partial Day Times <span style="font-weight:400;text-transform:none;">(optional — fill only for half-day TOs)</span>
+          </p>
+          <div class="field-row">
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label" for="time_from">Start Time</label>
+              <input type="time" name="time_from" id="time_from" class="form-input"
+                     value="{{ travel_order.time_from|time:'H:i'|default:'' }}">
+            </div>
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label" for="time_to">End Time</label>
+              <input type="time" name="time_to" id="time_to" class="form-input"
+                     value="{{ travel_order.time_to|time:'H:i'|default:'' }}">
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Overtime (OT Thank You) -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <i class="fas fa-clock"></i>
+          <span class="form-card-title">Overtime</span>
+        </div>
+        <div class="form-card-body">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">With Overtime</div>
+              <div class="toggle-sub">OT Thank You — recorded for reference only, no additional pay.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" name="with_overtime" id="with_overtime"
+                     {% if travel_order and travel_order.with_overtime %}checked{% endif %}
+                     onchange="toggleOT(this)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div id="ot-fields" class="{% if travel_order and travel_order.with_overtime %}visible{% endif %}">
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label" for="ot_hours">OT Hours</label>
+              <input type="number" name="ot_hours" id="ot_hours" class="form-input"
+                     min="0" max="24" step="0.5"
+                     placeholder="e.g. 2.5"
+                     value="{{ travel_order.ot_hours|default:'' }}"
+                     style="max-width:160px;">
+              <p class="field-hint">Manually entered by HR. Stored for record purposes only.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /LEFT -->
+
+    <!-- ── RIGHT — Sidebar ────────────────────────────────────────────────── -->
+    <div>
+
+      <!-- Rules reminder -->
+      <div class="rule-box">
+        <strong><i class="fas fa-info-circle" style="color:var(--navy-700);margin-right:5px;"></i>TO/TT Rules</strong>
+        <ul>
+          <li>Maximum <strong>5 calendar days</strong> per Travel Order.</li>
+          <li>Trip Tickets are for <strong>drivers only</strong>.</li>
+          <li>Encoding this TO/TT will automatically mark the employee as <strong>present</strong> on covered DTR dates.</li>
+          <li>OT is <em>Overtime Thank You</em> — no additional pay regardless of hours.</li>
+        </ul>
+      </div>
+
+      {% if travel_order %}
+      <!-- Record summary (edit mode) -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-file-alt"></i>
+          <span class="form-card-title">Current Record</span>
+        </div>
+        <div class="form-card-body">
+          <div class="info-row">
+            <span class="info-label">Code</span>
+            <span class="info-val">{{ travel_order.to_code }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Type</span>
+            <span class="info-val">{{ travel_order.ticket_type }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Employee</span>
+            <span class="info-val" style="font-family:var(--font);font-size:.78rem;">
+              {{ travel_order.employee.get_full_name }}
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Duration</span>
+            <span class="info-val">{{ travel_order.get_duration_days }} day(s)</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Encoded by</span>
+            <span class="info-val" style="font-family:var(--font);font-size:.78rem;">
+              {{ travel_order.created_by.get_display_name|default:"—" }}
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Created</span>
+            <span class="info-val" style="font-family:var(--font);font-size:.76rem;">
+              {{ travel_order.created_at|date:"M d, Y" }}
+            </span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Actions -->
+      <div class="form-actions" style="flex-direction:column;align-items:stretch;">
+        <button type="submit" class="btn btn-primary" style="justify-content:center;">
+          <i class="fas fa-save"></i>
+          {% if travel_order %}Save Changes{% else %}Create Travel Order{% endif %}
+        </button>
+        <a href="{% url 'travel_orders:list' %}" class="btn btn-ghost" style="justify-content:center;margin-top:6px;">
+          Cancel
+        </a>
+      </div>
+
+    </div><!-- /RIGHT -->
+
+  </div><!-- /form-grid -->
+</form>
+{% endblock %}
+
+{% block js %}
+<script>
+// ── Duration computation ───────────────────────────────────────────────────
+function updateDuration() {
+  const from = document.getElementById('date_from').value;
+  const to   = document.getElementById('date_to').value;
+  const badge = document.getElementById('duration-badge');
+  const text  = document.getElementById('duration-text');
+  const warn  = document.getElementById('max-days-warning');
+  const typeTO = document.getElementById('type_to').checked;
+
+  if (!from || !to) {
+    text.textContent = '— days';
+    badge.classList.remove('over-limit');
+    warn.style.display = 'none';
+    return;
+  }
+
+  const d1 = new Date(from);
+  const d2 = new Date(to);
+  const diff = Math.round((d2 - d1) / 86400000) + 1;
+
+  if (diff < 1) {
+    text.textContent = 'Invalid range';
+    badge.classList.add('over-limit');
+    warn.style.display = 'none';
+    return;
+  }
+
+  text.textContent = diff + (diff === 1 ? ' day' : ' days');
+  const isOver = typeTO && diff > 5;
+  badge.classList.toggle('over-limit', isOver);
+  warn.style.display = isOver ? 'inline-flex' : 'none';
+}
+
+document.getElementById('date_from').addEventListener('input', updateDuration);
+document.getElementById('date_to').addEventListener('input', updateDuration);
+document.querySelectorAll('input[name="ticket_type"]').forEach(r => r.addEventListener('change', updateDuration));
+updateDuration();
+
+// ── OT toggle ─────────────────────────────────────────────────────────────
+function toggleOT(cb) {
+  const fields = document.getElementById('ot-fields');
+  fields.classList.toggle('visible', cb.checked);
+  if (!cb.checked) document.getElementById('ot_hours').value = '';
+}
+
+// ── TT warning for non-drivers ────────────────────────────────────────────
+function checkTTWarning() {
+  const isTT = document.getElementById('type_tt').checked;
+  document.getElementById('tt-warning').style.display = isTT ? 'block' : 'none';
+}
+document.querySelectorAll('input[name="ticket_type"]').forEach(r => r.addEventListener('change', checkTTWarning));
+checkTTWarning();
+
+// ── Auto-fill TO code prefix when type changes ────────────────────────────
+document.querySelectorAll('input[name="ticket_type"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const codeInput = document.getElementById('to_code');
+    if (codeInput.value) return; // don't overwrite existing value
+    const prefix = document.getElementById('type_to').checked ? 'TO#' : 'TT#';
+    codeInput.placeholder = prefix + 'YY-MM-XXXXHR';
+  });
+});
+
+// ── Unsaved changes warning ───────────────────────────────────────────────
+let isDirty = false;
+document.querySelectorAll('input, textarea, select').forEach(el => {
+  el.addEventListener('change', () => isDirty = true);
+  el.addEventListener('input',  () => isDirty = true);
+});
+document.getElementById('to-form').addEventListener('submit', () => isDirty = false);
+window.addEventListener('beforeunload', e => {
+  if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}DTR Correction — {{ dtr.employee.get_full_name }} — BFAR HRIS{% endblock %}
+{% block page_title %}DTR Correction{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/dtr_form.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<!-- Back link -->
+<div style="margin-bottom:16px;">
+  <a href="{% url 'dtr:detail' dtr.employee.employee_id %}" class="btn btn-ghost btn-sm">
+    <i class="fas fa-arrow-left"></i> Back to DTR
+  </a>
+</div>
+
+<!-- Employee banner -->
+<div class="emp-banner">
+  <div class="emp-banner-avatar">{{ dtr.employee.get_initials }}</div>
+  <div>
+    <div class="emp-banner-name">{{ dtr.employee.get_full_name }}</div>
+    <div class="emp-banner-meta">
+      <span><i class="fas fa-id-badge"></i> {{ dtr.employee.id_number|default:"—" }}</span>
+      <span><i class="fas fa-briefcase"></i> {{ dtr.employee.position.position_title|default:"—" }}</span>
+      <span><i class="fas fa-building"></i> {{ dtr.employee.division.division_name|default:"—" }}</span>
+      <span><i class="fas fa-calendar-day"></i> {{ dtr.dtr_date|date:"F d, Y (l)" }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Locked record warning -->
+{% if dtr.is_locked %}
+<div class="locked-warning">
+  <i class="fas fa-lock"></i>
+  <div>
+    <strong>This DTR record has been approved and locked.</strong>
+    A reason for correction is mandatory. This will be recorded in the audit trail.
+  </div>
+</div>
+{% endif %}
+
+<!-- Messages -->
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{{ message.tags }}" style="margin-bottom:16px;">{{ message }}</div>
+  {% endfor %}
+{% endif %}
+
+<form method="post" action="{% url 'dtr:edit' dtr.dtr_id %}">
+  {% csrf_token %}
+
+  <div class="form-grid">
+
+    <!-- ── LEFT — Main correction form ───────────────────────────────────── -->
+    <div>
+
+      <!-- Biometric time corrections -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-clock"></i>
+          <span class="form-card-title">Biometric Time Correction</span>
+        </div>
+        <div class="form-card-body">
+          <p class="form-section-label">Enter corrected scan times (leave blank to clear a scan)</p>
+
+          <div class="time-grid">
+
+            <!-- AM In -->
+            <div class="field-group">
+              <span class="time-slot-label">AM In</span>
+              <label class="field-label" for="am_in">Corrected AM Time-In</label>
+              <input type="time" name="am_in" id="am_in" class="form-input"
+                     value="{{ dtr.am_in|time:'H:i'|default:'' }}">
+            </div>
+
+            <!-- AM Out -->
+            <div class="field-group">
+              <span class="time-slot-label">AM Out</span>
+              <label class="field-label" for="am_out">Corrected AM Time-Out</label>
+              <input type="time" name="am_out" id="am_out" class="form-input"
+                     value="{{ dtr.am_out|time:'H:i'|default:'' }}">
+            </div>
+
+            <!-- PM In -->
+            <div class="field-group">
+              <span class="time-slot-label">PM In</span>
+              <label class="field-label" for="pm_in">Corrected PM Time-In</label>
+              <input type="time" name="pm_in" id="pm_in" class="form-input"
+                     value="{{ dtr.pm_in|time:'H:i'|default:'' }}">
+            </div>
+
+            <!-- PM Out -->
+            <div class="field-group">
+              <span class="time-slot-label">PM Out</span>
+              <label class="field-label" for="pm_out">Corrected PM Time-Out</label>
+              <input type="time" name="pm_out" id="pm_out" class="form-input"
+                     value="{{ dtr.pm_out|time:'H:i'|default:'' }}">
+            </div>
+
+          </div>
+          <p class="field-hint">
+            <i class="fas fa-info-circle"></i>
+            Times are in 24-hour format. Leave blank to mark a scan as missing.
+            Late computation (no grace period) will be re-run after saving.
+          </p>
+        </div>
+      </div>
+
+      <!-- Per-slot status overrides -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-tag"></i>
+          <span class="form-card-title">Status Override</span>
+        </div>
+        <div class="form-card-body">
+          <p class="form-section-label" style="margin-bottom:16px;">
+            Override the auto-computed status for each time slot (optional)
+          </p>
+
+          {% for slot_name, slot_field, slot_current in slot_statuses %}
+          <div class="field-group">
+            <label class="field-label">{{ slot_name }}</label>
+            <div class="status-select-grid">
+              {% for val, label in status_choices %}
+              <div>
+                <input type="radio" class="status-radio"
+                       name="{{ slot_field }}" id="{{ slot_field }}_{{ val }}" value="{{ val }}"
+                       {% if slot_current == val %}checked{% endif %}>
+                <label class="status-pill" for="{{ slot_field }}_{{ val }}">{{ label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+
+        </div>
+      </div>
+
+      <!-- Remarks -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-comment-alt"></i>
+          <span class="form-card-title">Remarks</span>
+        </div>
+        <div class="form-card-body">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label" for="remarks">Remarks / TO Code / Leave Type</label>
+            <textarea name="remarks" id="remarks" class="form-textarea"
+                      placeholder="e.g. TO#26-02-1375HR, Sick Leave, No biometric scan — logbook basis">{{ dtr.remarks|default:'' }}</textarea>
+            <p class="field-hint">Enter TO codes, leave types, or any note relevant to this DTR entry.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reason for correction (required for locked records) -->
+      <div class="form-card">
+        <div class="form-card-header">
+          <i class="fas fa-shield-alt" style="color:{% if dtr.is_locked %}var(--warning){% else %}var(--navy-700){% endif %};"></i>
+          <span class="form-card-title">
+            Audit Trail
+            {% if dtr.is_locked %}<span style="color:var(--warning);font-size:.7rem;margin-left:6px;">(Required)</span>{% endif %}
+          </span>
+        </div>
+        <div class="form-card-body">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label" for="reason">
+              Reason for Correction
+              {% if dtr.is_locked %}<span class="required">*</span>{% endif %}
+            </label>
+            <textarea name="reason" id="reason" class="form-textarea"
+                      {% if dtr.is_locked %}required{% endif %}
+                      placeholder="Explain why this DTR entry is being corrected…"></textarea>
+            <p class="field-hint">
+              {% if dtr.is_locked %}
+                <i class="fas fa-lock" style="color:var(--warning);"></i>
+                Required — this record is locked. Your reason will be saved to the audit log.
+              {% else %}
+                <i class="fas fa-info-circle"></i>
+                Optional for unlocked records. Recommended for transparency.
+              {% endif %}
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /LEFT -->
+
+    <!-- ── RIGHT — Sidebar: original values + lock status ────────────────── -->
+    <div>
+
+      <!-- Record info -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-info-circle"></i>
+          <span class="form-card-title">Record Info</span>
+        </div>
+        <div class="form-card-body">
+          <div class="original-row">
+            <span class="original-label">DTR Date</span>
+            <span class="original-val">{{ dtr.dtr_date|date:"M d, Y" }}</span>
+          </div>
+          <div class="original-row">
+            <span class="original-label">Day</span>
+            <span class="original-val">{{ dtr.dtr_date|date:"l" }}</span>
+          </div>
+          <div class="original-row">
+            <span class="original-label">Status</span>
+            <span class="original-val">
+              {% if dtr.is_locked %}
+                <i class="fas fa-lock" style="color:var(--warning);margin-right:4px;"></i>Locked
+              {% else %}
+                <i class="fas fa-lock-open" style="color:var(--success);margin-right:4px;"></i>Open
+              {% endif %}
+            </span>
+          </div>
+          <div class="original-row">
+            <span class="original-label">Holiday</span>
+            <span class="original-val">
+              {% if dtr.is_holiday %}
+                {{ dtr.get_holiday_type_display }}
+              {% else %}—{% endif %}
+            </span>
+          </div>
+          <div class="original-row">
+            <span class="original-label">Rest Day</span>
+            <span class="original-val">{{ dtr.is_restday|yesno:"Yes,No" }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Original biometric values -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-history"></i>
+          <span class="form-card-title">Current Values</span>
+        </div>
+        <div class="form-card-body">
+          <p style="font-size:.72rem;color:var(--gray-400);margin:0 0 10px;">
+            Values currently saved in the database.
+          </p>
+
+          {% for label, value in original_values %}
+          <div class="original-row">
+            <span class="original-label">{{ label }}</span>
+            <span class="original-val {% if not value %}was-empty{% endif %}">
+              {{ value|default:"—" }}
+            </span>
+          </div>
+          {% endfor %}
+
+        </div>
+      </div>
+
+      <!-- Computed values (read-only display) -->
+      <div class="form-card" style="margin-bottom:20px;">
+        <div class="form-card-header">
+          <i class="fas fa-calculator"></i>
+          <span class="form-card-title">Computed Values</span>
+        </div>
+        <div class="form-card-body">
+          <p style="font-size:.72rem;color:var(--gray-400);margin:0 0 10px;">
+            Re-computed automatically after saving.
+          </p>
+          <div class="original-row">
+            <span class="original-label">Minutes Late</span>
+            <span class="original-val {% if not dtr.minutes_late %}was-empty{% endif %}"
+                  style="{% if dtr.minutes_late > 0 %}color:var(--warning);{% endif %}">
+              {{ dtr.minutes_late|default:"0" }} min
+            </span>
+          </div>
+          <div class="original-row">
+            <span class="original-label">Undertime</span>
+            <span class="original-val">{{ dtr.hours_undertime|default:"0.00" }} hrs</span>
+          </div>
+          <div class="original-row">
+            <span class="original-label">Overtime</span>
+            <span class="original-val" style="color:var(--gray-400);font-size:.72rem;">
+              {{ dtr.hours_overtime|default:"0.00" }} hrs
+              <span style="font-weight:400;font-style:italic;">(OT Thank You)</span>
+            </span>
+          </div>
+          <div class="original-row">
+            <span class="original-label">Total Hours</span>
+            <span class="original-val">{{ dtr.total_hours_worked|default:"0.00" }} hrs</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <a href="{% url 'dtr:detail' dtr.employee.employee_id %}" class="btn btn-ghost">
+          Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i> Save Correction
+        </button>
+      </div>
+
+    </div><!-- /RIGHT -->
+
+  </div><!-- /form-grid -->
+</form>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/dtr_form.js' %}"></script>
+{% endblock %}

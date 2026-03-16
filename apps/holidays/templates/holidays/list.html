@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Holidays — BFAR HRIS{% endblock %}
+{% block page_title %}Holidays{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/holidays_list.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Holidays</h1>
+    <p class="page-sub">Regular and special non-working holidays — {{ today.year }}</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('add-holiday-modal')">
+    <i class="fas fa-plus"></i> Add Holiday
+  </button>
+</div>
+
+<!-- Summary chips -->
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+  <div style="display:inline-flex;align-items:center;gap:8px;padding:7px 16px;background:var(--white);border-radius:999px;border:1px solid var(--gray-200);box-shadow:var(--shadow);font-size:.8rem;">
+    <span class="holiday-type regular">Regular</span>
+    <span style="font-weight:800;font-family:var(--font-mono);">{{ summary.regular|default:0 }}</span>
+  </div>
+  <div style="display:inline-flex;align-items:center;gap:8px;padding:7px 16px;background:var(--white);border-radius:999px;border:1px solid var(--gray-200);box-shadow:var(--shadow);font-size:.8rem;">
+    <span class="holiday-type special">Special</span>
+    <span style="font-weight:800;font-family:var(--font-mono);">{{ summary.special|default:0 }}</span>
+  </div>
+  <div style="display:inline-flex;align-items:center;gap:8px;padding:7px 16px;background:var(--white);border-radius:999px;border:1px solid var(--gray-200);box-shadow:var(--shadow);font-size:.8rem;">
+    <i class="fas fa-calendar-day" style="color:var(--navy-700);"></i>
+    <span style="color:var(--gray-500);">Upcoming (30 days):</span>
+    <span style="font-weight:800;font-family:var(--font-mono);">{{ summary.upcoming|default:0 }}</span>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="search-wrap"><i class="fas fa-search"></i>
+      <input type="text" id="hol-search" placeholder="Search holiday name…" oninput="filterHolidays()">
+    </div>
+
+    <div class="filter-row">
+      <select class="filter-select" id="hol-type-filter" onchange="filterHolidays()">
+        <option value="">All Types</option>
+        <option value="regular">Regular</option>
+        <option value="special">Special</option>
+      </select>
+      <input type="number" id="hol-year-filter" style="padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.82rem;font-family:var(--font);width:80px;" value="{{ today.year }}" placeholder="Year" oninput="filterHolidays()">
+    </div>
+    
+  </div>
+  <span id="hol-count" style="font-size:.76rem;color:var(--gray-400);">{{ holidays|length }} holidays</span>
+</div>
+
+<!-- Table -->
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;">
+  <div class="table-wrap">
+    <table class="table-hris">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Holiday Name</th>
+          <th>Type</th>
+          <th>Day</th>
+          <th>Days Away</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="hol-tbody">
+        {% for holiday in holidays %}
+        <tr data-name="{{ holiday.name|lower }}"
+            data-type="{{ holiday.holiday_type|lower }}"
+            data-year="{{ holiday.date|date:'Y' }}">
+          <td>
+            <div class="hol-cell">
+              <div class="date-block">
+                <span class="day-num">{{ holiday.date|date:"d" }}</span>
+                <span class="day-mon">{{ holiday.date|date:"M" }}</span>
+              </div>
+              <span style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">
+                {{ holiday.date|date:"Y" }}
+              </span>
+            </div>
+          </td>
+          <td style="font-weight:500;">{{ holiday.name }}</td>
+          <td><span class="holiday-type {{ holiday.holiday_type|lower }}">{{ holiday.holiday_type|capfirst }}</span></td>
+          <td style="font-size:.82rem;color:var(--gray-500);">{{ holiday.date|date:"l" }}</td>
+          <td style="font-size:.8rem;color:var(--gray-500);">
+            {% if holiday.date >= today %}{{ holiday.date|timeuntil }}{% else %}<span style="color:var(--gray-300);">Past</span>{% endif %}
+          </td>
+          <td>
+            <div class="row-actions">
+              <button class="row-btn edit" title="Edit"
+                      onclick="openEditModal('{{ holiday.id }}','{{ holiday.name|escapejs }}','{{ holiday.date|date:'Y-m-d' }}','{{ holiday.holiday_type }}')">
+                <i class="fas fa-pen"></i>
+              </button>
+              <form method="post" action="" style="display:inline;" onsubmit="return confirm('Delete {{ holiday.name }}?')">
+                {% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="holiday_id" value="{{ holiday.id }}">
+                <button type="submit" class="row-btn del"><i class="fas fa-trash"></i></button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--gray-400);">
+          <i class="fas fa-calendar-days" style="font-size:2rem;display:block;opacity:.2;margin-bottom:10px;"></i>
+          No holidays on record. Add one to get started.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD HOLIDAY MODAL -->
+<div class="modal-overlay" id="add-holiday-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fas fa-calendar-plus" style="color:var(--navy-700);"></i> Add Holiday</div>
+      <button class="modal-close" onclick="closeModal('add-holiday-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="post" action="">
+      {% csrf_token %}<input type="hidden" name="action" value="add_holiday">
+      <div class="modal-body">
+        <div class="modal-form-group">
+          <label class="modal-label">Holiday Name <span class="req">*</span></label>
+          <input type="text" name="name" class="modal-input" placeholder="e.g. New Year's Day" required>
+        </div>
+        <div class="modal-form-group">
+          <label class="modal-label">Date <span class="req">*</span></label>
+          <input type="date" name="date" class="modal-input" required>
+        </div>
+        <div class="modal-form-group">
+          <label class="modal-label">Type <span class="req">*</span></label>
+          <select name="holiday_type" class="modal-select" required>
+            <option value="regular">Regular Holiday</option>
+            <option value="special">Special Non-Working Day</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('add-holiday-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add Holiday</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT HOLIDAY MODAL -->
+<div class="modal-overlay" id="edit-holiday-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fas fa-pen" style="color:var(--navy-700);"></i> Edit Holiday</div>
+      <button class="modal-close" onclick="closeModal('edit-holiday-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="post" action="">
+      {% csrf_token %}<input type="hidden" name="action" value="edit_holiday">
+      <input type="hidden" name="holiday_id" id="edit-hol-id">
+      <div class="modal-body">
+        <div class="modal-form-group">
+          <label class="modal-label">Holiday Name <span class="req">*</span></label>
+          <input type="text" name="name" id="edit-hol-name" class="modal-input" required>
+        </div>
+        <div class="modal-form-group">
+          <label class="modal-label">Date <span class="req">*</span></label>
+          <input type="date" name="date" id="edit-hol-date" class="modal-input" required>
+        </div>
+        <div class="modal-form-group">
+          <label class="modal-label">Type</label>
+          <select name="holiday_type" id="edit-hol-type" class="modal-select">
+            <option value="regular">Regular Holiday</option>
+            <option value="special">Special Non-Working Day</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('edit-holiday-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-floppy-disk"></i> Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/holidays_list.js' %}"></script>
+{% endblock %}

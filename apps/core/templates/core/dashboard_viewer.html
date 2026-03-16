@@ -1,0 +1,206 @@
+{% extends 'base_viewer.html' %}
+{% load static %}
+{% comment %} apps/core/templates/core/dashboard_viewer.html {% endcomment %}
+
+{% block title %}My Dashboard — BFAR HRIS{% endblock %}
+{% block page_title %}My Dashboard{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="dash-header">
+  <div>
+    <h1 class="dash-greeting">
+      Welcome, <span>{{ employee.get_full_name|default:user.username }}</span>
+    </h1>
+    <p class="dash-date">
+      <i class="fas fa-calendar-day"></i>
+      {{ today|date:"l, F d, Y" }}
+      {% if employee %}
+      &mdash; {{ employee.position.position_title|default:"" }}
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+{% if not employee %}
+<div style="background:var(--amber-50);border:1px solid var(--amber-200);border-radius:10px;
+            padding:16px 20px;margin-bottom:20px;font-size:.85rem;color:var(--amber-700);">
+  <i class="fas fa-triangle-exclamation"></i>
+  Your account is not linked to an employee record. Contact HR or IT to resolve this.
+</div>
+{% else %}
+
+{# ── This month's DTR summary ── #}
+<div class="dash-body">
+  <div class="dash-left">
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-title">
+          <i class="fas fa-clock navy"></i>
+          My DTR — {{ today|date:"F Y" }}
+        </div>
+        <a href="{% url 'dtr:own' employee.pk %}" class="btn btn-ghost btn-sm">
+          Full Record <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
+        </a>
+      </div>
+      <div class="table-wrap">
+        <table class="table-hris">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>AM In</th>
+              <th>AM Out</th>
+              <th>PM In</th>
+              <th>PM Out</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for dtr in own_dtr_this_month %}
+            <tr>
+              <td style="font-family:var(--font-mono);font-size:.78rem;">
+                {{ dtr.dtr_date|date:"M d, Y (D)" }}
+              </td>
+              <td style="font-family:var(--font-mono);font-size:.78rem;">
+                {{ dtr.get_am_in_display|default:"—" }}
+              </td>
+              <td style="font-family:var(--font-mono);font-size:.78rem;">
+                {{ dtr.get_am_out_display|default:"—" }}
+              </td>
+              <td style="font-family:var(--font-mono);font-size:.78rem;">
+                {{ dtr.get_pm_in_display|default:"—" }}
+              </td>
+              <td style="font-family:var(--font-mono);font-size:.78rem;">
+                {{ dtr.get_pm_out_display|default:"—" }}
+              </td>
+              <td>
+                {% if dtr.am_in_status == 'late' %}
+                  <span class="action-badge" style="background:var(--danger-light);color:var(--danger);">Late</span>
+                {% elif dtr.am_in_status == 'to' %}
+                  <span class="action-badge" style="background:var(--teal-50);color:var(--teal-700);">Travel</span>
+                {% elif dtr.am_in_status == 'leave' %}
+                  <span class="action-badge" style="background:#F3E5F5;color:#6A1B9A;">Leave</span>
+                {% elif dtr.am_in %}
+                  <span class="action-badge" style="background:var(--success-light);color:var(--success);">Present</span>
+                {% else %}
+                  <span class="action-badge" style="background:var(--gray-100);color:var(--gray-500);">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" style="text-align:center;padding:32px;color:var(--gray-400);">
+                No DTR records for this month yet.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="dash-right">
+
+    {# My upcoming travel orders #}
+    {% if own_travel_orders %}
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-title">
+          <i class="fas fa-route teal"></i>
+          My Travel Orders
+        </div>
+      </div>
+      <div class="dash-card-body" style="padding:0;">
+        {% for to in own_travel_orders %}
+        <div style="padding:12px 18px;border-bottom:1px solid var(--gray-100);font-size:.83rem;">
+          <div style="font-weight:600;color:var(--navy-900);">{{ to.to_code }}</div>
+          <div style="color:var(--gray-500);font-size:.76rem;margin-top:2px;">
+            {{ to.date_from|date:"M d" }} – {{ to.date_to|date:"M d, Y" }}
+            {% if to.destination %} &mdash; {{ to.destination }}{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Upcoming holidays — safe for everyone to see #}
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-title">
+          <i class="fas fa-calendar-days amber"></i>
+          Upcoming Holidays
+        </div>
+      </div>
+      <div class="dash-card-body" style="padding-top:4px;padding-bottom:4px;">
+        {% if upcoming_holidays %}
+        <div class="holiday-list">
+          {% for holiday in upcoming_holidays %}
+          <div class="holiday-item">
+            <div class="holiday-date-block">
+              <span class="hday-day">{{ holiday.holiday_date|date:"d" }}</span>
+              <span class="hday-mon">{{ holiday.holiday_date|date:"M" }}</span>
+            </div>
+            <div class="holiday-info">
+              <div class="holiday-name">{{ holiday.holiday_name }}</div>
+              <div class="holiday-days-left">{{ holiday.holiday_date|timeuntil }} from now</div>
+            </div>
+            <span class="holiday-type-chip {% if holiday.is_regular %}regular{% else %}special{% endif %}">
+              {{ holiday.get_holiday_type_display }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="feed-empty" style="padding:28px 16px;">
+          <i class="fas fa-calendar-check"></i>
+          <p>No upcoming holidays on record.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Quick links — only own-record pages #}
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-title">
+          <i class="fas fa-bolt amber"></i>
+          Quick Links
+        </div>
+      </div>
+      <div class="dash-card-body">
+        <div class="quick-actions">
+          <a href="{% url 'dtr:own' employee.pk %}" class="qa-btn navy">
+            <i class="fas fa-clock"></i>
+            My DTR
+          </a>
+          <a href="{% url 'payroll:own_payslips' employee.pk %}" class="qa-btn green">
+            <i class="fas fa-peso-sign"></i>
+            My Payslip
+          </a>
+          <a href="{% url 'leaves:own' employee.pk %}" class="qa-btn purple">
+            <i class="fas fa-umbrella-beach"></i>
+            Leave Credits
+          </a>
+          <a href="{% url 'accounts:profile' %}" class="qa-btn teal">
+            <i class="fas fa-circle-user"></i>
+            My Profile
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endif %}{# end if employee #}
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% endblock %}
