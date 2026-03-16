@@ -11,12 +11,8 @@
   }
 
   emailInput.addEventListener('input', function () {
-    if (emailError.style.display === 'block') {
-      if (validateEmail(this.value)) {
-        emailError.style.display = 'none';
-        emailWrap.style.outline = '';
-      }
-    }
+    emailError.style.display = 'none'; // Hide the error text immediately
+    emailWrap.classList.remove('error'); // Remove the red border and red icon classess
   });
 
   form.addEventListener('submit', function (e) {
@@ -26,7 +22,9 @@
       e.preventDefault();
       emailError.textContent = 'Please enter your personal email address.';
       emailError.style.display = 'block';
-      emailWrap.classList.add('shake');
+      emailWrap.classList.add('error', 'shake');
+      emailInput.focus() // Force red focus
+
       setTimeout(() => emailWrap.classList.remove('shake'), 400);
       return;
     }
@@ -35,7 +33,9 @@
       e.preventDefault();
       emailError.textContent = 'Please enter a valid email address.';
       emailError.style.display = 'block';
-      emailWrap.classList.add('shake');
+      emailWrap.classList.add('error', 'shake');
+      emailInput.focus() // Force red focus
+
       setTimeout(() => emailWrap.classList.remove('shake'), 400);
       return;
     }

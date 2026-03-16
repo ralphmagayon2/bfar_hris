@@ -83,6 +83,7 @@
         // Password
         const pVal = passwordInput.value;
         if (!pVal) {
+            e.preventDefault();
             showError(passwordError, passwordWrap, 'Please enter your password.');
             valid = false;
         }
@@ -94,4 +95,4 @@
         }
     });
 
-});
+})();
