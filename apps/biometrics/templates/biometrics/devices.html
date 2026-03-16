@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Biometrics — BFAR HRIS{% endblock %}
+{% block page_title %}Biometrics{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/devices.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Biometric Devices</h1>
+    <p class="page-sub">Manage ZKTeco devices and view enrolled employees</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('add-device-modal')">
+    <i class="fas fa-plus"></i> Add Device
+  </button>
+</div>
+
+<!-- ══════════ DEVICE CARDS ══════════ -->
+<div class="device-grid">
+  {% for device in devices %}
+  <div class="device-card">
+    <div class="device-card-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="device-icon-wrap"><i class="fas fa-fingerprint"></i></div>
+        <div>
+          <div class="device-name">{{ device.name }}</div>
+          <div class="device-model">{{ device.model|default:"ZKTeco" }}</div>
+        </div>
+      </div>
+      <span class="conn-pill {{ device.status|default:'unknown' }}"
+            id="conn-{{ device.id }}">
+        <span class="conn-pulse"></span>
+        {{ device.status|default:"Unknown"|capfirst }}
+      </span>
+    </div>
+
+    <div class="device-card-body">
+      <div class="device-meta">
+        <div class="device-meta-row">
+          <span class="device-meta-label"><i class="fas fa-network-wired"></i> IP Address</span>
+          <span class="device-meta-value">{{ device.ip_address|default:"—" }}</span>
+        </div>
+        <div class="device-meta-row">
+          <span class="device-meta-label"><i class="fas fa-plug"></i> Port</span>
+          <span class="device-meta-value">{{ device.port|default:"4370" }}</span>
+        </div>
+        <div class="device-meta-row">
+          <span class="device-meta-label"><i class="fas fa-location-dot"></i> Location</span>
+          <span class="device-meta-value" style="font-family:var(--font);font-size:.82rem;">
+            {{ device.location|default:"—" }}
+          </span>
+        </div>
+        <div class="device-meta-row">
+          <span class="device-meta-label"><i class="fas fa-users"></i> Enrolled</span>
+          <span class="device-meta-value">{{ device.enrolled_count|default:"0" }} employees</span>
+        </div>
+        <div class="device-meta-row">
+          <span class="device-meta-label"><i class="fas fa-clock-rotate-left"></i> Last Sync</span>
+          <span class="device-meta-value" style="font-family:var(--font);font-size:.78rem;">
+            {{ device.last_sync|date:"M d, Y g:i A"|default:"Never" }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="device-card-footer">
+      <button class="btn btn-outline btn-sm"
+              onclick="openEditDevice('{{ device.id }}','{{ device.name }}','{{ device.ip_address }}','{{ device.port }}','{{ device.location }}')">
+        <i class="fas fa-pen"></i> Edit
+      </button>
+      <button class="btn btn-teal btn-sm"
+              onclick="testConnection('{{ device.id }}', this)">
+        <i class="fas fa-plug"></i> Test
+      </button>
+    </div>
+  </div>
+  {% empty %}
+  <div style="grid-column:1/-1;background:var(--white);border-radius:12px;
+              border:1px solid var(--gray-100);box-shadow:var(--shadow);
+              padding:52px;text-align:center;color:var(--gray-400);">
+    <i class="fas fa-fingerprint" style="font-size:2.5rem;opacity:.2;display:block;margin-bottom:12px;"></i>
+    <p style="font-size:.9rem;font-weight:500;margin-bottom:6px;">No devices configured</p>
+    <p style="font-size:.8rem;">Add your ZKTeco biometric device to start capturing attendance.</p>
+    <button class="btn btn-primary btn-sm" style="margin-top:14px;"
+            onclick="openModal('add-device-modal')">
+      <i class="fas fa-plus"></i> Add First Device
+    </button>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ══════════ ENROLLED EMPLOYEES TABLE ══════════ -->
+<div style="background:var(--white);border-radius:12px;border:1px solid var(--gray-100);
+            box-shadow:var(--shadow);overflow:hidden;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;
+              padding:14px 18px;border-bottom:1px solid var(--gray-100);
+              background:var(--gray-50);">
+    <div style="font-size:.9rem;font-weight:700;color:var(--navy-900);
+                display:flex;align-items:center;gap:8px;">
+      <span style="width:28px;height:28px;border-radius:6px;background:var(--navy-50);
+                   color:var(--navy-700);display:flex;align-items:center;
+                   justify-content:center;font-size:.78rem;">
+        <i class="fas fa-users"></i>
+      </span>
+      Enrolled Employees
+    </div>
+    <a href="{% url 'employees:list' %}" class="btn btn-ghost btn-sm">
+      Manage Employees <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
+    </a>
+  </div>
+
+  <!-- Toolbar -->
+  <div style="padding:12px 18px;border-bottom:1px solid var(--gray-100);">
+    <div class="toolbar" style="margin:0;">
+      <div class="toolbar-left">
+        <div class="search-wrap">
+          <i class="fas fa-search"></i>
+          <input type="text" id="enroll-search" placeholder="Search name or device ID…"
+                 oninput="filterEnrolled()">
+        </div>
+
+        <div class="filter-row">
+          <select class="filter-select" id="enroll-device-filter" onchange="filterEnrolled()">
+            <option value="">All Devices</option>
+            {% for device in devices %}
+            <option value="{{ device.id }}">{{ device.name }}</option>
+            {% endfor %}
+          </select>
+          <select class="filter-select" id="enroll-status-filter" onchange="filterEnrolled()">
+            <option value="">All</option>
+            <option value="enrolled">Enrolled</option>
+            <option value="not_enrolled">Not Enrolled</option>
+          </select>
+        </div>
+        
+      </div>
+      <span id="enroll-count" style="font-size:.76rem;color:var(--gray-400);">
+        {{ enrolled_employees|length }} employees
+      </span>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table-hris">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Biometric ID</th>
+          <th>Device</th>
+          <th>Enrolled</th>
+          <th>Last Scan</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="enroll-tbody">
+        {% for emp in enrolled_employees %}
+        <tr data-name="{{ emp.get_full_name|lower }}"
+            data-bioid="{{ emp.biometric_id|default:''|lower }}"
+            data-device="{{ emp.device_id|default:'' }}"
+            data-status="{% if emp.biometric_id %}enrolled{% else %}not_enrolled{% endif %}">
+          <td>
+            <div class="emp-cell">
+              <div class="emp-avatar">
+                {% if emp.profile_picture %}
+                  <img src="{{ emp.profile_picture.url }}" alt="">
+                {% else %}
+                  {{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}
+                {% endif %}
+              </div>
+              <div>
+                <div class="emp-name-text">{{ emp.get_full_name }}</div>
+                <div class="emp-id-text">{{ emp.employee_id|default:"—" }}</div>
+              </div>
+            </div>
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.82rem;">
+            {% if emp.biometric_id %}
+              <span style="background:var(--success-light);color:var(--success);
+                           padding:2px 8px;border-radius:4px;font-weight:700;">
+                {{ emp.biometric_id }}
+              </span>
+            {% else %}
+              <span style="color:var(--gray-300);">Not enrolled</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.82rem;">{{ emp.device_name|default:"—" }}</td>
+          <td>
+            {% if emp.biometric_id %}
+              <span class="status-badge badge-present">Yes</span>
+            {% else %}
+              <span class="status-badge badge-absent">No</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.8rem;color:var(--gray-500);">
+            {{ emp.last_scan|date:"M d, Y g:i A"|default:"—" }}
+          </td>
+          <td>
+            <div class="row-actions">
+              <button class="row-btn edit" title="Edit enrollment"
+                      onclick="openEnrollModal('{{ emp.id }}','{{ emp.get_full_name }}','{{ emp.biometric_id|default:'' }}')">
+                <i class="fas fa-fingerprint"></i>
+              </button>
+              <a href="{% url 'employees:detail' emp.id %}" class="row-btn edit" title="View employee">
+                <i class="fas fa-eye"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" style="text-align:center;padding:40px;color:var(--gray-400);">
+            No employees yet. <a href="{% url 'employees:form' %}" style="color:var(--navy-700);font-weight:600;">Add employees first.</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ══════════ ADD DEVICE MODAL ══════════ -->
+<div class="modal-overlay" id="add-device-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fas fa-fingerprint" style="color:var(--navy-700);"></i> Add Device</div>
+      <button class="modal-close" onclick="closeModal('add-device-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="post" action="">
+      {% csrf_token %}<input type="hidden" name="action" value="add_device">
+      <div class="modal-body">
+        <div class="modal-form-group">
+          <label class="modal-label">Device Name <span style="color:var(--danger);">*</span></label>
+          <input type="text" name="name" class="modal-input" placeholder="e.g. Main Entrance" required>
+        </div>
+        <div class="modal-form-group">
+          <label class="modal-label">Model</label>
+          <input type="text" name="model" class="modal-input" placeholder="e.g. ZKTeco K40">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:10px;">
+          <div class="modal-form-group" style="margin-bottom:0;">
+            <label class="modal-label">IP Address <span style="color:var(--danger);">*</span></label>
+            <input type="text" name="ip_address" class="modal-input" placeholder="192.168.1.100" required>
+          </div>
+          <div class="modal-form-group" style="margin-bottom:0;">
+            <label class="modal-label">Port</label>
+            <input type="number" name="port" class="modal-input" style="width:80px;" value="4370">
+          </div>
+        </div>
+        <div class="modal-form-group" style="margin-top:13px;">
+          <label class="modal-label">Location</label>
+          <input type="text" name="location" class="modal-input" placeholder="e.g. Ground Floor Lobby">
+        </div>
+        <div style="background:var(--navy-25);border-radius:7px;padding:10px 13px;font-size:.76rem;color:var(--gray-500);margin-top:4px;">
+          <i class="fas fa-circle-info" style="color:var(--navy-700);margin-right:5px;"></i>
+          The device must be on the same LAN and configured to push attendance data to this server.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('add-device-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add Device</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════ ENROLL EMPLOYEE MODAL ══════════ -->
+<div class="modal-overlay" id="enroll-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fas fa-fingerprint" style="color:var(--teal-700);"></i> Set Biometric ID</div>
+      <button class="modal-close" onclick="closeModal('enroll-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="post" action="">
+      {% csrf_token %}<input type="hidden" name="action" value="set_biometric_id">
+      <input type="hidden" name="employee_id" id="enroll-emp-id">
+      <div class="modal-body">
+        <p style="font-size:.84rem;color:var(--gray-700);margin-bottom:14px;">
+          Employee: <strong id="enroll-emp-name"></strong>
+        </p>
+        <div class="modal-form-group">
+          <label class="modal-label">Biometric Device ID <span style="color:var(--danger);">*</span></label>
+          <input type="number" name="biometric_id" id="enroll-bio-id" class="modal-input"
+                 placeholder="ID number enrolled in the ZKTeco device" required min="1">
+          <span style="font-size:.72rem;color:var(--gray-400);margin-top:4px;display:block;">
+            This must match the employee's ID number in the ZKTeco device.
+          </span>
+        </div>
+        <div class="modal-form-group">
+          <label class="modal-label">Device</label>
+          <select name="device_id" class="modal-input" style="appearance:none;
+            background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2378909C' d='M6 8L1 3h10z'/%3E%3C/svg%3E\");
+            background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;">
+            {% for device in devices %}
+            <option value="{{ device.id }}">{{ device.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('enroll-modal')">Cancel</button>
+        <button type="submit" class="btn btn-teal btn-sm"><i class="fas fa-floppy-disk"></i> Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+  <script src="{% static 'js/devices.js' %}"></script>
+{% endblock %}

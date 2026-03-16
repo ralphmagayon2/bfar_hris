@@ -1,0 +1,111 @@
+{% comment %} {% if messages %}
+<div class="messages-wrap" style="
+    position:fixed; top:70px; right:16px; z-index:9999;
+    display:flex; flex-direction:column; gap:8px; max-width:360px;">
+  {% for message in messages %}
+  <div class="message-toast {{ message.tags }}" style="
+      display:flex; align-items:center; gap:10px;
+      padding:12px 16px; background:white; border-radius:8px;
+      box-shadow:0 4px 16px rgba(10,35,66,.14);
+      border-left:4px solid
+      {% if message.tags == 'success' %}#2E7D32
+      {% elif message.tags == 'error' %}#E53935
+      {% elif message.tags == 'warning' %}#F57C00
+      {% else %}#1565C0{% endif %};">
+    <i class="fas
+      {% if message.tags == 'success' %}fa-check-circle" style="color:#2E7D32
+      {% elif message.tags == 'error' %}fa-circle-exclamation" style="color:#E53935
+      {% elif message.tags == 'warning' %}fa-triangle-exclamation" style="color:#F57C00
+      {% else %}fa-info-circle" style="color:#1565C0{% endif %};"></i>
+    <span style="font-size:.85rem;color:#37474F;">{{ message }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %} {% endcomment %}
+
+<!-- Optimized messages.html - Performance-focused with reduced spacing -->
+<!-- File: templates/includes/messages.html -->
+
+{% if messages %}
+    <div class="messages-container" id="messagesContainer">
+        {% for message in messages %}
+            <div class="message {{ message.tags }}{% if message.extra_tags %} {{ message.extra_tags }}{% endif %}" 
+                 id="message-{{ forloop.counter }}" 
+                 data-message-id="{{ forloop.counter }}">
+                <div class="message-content">
+                    <span class="message-icon">
+                        {% if 'success' in message.tags %}✓
+                        {% elif 'error' in message.tags %}✕
+                        {% elif 'warning' in message.tags %}⚠
+                        {% elif 'info' in message.tags %}ℹ
+                        {% else %}●
+                        {% endif %}
+                    </span>
+                    <span class="message-text">{{ message }}</span>
+                    <button class="message-close" 
+                            onclick="closeMessage({{ forloop.counter }})" 
+                            aria-label="Close message">x</button>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        // Optimized message handling - Minimal, efficient code
+        (function() {
+            'use strict';
+            
+            const CONFIG = {
+                AUTO_HIDE_DELAY: 5000,
+                FADE_DURATION: 300
+            };
+
+            // Close message function
+            window.closeMessage = function(messageId) {
+                const el = document.getElementById(`message-${messageId}`);
+                if (el && !el.dataset.removing) {
+                    el.dataset.removing = 'true';
+                    el.style.animation = `fadeOut ${CONFIG.FADE_DURATION}ms ease-out forwards`;
+                    
+                    setTimeout(() => {
+                        if (el.parentNode) {
+                            el.remove();
+                            // Remove container if empty
+                            const container = document.getElementById('messagesContainer');
+                            if (container && !container.children.length) {
+                                container.remove();
+                            }
+                        }
+                    }, CONFIG.FADE_DURATION);
+                }
+            };
+
+            // Auto-hide messages
+            function initAutoHide() {
+                document.querySelectorAll('.message').forEach((msg, i) => {
+                    setTimeout(() => {
+                        if (msg.parentNode && !msg.dataset.removing) {
+                            closeMessage(msg.dataset.messageId);
+                        }
+                    }, CONFIG.AUTO_HIDE_DELAY + (i * 100));
+                });
+            }
+
+            // Initialize
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initAutoHide);
+            } else {
+                initAutoHide();
+            }
+
+            // ESC key to close first message
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const firstMsg = document.querySelector('.message:not([data-removing])');
+                    if (firstMsg) closeMessage(firstMsg.dataset.messageId);
+                }
+            });
+
+        })();
+    </script>
+{% endif %}

@@ -1,0 +1,775 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if employee %}Edit Employee{% else %}Add Employee{% endif %} — BFAR HRIS{% endblock %}
+{% block page_title %}{% if employee %}Edit Employee{% else %}Add Employee{% endif %}{% endblock %}
+
+{% block css %}
+<style>
+/* Step nav */
+.step-nav {
+  display: flex; align-items: center;
+  gap: 0; margin-bottom: 22px;
+  background: var(--white); border-radius: 10px;
+  border: 1px solid var(--gray-100); box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.step-item {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; cursor: pointer;
+  border-right: 1px solid var(--gray-100);
+  transition: background var(--t);
+  position: relative;
+}
+.step-item:last-child { border-right: none; }
+.step-item:hover { background: var(--gray-50); }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; font-weight: 800; flex-shrink: 0;
+  background: var(--gray-100); color: var(--gray-400);
+  transition: background var(--t), color var(--t);
+}
+.step-label { font-size: .78rem; font-weight: 600; color: var(--gray-400); line-height: 1.2; }
+.step-sub   { font-size: .66rem; color: var(--gray-300); margin-top: 1px; }
+.step-item.active .step-num  { background: var(--navy-700); color: var(--white); }
+.step-item.active .step-label{ color: var(--navy-900); }
+.step-item.done .step-num    { background: var(--success); color: var(--white); }
+.step-item.done .step-label  { color: var(--gray-500); }
+@media(max-width:700px) {
+  .step-sub { display:none; }
+  .step-item { padding: 12px 10px; }
+}
+
+/* Panels */
+.step-panel { display: none; }
+.step-panel.active { display: block; }
+
+/* Card */
+.form-card {
+  background: var(--white); border-radius: 12px;
+  border: 1px solid var(--gray-100); box-shadow: var(--shadow);
+  overflow: hidden; margin-bottom: 16px;
+}
+.form-card-head {
+  padding: 13px 20px; border-bottom: 1px solid var(--gray-100);
+  background: var(--gray-50);
+  display: flex; align-items: center; gap: 10px;
+}
+.form-card-title {
+  font-size: .88rem; font-weight: 700; color: var(--navy-900);
+  display: flex; align-items: center; gap: 8px;
+}
+.form-card-title .icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: var(--navy-50); color: var(--navy-700);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem;
+}
+.form-card-body { padding: 20px; }
+
+/* Form groups */
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.form-grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+@media(max-width:800px) { .form-grid-3,.form-grid-4 { grid-template-columns: 1fr 1fr; } }
+@media(max-width:560px) { .form-grid-2,.form-grid-3,.form-grid-4 { grid-template-columns: 1fr; } }
+.span2 { grid-column: span 2; }
+.span3 { grid-column: span 3; }
+.span4 { grid-column: span 4; }
+@media(max-width:800px) { .span3,.span4 { grid-column: span 2; } }
+@media(max-width:560px) { .span2,.span3,.span4 { grid-column: span 1; } }
+
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-label {
+  font-size: .72rem; font-weight: 700;
+  color: var(--gray-500); text-transform: uppercase; letter-spacing: .5px;
+}
+.form-label .req { color: var(--danger); }
+.form-hint { font-size: .7rem; color: var(--gray-400); margin-top: 2px; }
+.form-control {
+  padding: 9px 12px; width: 100%;
+  border: 1.5px solid var(--gray-200); border-radius: var(--radius);
+  font-size: .875rem; font-family: var(--font); color: var(--navy-900);
+  background: var(--white);
+  transition: border-color .2s, box-shadow .2s;
+}
+.form-control:focus {
+  outline: none; border-color: var(--navy-700);
+  box-shadow: 0 0 0 3px rgba(21,101,192,.1);
+}
+.form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2378909C' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
+}
+textarea.form-control { resize: vertical; min-height: 80px; }
+
+/* Avatar upload zone */
+.avatar-upload-zone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 24px;
+  border: 2px dashed var(--gray-200); border-radius: var(--radius);
+  cursor: pointer; transition: border-color .2s, background .2s;
+  text-align: center;
+}
+.avatar-upload-zone:hover { border-color: var(--navy-700); background: var(--navy-25); }
+.avatar-upload-zone input { display: none; }
+.av-preview-circle {
+  width: 80px; height: 80px; border-radius: 14px;
+  background: var(--navy-50); border: 2px solid var(--gray-100);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; font-weight: 800; color: var(--navy-700);
+}
+.av-preview-circle img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Rate display */
+.rate-display {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-top: 8px;
+}
+.rate-box {
+  background: var(--gray-50); border-radius: var(--radius);
+  border: 1px solid var(--gray-100); padding: 10px 12px;
+}
+.rate-box-label { font-size: .68rem; color: var(--gray-400); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+.rate-box-val   { font-family: var(--font-mono); font-size: .88rem; font-weight: 700; color: var(--navy-900); }
+
+/* COS/JO contract date toggle */
+.contract-end-wrap { display: none; }
+.contract-end-wrap.show { display: block; }
+
+/* Deduction info box */
+.deduction-table {
+  width: 100%; border-collapse: collapse; font-size: .8rem; margin-top: 6px;
+}
+.deduction-table td, .deduction-table th {
+  padding: 7px 10px; border: 1px solid var(--gray-100); text-align: left;
+}
+.deduction-table thead th { background: var(--gray-50); font-size: .7rem; font-weight: 700; text-transform: uppercase; color: var(--gray-500); }
+.deduction-table tbody td:last-child { font-family: var(--font-mono); text-align: right; }
+
+/* Sticky action bar */
+.action-bar {
+  position: sticky; bottom: 0; z-index: 50;
+  background: var(--white); border-top: 1px solid var(--gray-100);
+  padding: 14px 22px; margin-top: 6px;
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: 0 -2px 12px rgba(10,35,66,.07);
+  border-radius: 0 0 12px 12px;
+}
+.action-bar-left  { display: flex; gap: 8px; }
+.action-bar-right { display: flex; gap: 8px; }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">
+      {% if employee %}Edit Employee{% else %}Add New Employee{% endif %}
+    </h1>
+    <p class="page-sub">
+      {% if employee %}
+        Editing: <strong>{{ employee.get_full_name }}</strong>
+      {% else %}
+        Fill in all required fields across the four sections below
+      {% endif %}
+    </p>
+  </div>
+  <a href="{% url 'employees:list' %}" class="btn btn-outline btn-sm">
+    <i class="fas fa-arrow-left"></i> Back to List
+  </a>
+</div>
+
+<!-- Step nav -->
+<div class="step-nav" id="step-nav">
+  <div class="step-item active" onclick="goStep(0)" id="step-0">
+    <div class="step-num">1</div>
+    <div>
+      <div class="step-label">Personal Info</div>
+      <div class="step-sub">Name, contact, photo</div>
+    </div>
+  </div>
+  <div class="step-item" onclick="goStep(1)" id="step-1">
+    <div class="step-num">2</div>
+    <div>
+      <div class="step-label">Employment</div>
+      <div class="step-sub">Type, division, position</div>
+    </div>
+  </div>
+  <div class="step-item" onclick="goStep(2)" id="step-2">
+    <div class="step-num">3</div>
+    <div>
+      <div class="step-label">Salary &amp; Payroll</div>
+      <div class="step-sub">Rate, deductions, IDs</div>
+    </div>
+  </div>
+  <div class="step-item" onclick="goStep(3)" id="step-3">
+    <div class="step-num">4</div>
+    <div>
+      <div class="step-label">Schedule</div>
+      <div class="step-sub">Work hours, station</div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="" enctype="multipart/form-data" id="emp-form">
+  {% csrf_token %}
+
+  <!-- ════════════ STEP 1: Personal Info ════════════ -->
+  <div class="step-panel active" id="panel-0">
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-camera"></i></div>
+          Profile Photo
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div class="avatar-upload-zone" onclick="document.getElementById('id-photo').click()">
+          <input type="file" id="id-photo" name="profile_picture" accept="image/*"
+                 onchange="previewPhoto(this)">
+          <div class="av-preview-circle" id="photo-preview">
+            {% if employee and employee.profile_picture %}
+              <img src="{{ employee.profile_picture.url }}" id="photo-img">
+            {% else %}
+              <span id="photo-initials"><i class="fas fa-camera" style="font-size:1.2rem;color:var(--gray-300);"></i></span>
+            {% endif %}
+          </div>
+          <div>
+            <div style="font-size:.82rem;font-weight:600;color:var(--navy-700);">Click to upload photo</div>
+            <div style="font-size:.72rem;color:var(--gray-400);">PNG, JPG — max 2 MB</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-user"></i></div>
+          Full Name
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Last Name <span class="req">*</span></label>
+            <input type="text" name="last_name" class="form-control"
+                   value="{{ employee.last_name|default:'' }}" required
+                   placeholder="Dela Cruz">
+          </div>
+          <div class="form-group">
+            <label class="form-label">First Name <span class="req">*</span></label>
+            <input type="text" name="first_name" class="form-control"
+                   value="{{ employee.first_name|default:'' }}" required
+                   placeholder="Juan">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Middle Name</label>
+            <input type="text" name="middle_name" class="form-control"
+                   value="{{ employee.middle_name|default:'' }}"
+                   placeholder="Santos">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Name Extension</label>
+            <input type="text" name="name_ext" class="form-control"
+                   value="{{ employee.name_ext|default:'' }}"
+                   placeholder="Jr., Sr., III">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date of Birth <span class="req">*</span></label>
+            <input type="date" name="date_of_birth" class="form-control"
+                   value="{{ employee.date_of_birth|date:'Y-m-d'|default:'' }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sex <span class="req">*</span></label>
+            <select name="sex" class="form-control form-select" required>
+              <option value="">Select…</option>
+              <option value="male"   {% if employee.sex == 'male' %}selected{% endif %}>Male</option>
+              <option value="female" {% if employee.sex == 'female' %}selected{% endif %}>Female</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Civil Status</label>
+            <select name="civil_status" class="form-control form-select">
+              <option value="">Select…</option>
+              <option value="single"   {% if employee.civil_status == 'single' %}selected{% endif %}>Single</option>
+              <option value="married"  {% if employee.civil_status == 'married' %}selected{% endif %}>Married</option>
+              <option value="widowed"  {% if employee.civil_status == 'widowed' %}selected{% endif %}>Widowed</option>
+              <option value="separated"{% if employee.civil_status == 'separated' %}selected{% endif %}>Separated</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-address-card"></i></div>
+          Contact &amp; Address
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div class="form-grid-2" style="margin-bottom:14px;">
+          <div class="form-group">
+            <label class="form-label">Mobile Number</label>
+            <input type="tel" name="contact_number" class="form-control"
+                   value="{{ employee.contact_number|default:'' }}"
+                   placeholder="09XX-XXX-XXXX">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" name="email" class="form-control"
+                   value="{{ employee.email|default:'' }}"
+                   placeholder="juan@bfar.gov.ph">
+          </div>
+        </div>
+        <div class="form-group span3">
+          <label class="form-label">Home Address</label>
+          <textarea name="address" class="form-control" rows="2"
+                    placeholder="House No., Street, Barangay, Municipality, Province">{{ employee.address|default:'' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-0 -->
+
+
+  <!-- ════════════ STEP 2: Employment ════════════ -->
+  <div class="step-panel" id="panel-1">
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-id-badge"></i></div>
+          Employment Classification
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div class="form-grid-2" style="margin-bottom:14px;">
+          <div class="form-group">
+            <label class="form-label">Employee ID</label>
+            <input type="text" name="employee_id" class="form-control"
+                   value="{{ employee.employee_id|default:'' }}"
+                   placeholder="Auto-assigned if blank">
+            <span class="form-hint">Unique identifier for biometric and payroll records.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Employment Type <span class="req">*</span></label>
+            <select name="employment_type" id="emp-type-sel" class="form-control form-select"
+                    required onchange="toggleContractEnd()">
+              <option value="">Select type…</option>
+              <option value="permanent"    {% if employee.employment_type == 'permanent' %}selected{% endif %}>Permanent</option>
+              <option value="cos"          {% if employee.employment_type == 'cos' %}selected{% endif %}>Contract of Service (COS)</option>
+              <option value="jo"           {% if employee.employment_type == 'jo' %}selected{% endif %}>Job Order (JO)</option>
+              <option value="nsap"         {% if employee.employment_type == 'nsap' %}selected{% endif %}>NSAP Enumerator</option>
+              <option value="nsap_fw"      {% if employee.employment_type == 'nsap_fw' %}selected{% endif %}>NSAP Freshwater</option>
+              <option value="fishcore"     {% if employee.employment_type == 'fishcore' %}selected{% endif %}>FishCore</option>
+              <option value="adjudication" {% if employee.employment_type == 'adjudication' %}selected{% endif %}>Adjudication</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date Hired <span class="req">*</span></label>
+            <input type="date" name="date_hired" class="form-control"
+                   value="{{ employee.date_hired|date:'Y-m-d'|default:'' }}" required>
+          </div>
+          <div class="form-group contract-end-wrap" id="contract-end-wrap">
+            <label class="form-label">Contract End Date</label>
+            <input type="date" name="contract_end_date" class="form-control"
+                   value="{{ employee.contract_end_date|date:'Y-m-d'|default:'' }}">
+            <span class="form-hint">Required for COS and JO employees.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Employment Status</label>
+            <select name="status" class="form-control form-select">
+              <option value="active"   {% if not employee or employee.is_active %}selected{% endif %}>Active</option>
+              <option value="inactive" {% if employee and not employee.is_active %}selected{% endif %}>Inactive</option>
+              <option value="resigned">Resigned</option>
+              <option value="retired">Retired</option>
+              <option value="terminated">Terminated</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Biometric Device ID</label>
+            <input type="number" name="biometric_id" class="form-control"
+                   value="{{ employee.biometric_id|default:'' }}"
+                   placeholder="ID enrolled in ZKTeco device" min="1">
+            <span class="form-hint">Must match the ID registered in the fingerprint device.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-building"></i></div>
+          Office Assignment
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Division <span class="req">*</span></label>
+            <select name="division" id="div-sel" class="form-control form-select" required
+                    onchange="loadUnits(this.value)">
+              <option value="">Select division…</option>
+              {% for div in divisions %}
+              <option value="{{ div.id }}"
+                {% if employee.division.id == div.id %}selected{% endif %}>
+                {{ div.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unit / Section</label>
+            <select name="unit" id="unit-sel" class="form-control form-select">
+              <option value="">Select unit…</option>
+              {% for unit in units %}
+              <option value="{{ unit.id }}"
+                {% if employee.unit.id == unit.id %}selected{% endif %}>
+                {{ unit.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Position / Designation <span class="req">*</span></label>
+            <select name="position" class="form-control form-select" required>
+              <option value="">Select position…</option>
+              {% for pos in positions %}
+              <option value="{{ pos.id }}"
+                {% if employee.position.id == pos.id %}selected{% endif %}>
+                {{ pos.title }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payroll Group <span class="req">*</span></label>
+            <select name="payroll_group" class="form-control form-select" required>
+              <option value="">Select payroll group…</option>
+              {% for pg in payroll_groups %}
+              <option value="{{ pg.id }}"
+                {% if employee.payroll_group.id == pg.id %}selected{% endif %}>
+                {{ pg.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-1 -->
+
+
+  <!-- ════════════ STEP 3: Salary & Payroll ════════════ -->
+  <div class="step-panel" id="panel-2">
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-peso-sign"></i></div>
+          Salary Information
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div class="form-grid-2" style="margin-bottom:14px;">
+          <div class="form-group">
+            <label class="form-label">Monthly Salary <span class="req">*</span></label>
+            <input type="number" name="monthly_salary" id="monthly-salary"
+                   class="form-control" step="0.01" min="0"
+                   value="{{ employee.monthly_salary|default:'' }}"
+                   required oninput="computeRates()"
+                   placeholder="e.g. 25000.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Salary Grade / Step</label>
+            <input type="text" name="salary_grade" class="form-control"
+                   value="{{ employee.salary_grade|default:'' }}"
+                   placeholder="e.g. SG-11 Step 1">
+          </div>
+        </div>
+
+        <!-- Auto-computed rates -->
+        <div style="background:var(--navy-25);border-radius:8px;padding:14px;margin-bottom:4px;">
+          <div style="font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+            Auto-computed Rates (COS / JO formula: ÷ 22 working days)
+          </div>
+          <div class="rate-display">
+            <div class="rate-box">
+              <div class="rate-box-label">Daily Rate</div>
+              <div class="rate-box-val" id="daily-rate">₱ —</div>
+            </div>
+            <div class="rate-box">
+              <div class="rate-box-label">Hourly Rate</div>
+              <div class="rate-box-val" id="hourly-rate">₱ —</div>
+            </div>
+            <div class="rate-box">
+              <div class="rate-box-label">Per Minute</div>
+              <div class="rate-box-val" id="per-min">₱ —</div>
+            </div>
+            <div class="rate-box">
+              <div class="rate-box-label">Half-month (÷2)</div>
+              <div class="rate-box-val" id="half-month">₱ —</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-receipt"></i></div>
+          Government Deductions (Permanent Employees)
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div style="background:var(--navy-25);border-radius:7px;padding:10px 14px;font-size:.76rem;color:var(--gray-500);margin-bottom:14px;">
+          <i class="fas fa-circle-info" style="color:var(--navy-700);margin-right:5px;"></i>
+          These fields apply to permanent employees only. COS and JO employees are not subject to GSIS and PhilHealth deductions in the same way.
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">GSIS (Employee Share)</label>
+            <input type="number" name="gsis_monthly" class="form-control" step="0.01" min="0"
+                   value="{{ employee.gsis_monthly|default:'' }}"
+                   placeholder="Auto-computed or override">
+          </div>
+          <div class="form-group">
+            <label class="form-label">PhilHealth (Employee Share)</label>
+            <input type="number" name="philhealth_monthly" class="form-control" step="0.01" min="0"
+                   value="{{ employee.philhealth_monthly|default:'' }}"
+                   placeholder="Auto-computed or override">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pag-IBIG (Employee Share)</label>
+            <input type="number" name="pagibig_monthly" class="form-control" step="0.01" min="0"
+                   value="{{ employee.pagibig_monthly|default:'' }}"
+                   placeholder="Usually ₱100.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Withholding Tax (monthly)</label>
+            <input type="number" name="tax_monthly" class="form-control" step="0.01" min="0"
+                   value="{{ employee.tax_monthly|default:'' }}"
+                   placeholder="5% or 3% above ₱20,833.33 threshold">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-id-card"></i></div>
+          Government ID Numbers
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">TIN</label>
+            <input type="text" name="tin" class="form-control"
+                   value="{{ employee.tin|default:'' }}" placeholder="XXX-XXX-XXX-XXX">
+          </div>
+          <div class="form-group">
+            <label class="form-label">GSIS Number</label>
+            <input type="text" name="gsis_number" class="form-control"
+                   value="{{ employee.gsis_number|default:'' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">PhilHealth Number</label>
+            <input type="text" name="philhealth_number" class="form-control"
+                   value="{{ employee.philhealth_number|default:'' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pag-IBIG / HDMF Number</label>
+            <input type="text" name="pagibig_number" class="form-control"
+                   value="{{ employee.pagibig_number|default:'' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">SSS Number (COS/JO)</label>
+            <input type="text" name="sss_number" class="form-control"
+                   value="{{ employee.sss_number|default:'' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">PhilSys / National ID</label>
+            <input type="text" name="philsys_number" class="form-control"
+                   value="{{ employee.philsys_number|default:'' }}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-2 -->
+
+
+  <!-- ════════════ STEP 4: Schedule ════════════ -->
+  <div class="step-panel" id="panel-3">
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-calendar-week"></i></div>
+          Work Schedule
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Work Schedule <span class="req">*</span></label>
+            <select name="work_schedule" class="form-control form-select" required>
+              <option value="">Select schedule…</option>
+              {% for sched in work_schedules %}
+              <option value="{{ sched.id }}"
+                {% if employee.work_schedule.id == sched.id %}selected{% endif %}>
+                {{ sched.name }} — {{ sched.start_time|time:"g:i A" }} to {{ sched.end_time|time:"g:i A" }}
+              </option>
+              {% endfor %}
+            </select>
+            <span class="form-hint">
+              Standard: 8:00 AM – 5:00 PM, Mon–Fri.
+              Absent starts from 8:01 AM; late deduction begins immediately.
+            </span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Station / Workplace</label>
+            <input type="text" name="station" class="form-control"
+                   value="{{ employee.station|default:'' }}"
+                   placeholder="e.g. BFAR-III Main Office, San Fernando">
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          <div style="background:var(--navy-25);border-radius:8px;padding:14px;">
+            <div style="font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+              DTR Scan Rules (BFAR-III Standard)
+            </div>
+            <table class="deduction-table">
+              <thead><tr><th>Scan</th><th>Expected</th><th>Rule</th></tr></thead>
+              <tbody>
+                <tr><td>AM IN</td><td>8:00 AM</td><td>After 8:00 AM = Late; every minute beyond deducted</td></tr>
+                <tr><td>AM OUT</td><td>12:00 PM</td><td>Missing = Half-day; undertime if earlier</td></tr>
+                <tr><td>PM IN</td><td>1:00 PM</td><td>Missing with AM OUT missing = Half-day absent</td></tr>
+                <tr><td>PM OUT</td><td>5:00 PM</td><td>Earlier = undertime; no scan = undertime assumed</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="form-card-head">
+        <div class="form-card-title">
+          <div class="icon"><i class="fas fa-note-sticky"></i></div>
+          Additional Notes
+        </div>
+      </div>
+      <div class="form-card-body">
+        <div class="form-group">
+          <label class="form-label">Remarks</label>
+          <textarea name="remarks" class="form-control" rows="3"
+                    placeholder="Any additional notes about this employee (optional).">{{ employee.remarks|default:'' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-3 -->
+
+  <!-- Sticky action bar -->
+  <div class="action-bar">
+    <div class="action-bar-left">
+      <button type="button" class="btn btn-outline btn-sm" id="btn-prev"
+              onclick="goStep(currentStep - 1)" style="display:none;">
+        <i class="fas fa-arrow-left"></i> Previous
+      </button>
+    </div>
+    <div class="action-bar-right">
+      <a href="{% url 'employees:list' %}" class="btn btn-ghost btn-sm">Cancel</a>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-next"
+              onclick="goStep(currentStep + 1)">
+        Next <i class="fas fa-arrow-right"></i>
+      </button>
+      <button type="submit" class="btn btn-primary btn-sm" id="btn-submit" style="display:none;">
+        <i class="fas fa-floppy-disk"></i>
+        {% if employee %}Save Changes{% else %}Add Employee{% endif %}
+      </button>
+    </div>
+  </div>
+
+</form>
+{% endblock %}
+
+
+{% block js %}
+<script>
+let currentStep = 0;
+const TOTAL = 4;
+
+function goStep(n) {
+  if (n < 0 || n >= TOTAL) return;
+  document.querySelectorAll('.step-panel').forEach((p,i) => p.classList.toggle('active', i===n));
+  document.querySelectorAll('.step-item').forEach((s,i) => {
+    s.classList.remove('active','done');
+    if (i === n) s.classList.add('active');
+    else if (i < n) s.classList.add('done');
+  });
+  document.getElementById('btn-prev').style.display   = n > 0 ? '' : 'none';
+  document.getElementById('btn-next').style.display   = n < TOTAL-1 ? '' : 'none';
+  document.getElementById('btn-submit').style.display = n === TOTAL-1 ? '' : 'none';
+  currentStep = n;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+document.addEventListener('DOMContentLoaded', () => goStep(0));
+
+/* Photo preview */
+function previewPhoto(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('photo-preview').innerHTML =
+      '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover;">';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+/* Contract end date toggle */
+function toggleContractEnd() {
+  const type = document.getElementById('emp-type-sel').value;
+  const wrap = document.getElementById('contract-end-wrap');
+  wrap.classList.toggle('show', type === 'cos' || type === 'jo');
+}
+document.addEventListener('DOMContentLoaded', toggleContractEnd);
+
+/* Rate computation (COS/JO formula: monthly ÷ 22) */
+function computeRates() {
+  const monthly = parseFloat(document.getElementById('monthly-salary').value) || 0;
+  const daily   = monthly / 22;
+  const hourly  = daily / 8;
+  const perMin  = hourly / 60;
+  const half    = monthly / 2;
+  const fmt = v => '₱' + v.toFixed(4).replace(/\.?0+$/, '');
+  document.getElementById('daily-rate').textContent  = monthly ? fmt(daily)  : '₱ —';
+  document.getElementById('hourly-rate').textContent = monthly ? fmt(hourly) : '₱ —';
+  document.getElementById('per-min').textContent     = monthly ? fmt(perMin) : '₱ —';
+  document.getElementById('half-month').textContent  = monthly ? '₱' + half.toFixed(2) : '₱ —';
+}
+document.addEventListener('DOMContentLoaded', computeRates);
+
+/* Unit filter based on division */
+function loadUnits(divId) {
+  // In production: fetch('/api/units/?division=' + divId).then(...)
+  // For now, all units are already in the DOM; filter client-side
+  const sel = document.getElementById('unit-sel');
+  // Reset and show all for now; replace with AJAX if units are large
+}
+</script>
+{% endblock %}

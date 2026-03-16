@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Payroll Periods — BFAR HRIS{% endblock %}
+{% block page_title %}Payroll{% endblock %}
+
+{% block css %}
+<style>
+.period-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:24px; }
+.period-card { background:var(--white);border-radius:12px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;transition:box-shadow var(--t),transform var(--t); }
+.period-card:hover { box-shadow:var(--shadow-lg);transform:translateY(-2px); }
+.period-card.current { border-color:var(--navy-700);border-width:2px; }
+.period-card-header { padding:14px 16px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between; }
+.period-label { font-size:.92rem;font-weight:700;color:var(--navy-900); }
+.period-dates { font-size:.74rem;color:var(--gray-400);margin-top:2px; }
+.period-badge { display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:.68rem;font-weight:700; }
+.period-badge.current  { background:var(--navy-50);color:var(--navy-700); }
+.period-badge.released { background:var(--success-light);color:var(--success); }
+.period-badge.pending  { background:var(--amber-50);color:var(--amber-700); }
+.period-card-body { padding:14px 16px; }
+.period-meta { display:flex;flex-direction:column;gap:8px;font-size:.81rem; }
+.period-meta-row { display:flex;justify-content:space-between; }
+.period-meta-label { color:var(--gray-500); }
+.period-meta-val { font-weight:600;font-family:var(--font-mono);color:var(--navy-900); }
+.period-progress-wrap { height:5px;background:var(--gray-100);border-radius:999px;margin-top:8px;overflow:hidden; }
+.period-progress-fill { height:100%;border-radius:999px;background:var(--navy-700); }
+.period-card-footer { padding:10px 16px;border-top:1px solid var(--gray-100);display:flex;gap:6px; }
+.period-card-footer .btn { flex:1;justify-content:center;font-size:.77rem; }
+
+.modal-overlay { display:none;position:fixed;inset:0;background:rgba(10,35,66,.5);z-index:1000;align-items:center;justify-content:center;padding:20px; }
+.modal-overlay.show { display:flex;animation:fadeIn .2s ease; }
+@keyframes fadeIn { from{opacity:0}to{opacity:1} }
+.modal-box { background:var(--white);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:100%;max-width:460px;animation:slideUp .25s ease; }
+@keyframes slideUp { from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1} }
+.modal-header { display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--gray-100); }
+.modal-title { font-size:.9rem;font-weight:700;color:var(--navy-900);display:flex;align-items:center;gap:8px; }
+.modal-close { width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--gray-400);font-size:.8rem;cursor:pointer;transition:background .2s; }
+.modal-close:hover { background:var(--gray-100);color:var(--navy-900); }
+.modal-body { padding:18px 20px; }
+.modal-footer { padding:12px 20px;border-top:1px solid var(--gray-100);display:flex;justify-content:flex-end;gap:8px; }
+.modal-form-group { margin-bottom:13px; }
+.modal-label { display:block;font-size:.72rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px; }
+.modal-label .req { color:var(--danger); }
+.modal-input { width:100%;padding:8px 12px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.87rem;font-family:var(--font);color:var(--navy-900);transition:border-color .2s; }
+.modal-input:focus { outline:none;border-color:var(--navy-700);box-shadow:0 0 0 3px rgba(21,101,192,.1); }
+.modal-select { width:100%;padding:8px 28px 8px 12px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.87rem;font-family:var(--font);background:var(--white);color:var(--navy-900);appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2378909C' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Payroll</h1>
+    <p class="page-sub">Twice-monthly payroll — 1st cutoff (1–15, released 20th) &amp; 2nd cutoff (16–EOM, released 10th)</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('add-period-modal')">
+    <i class="fas fa-plus"></i> New Period
+  </button>
+</div>
+
+<!-- Current period highlight -->
+{% if current_period %}
+<div style="background:linear-gradient(135deg,var(--navy-900),var(--navy-800));border-radius:12px;padding:20px 24px;margin-bottom:24px;color:var(--white);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
+  <div>
+    <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--navy-200);margin-bottom:3px;">Current Payroll Period</div>
+    <div style="font-size:1.2rem;font-weight:800;">{{ current_period.label }}</div>
+    <div style="font-size:.8rem;color:var(--navy-200);margin-top:3px;">
+      {{ current_period.date_from|date:"M d" }} – {{ current_period.date_to|date:"M d, Y" }}
+      &nbsp;·&nbsp; Release: {{ current_period.release_date|date:"M d, Y" }}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'payroll:list' current_period.id %}" class="btn btn-outline btn-sm"
+       style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;">
+      <i class="fas fa-list"></i> View Records
+    </a>
+    <a href="{% url 'payroll:compute' current_period.id %}" class="btn btn-primary btn-sm"
+       style="background:var(--navy-700);">
+      <i class="fas fa-calculator"></i> Compute
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<!-- All periods -->
+<div class="period-grid">
+  {% for period in periods %}
+  <div class="period-card {% if period.id == current_period.id %}current{% endif %}">
+    <div class="period-card-header">
+      <div>
+        <div class="period-label">{{ period.label }}</div>
+        <div class="period-dates">{{ period.date_from|date:"M d" }} – {{ period.date_to|date:"M d, Y" }}</div>
+      </div>
+      <span class="period-badge
+        {% if period.id == current_period.id %}current
+        {% elif period.is_released %}released
+        {% else %}pending{% endif %}">
+        {% if period.id == current_period.id %}Current
+        {% elif period.is_released %}Released
+        {% else %}Pending{% endif %}
+      </span>
+    </div>
+    <div class="period-card-body">
+      <div class="period-meta">
+        <div class="period-meta-row">
+          <span class="period-meta-label">Release Date</span>
+          <span class="period-meta-val" style="font-family:var(--font);font-size:.8rem;">{{ period.release_date|date:"M d, Y" }}</span>
+        </div>
+        <div class="period-meta-row">
+          <span class="period-meta-label">Records computed</span>
+          <span class="period-meta-val">{{ period.record_count|default:0 }}</span>
+        </div>
+        <div class="period-meta-row">
+          <span class="period-meta-label">Total net pay</span>
+          <span class="period-meta-val">₱{{ period.total_net|floatformat:2|default:"0.00" }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="period-card-footer">
+      <a href="{% url 'payroll:list' period.id %}" class="btn btn-outline btn-sm">
+        <i class="fas fa-list"></i> Records
+      </a>
+      <a href="{% url 'payroll:compute' period.id %}" class="btn btn-primary btn-sm">
+        <i class="fas fa-calculator"></i> Compute
+      </a>
+    </div>
+  </div>
+  {% empty %}
+  <div style="grid-column:1/-1;background:var(--white);border-radius:12px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:52px;text-align:center;color:var(--gray-400);">
+    <i class="fas fa-peso-sign" style="font-size:2.5rem;opacity:.2;display:block;margin-bottom:12px;"></i>
+    <p style="font-size:.88rem;font-weight:500;margin-bottom:6px;">No payroll periods yet</p>
+    <p style="font-size:.8rem;">Create your first payroll period to get started.</p>
+    <button class="btn btn-primary btn-sm" style="margin-top:14px;" onclick="openModal('add-period-modal')">
+      <i class="fas fa-plus"></i> New Period
+    </button>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ADD PERIOD MODAL -->
+<div class="modal-overlay" id="add-period-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fas fa-calendar-plus" style="color:var(--navy-700);"></i> New Payroll Period</div>
+      <button class="modal-close" onclick="closeModal('add-period-modal')"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="post" action="">
+      {% csrf_token %}<input type="hidden" name="action" value="add_period">
+      <div class="modal-body">
+        <div class="modal-form-group">
+          <label class="modal-label">Period Label <span class="req">*</span></label>
+          <input type="text" name="label" class="modal-input"
+                 placeholder="e.g. 1st Cutoff — January 2025" required>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="modal-form-group" style="margin-bottom:0;">
+            <label class="modal-label">Date From <span class="req">*</span></label>
+            <input type="date" name="date_from" class="modal-input" required>
+          </div>
+          <div class="modal-form-group" style="margin-bottom:0;">
+            <label class="modal-label">Date To <span class="req">*</span></label>
+            <input type="date" name="date_to" class="modal-input" required>
+          </div>
+        </div>
+        <div class="modal-form-group" style="margin-top:13px;">
+          <label class="modal-label">Release Date <span class="req">*</span></label>
+          <input type="date" name="release_date" class="modal-input" required>
+          <span style="font-size:.7rem;color:var(--gray-400);margin-top:3px;display:block;">
+            1st cutoff → released on 20th. 2nd cutoff → released on 10th.
+          </span>
+        </div>
+        <div class="modal-form-group">
+          <label class="modal-label">Cutoff Type</label>
+          <select name="cutoff_type" class="modal-select">
+            <option value="1st">1st Cutoff (1–15)</option>
+            <option value="2nd">2nd Cutoff (16–EOM)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('add-period-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Create Period</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+function openModal(id)  { document.getElementById(id).classList.add('show'); document.body.style.overflow='hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); document.body.style.overflow=''; }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) closeModal(o.id); }));
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-overlay.show').forEach(m=>closeModal(m.id)); });
+</script>
+{% endblock %}

@@ -1,0 +1,96 @@
+/* ── Variables ─────────────────────────────────────── */
+:root {
+    --navy-900: #0A2342;
+    --navy-800: #0D2D5A;
+    --navy-700: #1565C0;
+    --navy-500: #1E88E5;
+    --navy-200: #90CAF9;
+    --navy-50:  #E3F2FD;
+    --teal-700: #00838F;
+    --teal-50:  #E0F7FA;
+    --amber-700:#F57C00;
+    --success:  #2E7D32;
+    --danger:   #E53935;
+    --danger-light: #FFEBEE;
+    --gray-300: #90A4AE;
+    --gray-400: #78909C;
+    --gray-500: #546E7A;
+    --gray-100: #ECEFF1;
+    --white:    #FFFFFF;
+    --font:     'DM Sans', system-ui, sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+    --r: 5px;
+    --r-md: 8px; 
+    --r-lg: 12px; 
+    --r-xl: 16px;
+}
+
+*, *::before, *::after { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Scrollbar */
+* { scrollbar-width: thin; scrollbar-color: var(--navy-700) var(--gray-100); }
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--gray-100); border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: var(--navy-700); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--navy-900); }
+
+body {
+    font-family: var(--font);
+    min-height: 100vh;
+    display: flex;
+    background: var(--navy-900);
+    -webkit-font-smoothing: antialiased;
+    overflow-y: auto;
+}
+
+.admin-auth-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 100vh;
+
+    /* Add a subtle navy background for the gap */
+    background: linear-gradient(to right, var(--navy-900) 0%, var(--navy-800) 100%);
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+}
+
+/* Layered background */
+.admin-auth-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+
+    background:
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(0,131,143,.25) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(21,101,192,.30) 0%, transparent 60%),
+    linear-gradient(135deg, #0A2342 0%, #0D2D5A 50%, #0A3550 100%);
+
+    z-index: 0;
+
+    animation: glowShift 5s ease-in-out infinite;
+}
+
+@keyframes glowShift {
+  0%,100% { opacity:.9 }
+  50% { opacity:1 }
+}
+
+/* Decorative grid dots */
+.admin-auth-container::after {
+    content: "";
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+    z-index: 0;
+}

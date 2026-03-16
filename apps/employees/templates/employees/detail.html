@@ -1,0 +1,592 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ employee.get_full_name }} — BFAR HRIS{% endblock %}
+{% block page_title %}Employee Profile{% endblock %}
+
+{% block css %}
+<style>
+/* Hero banner */
+.hero {
+  background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-800) 100%);
+  border-radius: 12px; overflow: hidden;
+  margin-bottom: 20px; position: relative;
+  box-shadow: var(--shadow-lg);
+}
+.hero-bg-pattern {
+  position: absolute; inset: 0; opacity: .04;
+  background-image: radial-gradient(circle, #fff 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.hero-body {
+  display: flex; align-items: flex-start; gap: 20px;
+  padding: 22px 24px; position: relative; z-index: 1;
+  flex-wrap: wrap;
+}
+.hero-avatar {
+  width: 80px; height: 80px; border-radius: 14px;
+  border: 3px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.1);
+  overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; font-weight: 800; color: var(--white);
+}
+.hero-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.hero-info { flex: 1; min-width: 200px; }
+.hero-name { font-size: 1.25rem; font-weight: 800; color: var(--white); margin-bottom: 4px; }
+.hero-pos  { font-size: .85rem; color: rgba(255,255,255,.7); margin-bottom: 8px; }
+.hero-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.hero-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  background: rgba(255,255,255,.12); color: rgba(255,255,255,.85);
+}
+.hero-chip.type-perm { background: rgba(79,193,255,.2);  color: var(--cyan-400); }
+.hero-chip.type-cos  { background: rgba(0,131,143,.25);  color: #80DEEA; }
+.hero-chip.type-jo   { background: rgba(46,125,50,.3);   color: #A5D6A7; }
+.hero-chip.status-active { background: rgba(46,125,50,.35); color: #A5D6A7; }
+.hero-chip.status-inactive { background: rgba(229,57,53,.3); color: #FFCDD2; }
+.hero-actions { display: flex; flex-direction: column; gap: 6px; justify-content: flex-start; }
+
+/* Content grid */
+.content-grid {
+  display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start;
+}
+@media(max-width:900px) { .content-grid { grid-template-columns: 1fr; } }
+
+/* Side info card */
+.side-card {
+  background: var(--white); border-radius: 12px;
+  border: 1px solid var(--gray-100); box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.side-card-title {
+  padding: 11px 16px; border-bottom: 1px solid var(--gray-100);
+  background: var(--gray-50);
+  font-size: .78rem; font-weight: 700; color: var(--navy-900);
+  display: flex; align-items: center; gap: 7px;
+}
+.side-card-title i { color: var(--navy-700); font-size: .75rem; }
+.side-card-body { padding: 0 16px 4px; }
+.info-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--gray-100);
+}
+.info-row:last-child { border-bottom: none; }
+.info-icon {
+  width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+  background: var(--gray-50); color: var(--gray-400);
+  display: flex; align-items: center; justify-content: center; font-size: .68rem;
+}
+.info-label { font-size: .67rem; color: var(--gray-400); margin-bottom: 1px; }
+.info-value { font-size: .82rem; font-weight: 500; color: var(--navy-900); word-break: break-word; }
+.info-value.mono { font-family: var(--font-mono); font-size: .79rem; }
+
+/* Tabs */
+.tab-bar {
+  display: flex; border-bottom: 1px solid var(--gray-100);
+  background: var(--gray-50); overflow-x: auto;
+  border-radius: 12px 12px 0 0;
+}
+.tab-btn {
+  padding: 11px 18px; font-size: .82rem; font-weight: 600;
+  color: var(--gray-400); cursor: pointer; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  display: flex; align-items: center; gap: 7px;
+  transition: color var(--t), border-color var(--t);
+}
+.tab-btn:hover { color: var(--navy-700); }
+.tab-btn.active { color: var(--navy-700); border-bottom-color: var(--navy-700); }
+.tab-btn i { font-size: .76rem; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Mini stat cards inside tabs */
+.mini-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;
+}
+@media(max-width:600px){ .mini-stats{ grid-template-columns: repeat(2,1fr); } }
+.mini-stat {
+  background: var(--white); border-radius: 8px;
+  border: 1px solid var(--gray-100); box-shadow: var(--shadow);
+  padding: 11px 14px;
+}
+.mini-stat-val   { font-size: 1.3rem; font-weight: 800; font-family: var(--font-mono); color: var(--navy-900); }
+.mini-stat-label { font-size: .67rem; color: var(--gray-400); margin-top: 2px; }
+
+/* Payroll status badge in table */
+.pay-status { display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:.68rem;font-weight:700; }
+.pay-status.released { background:var(--success-light);color:var(--success); }
+.pay-status.pending  { background:var(--amber-50);color:var(--amber-700); }
+
+/* Credit balance bars */
+.credit-row { display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100); }
+.credit-row:last-child { border-bottom:none; }
+.credit-type-label { font-size:.82rem;font-weight:600;color:var(--navy-900); }
+.credit-sub        { font-size:.7rem;color:var(--gray-400); }
+.credit-bar-wrap   { flex:1;height:6px;background:var(--gray-100);border-radius:999px;overflow:hidden;margin:0 14px; }
+.credit-bar-fill   { height:100%;border-radius:999px; }
+.credit-val        { font-size:.88rem;font-weight:800;font-family:var(--font-mono); }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- Hero banner -->
+<div class="hero">
+  <div class="hero-bg-pattern"></div>
+  <div class="hero-body">
+
+    <div class="hero-avatar">
+      {% if employee.profile_picture %}
+        <img src="{{ employee.profile_picture.url }}" alt="{{ employee.get_full_name }}">
+      {% else %}
+        {{ employee.first_name|first|upper }}{{ employee.last_name|first|upper }}
+      {% endif %}
+    </div>
+
+    <div class="hero-info">
+      <div class="hero-name">{{ employee.get_full_name }}</div>
+      <div class="hero-pos">
+        {{ employee.position.title|default:"—" }} &mdash; {{ employee.division.name|default:"—" }}
+        {% if employee.unit %} / {{ employee.unit.name }}{% endif %}
+      </div>
+      <div class="hero-chips">
+        <span class="hero-chip type-{% if employee.employment_type == 'permanent' %}perm{% elif employee.employment_type == 'cos' %}cos{% elif employee.employment_type == 'jo' %}jo{% else %}other{% endif %}">
+          <i class="fas fa-id-badge"></i>
+          {{ employee.employment_type|upper }}
+        </span>
+        <span class="hero-chip status-{% if employee.is_active %}active{% else %}inactive{% endif %}">
+          <i class="fas fa-circle" style="font-size:.5rem;"></i>
+          {% if employee.is_active %}Active{% else %}Inactive{% endif %}
+        </span>
+        {% if employee.employee_id %}
+        <span class="hero-chip">
+          <i class="fas fa-hashtag"></i> {{ employee.employee_id }}
+        </span>
+        {% endif %}
+        {% if employee.biometric_id %}
+        <span class="hero-chip">
+          <i class="fas fa-fingerprint"></i> Bio: {{ employee.biometric_id }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="hero-actions">
+      <a href="{% url 'employees:edit' employee.id %}" class="btn btn-outline btn-sm"
+         style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;">
+        <i class="fas fa-pen"></i> Edit
+      </a>
+      <a href="{% url 'dtr:detail' employee.id %}" class="btn btn-outline btn-sm"
+         style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;">
+        <i class="fas fa-clock"></i> DTR
+      </a>
+      {% if employee.employment_type == 'permanent' %}
+      <a href="{% url 'leaves:elr' employee.id %}" class="btn btn-outline btn-sm"
+         style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;">
+        <i class="fas fa-umbrella-beach"></i> Leave
+      </a>
+      {% endif %}
+      <a href="{% url 'employees:list' %}" class="btn btn-ghost btn-sm"
+         style="color:rgba(255,255,255,.6);">
+        <i class="fas fa-arrow-left"></i>
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<!-- Content grid -->
+<div class="content-grid">
+
+  <!-- LEFT: Side info cards -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Personal Info -->
+    <div class="side-card">
+      <div class="side-card-title"><i class="fas fa-user"></i> Personal Information</div>
+      <div class="side-card-body">
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-cake-candles"></i></div>
+          <div>
+            <div class="info-label">Date of Birth</div>
+            <div class="info-value">{{ employee.date_of_birth|date:"F d, Y"|default:"—" }}</div>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-venus-mars"></i></div>
+          <div>
+            <div class="info-label">Sex / Civil Status</div>
+            <div class="info-value">{{ employee.sex|capfirst|default:"—" }} &middot; {{ employee.civil_status|capfirst|default:"—" }}</div>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-phone"></i></div>
+          <div>
+            <div class="info-label">Mobile</div>
+            <div class="info-value">{{ employee.contact_number|default:"—" }}</div>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-envelope"></i></div>
+          <div>
+            <div class="info-label">Email</div>
+            <div class="info-value">{{ employee.email|default:"—" }}</div>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-location-dot"></i></div>
+          <div>
+            <div class="info-label">Address</div>
+            <div class="info-value">{{ employee.address|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Employment Info -->
+    <div class="side-card">
+      <div class="side-card-title"><i class="fas fa-briefcase"></i> Employment Details</div>
+      <div class="side-card-body">
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-calendar-plus"></i></div>
+          <div>
+            <div class="info-label">Date Hired</div>
+            <div class="info-value">{{ employee.date_hired|date:"F d, Y"|default:"—" }}</div>
+          </div>
+        </div>
+        {% if employee.contract_end_date %}
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-calendar-xmark"></i></div>
+          <div>
+            <div class="info-label">Contract End</div>
+            <div class="info-value">{{ employee.contract_end_date|date:"F d, Y" }}</div>
+          </div>
+        </div>
+        {% endif %}
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-peso-sign"></i></div>
+          <div>
+            <div class="info-label">Monthly Salary</div>
+            <div class="info-value mono">₱{{ employee.monthly_salary|floatformat:2 }}</div>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-layer-group"></i></div>
+          <div>
+            <div class="info-label">Salary Grade / Step</div>
+            <div class="info-value">{{ employee.salary_grade|default:"—" }}</div>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-map-marker-alt"></i></div>
+          <div>
+            <div class="info-label">Station</div>
+            <div class="info-value">{{ employee.station|default:"—" }}</div>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-icon"><i class="fas fa-fingerprint"></i></div>
+          <div>
+            <div class="info-label">Biometric ID</div>
+            <div class="info-value mono">{{ employee.biometric_id|default:"Not enrolled" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gov't IDs -->
+    <div class="side-card">
+      <div class="side-card-title"><i class="fas fa-id-card"></i> Government IDs</div>
+      <div class="side-card-body">
+        {% for label, val in gov_ids %}
+        <div class="info-row">
+          <div>
+            <div class="info-label">{{ label }}</div>
+            <div class="info-value mono">{{ val|default:"—" }}</div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="info-row">
+          <div class="info-value" style="color:var(--gray-300);font-size:.8rem;">No IDs on record.</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div><!-- /LEFT -->
+
+  <!-- RIGHT: Tabbed content -->
+  <div>
+    <div class="side-card">
+
+      <div class="tab-bar">
+        <div class="tab-btn active" onclick="switchTab('dtr')" id="tab-dtr">
+          <i class="fas fa-clock"></i> DTR Summary
+        </div>
+        {% if employee.employment_type == 'permanent' %}
+        <div class="tab-btn" onclick="switchTab('leave')" id="tab-leave">
+          <i class="fas fa-umbrella-beach"></i> Leave Credits
+        </div>
+        {% endif %}
+        <div class="tab-btn" onclick="switchTab('payroll')" id="tab-payroll">
+          <i class="fas fa-peso-sign"></i> Payroll
+        </div>
+        <div class="tab-btn" onclick="switchTab('travel')" id="tab-travel">
+          <i class="fas fa-route"></i> Travel Orders
+        </div>
+      </div>
+
+      <!-- DTR Tab -->
+      <div class="tab-panel active" id="panel-dtr" style="padding:18px 20px;">
+        <div class="mini-stats">
+          <div class="mini-stat">
+            <div class="mini-stat-val" style="color:var(--success);">{{ dtr_summary.present|default:0 }}</div>
+            <div class="mini-stat-label">Days Present (MTD)</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-val" style="color:var(--danger);">{{ dtr_summary.absent|default:0 }}</div>
+            <div class="mini-stat-label">Days Absent (MTD)</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-val" style="color:var(--warning);">{{ dtr_summary.late_minutes|default:0 }}</div>
+            <div class="mini-stat-label">Late Minutes (MTD)</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-val" style="color:var(--gray-500);">{{ dtr_summary.undertime|default:0 }}</div>
+            <div class="mini-stat-label">Undertime Min (MTD)</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:.82rem;font-weight:700;color:var(--navy-900);">Recent DTR Records</div>
+          <a href="{% url 'dtr:detail' employee.id %}" class="btn btn-ghost btn-sm">
+            View Full DTR <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
+          </a>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table-hris">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>AM In</th>
+                <th>AM Out</th>
+                <th>PM In</th>
+                <th>PM Out</th>
+                <th>Late</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rec in recent_dtr %}
+              <tr>
+                <td style="font-size:.8rem;white-space:nowrap;">
+                  {{ rec.date|date:"M d, Y" }}
+                  <span style="font-size:.68rem;color:var(--gray-400);">{{ rec.date|date:"D" }}</span>
+                </td>
+                <td style="font-family:var(--font-mono);font-size:.79rem;">{{ rec.am_in|time:"h:i A"|default:"—" }}</td>
+                <td style="font-family:var(--font-mono);font-size:.79rem;">{{ rec.am_out|time:"h:i A"|default:"—" }}</td>
+                <td style="font-family:var(--font-mono);font-size:.79rem;">{{ rec.pm_in|time:"h:i A"|default:"—" }}</td>
+                <td style="font-family:var(--font-mono);font-size:.79rem;">{{ rec.pm_out|time:"h:i A"|default:"—" }}</td>
+                <td style="font-family:var(--font-mono);font-size:.79rem;
+                           {% if rec.late_minutes > 0 %}color:var(--warning);font-weight:700;{% endif %}">
+                  {{ rec.late_minutes|default:"0" }}m
+                </td>
+                <td>
+                  <span class="status-badge
+                    {% if rec.status == 'present' %}badge-present
+                    {% elif rec.status == 'late' %}badge-late
+                    {% elif rec.status == 'absent' %}badge-absent
+                    {% elif rec.status == 'to' %}badge-to
+                    {% elif rec.status == 'holiday' %}badge-holiday
+                    {% elif rec.status == 'leave' %}badge-leave
+                    {% else %}badge-halfday{% endif %}">
+                    {{ rec.status|capfirst }}
+                  </span>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="7" style="text-align:center;padding:28px;color:var(--gray-400);">
+                  No DTR records yet.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Leave Tab (Permanent only) -->
+      {% if employee.employment_type == 'permanent' %}
+      <div class="tab-panel" id="panel-leave" style="padding:18px 20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:.88rem;font-weight:700;color:var(--navy-900);">Leave Credit Balances</div>
+          <a href="{% url 'leaves:elr' employee.id %}" class="btn btn-ghost btn-sm">
+            Full ELR <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
+          </a>
+        </div>
+        <div class="credit-row">
+          <div>
+            <div class="credit-type-label">Vacation Leave</div>
+            <div class="credit-sub">{{ leave_credits.vl_earned_ytd|default:"0.000" }} earned this year</div>
+          </div>
+          <div class="credit-bar-wrap">
+            <div class="credit-bar-fill"
+                 style="background:var(--navy-700);width:{% widthratio leave_credits.vl_balance|default:0 30 100 %}%;">
+            </div>
+          </div>
+          <div class="credit-val" style="color:var(--navy-700);">
+            {{ leave_credits.vl_balance|floatformat:3|default:"0.000" }}
+          </div>
+        </div>
+        <div class="credit-row">
+          <div>
+            <div class="credit-type-label">Sick Leave</div>
+            <div class="credit-sub">{{ leave_credits.sl_earned_ytd|default:"0.000" }} earned this year</div>
+          </div>
+          <div class="credit-bar-wrap">
+            <div class="credit-bar-fill"
+                 style="background:var(--teal-700);width:{% widthratio leave_credits.sl_balance|default:0 30 100 %}%;">
+            </div>
+          </div>
+          <div class="credit-val" style="color:var(--teal-700);">
+            {{ leave_credits.sl_balance|floatformat:3|default:"0.000" }}
+          </div>
+        </div>
+        <div style="background:var(--navy-25);border-radius:8px;padding:12px 14px;margin-top:14px;font-size:.76rem;color:var(--gray-500);">
+          <i class="fas fa-circle-info" style="color:var(--navy-700);margin-right:5px;"></i>
+          Leave credits accrue at <strong>1.25 VL + 1.25 SL</strong> per month.
+          Absences deduct from leave balance first, then from salary.
+        </div>
+        <a href="{% url 'leaves:print_elr' employee.id %}" class="btn btn-outline btn-sm" style="margin-top:12px;" target="_blank">
+          <i class="fas fa-print"></i> Print ELR
+        </a>
+      </div>
+      {% endif %}
+
+      <!-- Payroll Tab -->
+      <div class="tab-panel" id="panel-payroll" style="padding:18px 20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:.88rem;font-weight:700;color:var(--navy-900);">Recent Payroll Records</div>
+          <a href="{% url 'payroll:periods' %}" class="btn btn-ghost btn-sm">
+            All Periods <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
+          </a>
+        </div>
+        <div class="table-wrap">
+          <table class="table-hris">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Gross</th>
+                <th>Deductions</th>
+                <th>Net Pay</th>
+                <th>Status</th>
+                <th style="text-align:right;">Slip</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rec in recent_payroll %}
+              <tr>
+                <td style="font-size:.8rem;">{{ rec.period.label }}</td>
+                <td style="font-family:var(--font-mono);font-size:.81rem;">₱{{ rec.gross_pay|floatformat:2 }}</td>
+                <td style="font-family:var(--font-mono);font-size:.81rem;color:var(--danger);">₱{{ rec.total_deductions|floatformat:2 }}</td>
+                <td style="font-family:var(--font-mono);font-size:.84rem;font-weight:800;color:var(--success);">₱{{ rec.net_pay|floatformat:2 }}</td>
+                <td>
+                  <span class="pay-status {% if rec.period.is_released %}released{% else %}pending{% endif %}">
+                    {% if rec.period.is_released %}Released{% else %}Pending{% endif %}
+                  </span>
+                </td>
+                <td style="text-align:right;">
+                  <a href="{% url 'payroll:print_payslip' rec.id %}" target="_blank"
+                     style="color:var(--navy-700);font-size:.8rem;">
+                    <i class="fas fa-print"></i>
+                  </a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400);">
+                  No payroll records yet.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Travel Orders Tab -->
+      <div class="tab-panel" id="panel-travel" style="padding:18px 20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:.88rem;font-weight:700;color:var(--navy-900);">Travel Orders / Tickets</div>
+          <a href="{% url 'travel_orders:form' %}?emp={{ employee.id }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus"></i> New TO/TT
+          </a>
+        </div>
+        <div class="table-wrap">
+          <table class="table-hris">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Destination</th>
+                <th>Date From</th>
+                <th>Date To</th>
+                <th>Days</th>
+                <th style="text-align:right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for to in recent_travel %}
+              <tr>
+                <td>
+                  <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:.67rem;font-weight:700;text-transform:uppercase;background:var(--teal-50);color:var(--teal-700);">
+                    {{ to.travel_type|upper }}
+                  </span>
+                </td>
+                <td style="font-size:.82rem;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ to.destination }}</td>
+                <td style="font-family:var(--font-mono);font-size:.79rem;">{{ to.date_from|date:"M d, Y" }}</td>
+                <td style="font-family:var(--font-mono);font-size:.79rem;">{{ to.date_to|date:"M d, Y" }}</td>
+                <td style="text-align:center;font-family:var(--font-mono);font-weight:700;">{{ to.num_days }}</td>
+                <td style="text-align:right;">
+                  <a href="{% url 'travel_orders:edit' to.id %}"
+                     style="color:var(--navy-700);font-size:.8rem;"><i class="fas fa-pen"></i></a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="6" style="text-align:center;padding:28px;color:var(--gray-400);">
+                  No travel orders on record.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /.side-card right -->
+  </div><!-- /RIGHT -->
+
+</div><!-- /.content-grid -->
+{% endblock %}
+
+
+{% block js %}
+<script>
+const tabs = ['dtr', 'leave', 'payroll', 'travel'];
+
+function switchTab(name) {
+  tabs.forEach(t => {
+    const btn = document.getElementById('tab-' + t);
+    const pnl = document.getElementById('panel-' + t);
+    if (btn) btn.classList.toggle('active', t === name);
+    if (pnl) pnl.classList.toggle('active', t === name);
+  });
+}
+</script>
+{% endblock %}

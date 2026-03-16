@@ -11,25 +11,40 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from django.contrib.messages import constants as messages
+from decouple import config
+from kombu import Queue
+import dj_database_url
+import os
+
+# ================================== PATH ================================
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
+
+# ================================== CORE ================================
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-vhdv(fh5a%fsc&xy1taz9d+qra364#g&6u_29$5t+mw72f(*y$'
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default='True') in ['True', 'true', '1', 'yes']
 
-ALLOWED_HOSTS = []
+if DEBUG:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.10.1', '0.0.0.0']
+else:
+    ALLOWED_HOSTS = config('ALLOWED_HOST', default='').split(',')
+    # Add here the URL from HOST PLATFORM (for example)
 
+# ================================== APPLICATIONS ================================
 
 # Application definition
-
 INSTALLED_APPS = [
     # Django built-in
     'django.contrib.admin',
@@ -58,28 +73,98 @@ INSTALLED_APPS = [
     'apps.travel_orders',
 ]
 
+# ================================== MIDDLEWARE ================================
+# Order matters here - please do not rearrange
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # serve static - must be 2nd
+    'corsheaders.middleware.CorsMiddleware',      # must be befoe CommonMiddleWare
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # BFAR custom - no-cache on auth pages + inject current_user into request
+    'apps.core.middleware.NoCacheAuthPagesMiddleware',
+    'apps.core.middleware.InjectCurrentUserMiddleware',
 ]
+
+# Less aggressive security headers for development
+if DEBUG:
+    # Development settings - HTTP allowed
+    print("🔧 DEVELOPMENT MODE - HTTPS DISABLED")
+    SECURE_SSL_REDIRECT = False  # EXPLICITLY SET
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = False
+    X_FRAME_OPTIONS = 'SAMEORIGIN'
+    SECURE_HSTS_SECONDS = 0  # EXPLICITLY SET
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False  # EXPLICITLY SET
+    SECURE_HSTS_PRELOAD = False  # EXPLICITLY SET
+    SESSION_COOKIE_SECURE = False  # EXPLICITLY SET
+    CSRF_COOKIE_SECURE = False  # EXPLICITLY SET
+else:
+    # Production security settings - HTTPS required
+    print("🔒 PRODUCTION MODE - HTTPS ENABLED")
+    SECURE_SSL_REDIRECT = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='').split(',')
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SESSIONS
+# Custom session auth — SystemUser stored in session, not Django's User model.
+#
+# Keys written by apps/accounts/views.py on login:
+#   _auth_user_id    → SystemUser.user_id  (int)
+#   _auth_user_role  → SystemUser.role     (str)
+#   _auth_user_name  → display name        (str)
+#   _auth_is_admin   → bool
+# ─────────────────────────────────────────────────────────────────────────────
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_HTTPONLY = True
+SESSION_SAVE_EVERY_REQUEST = False
+
+if DEBUG:
+    # Development settings
+    SESSION_COOKIE_AGE = 86400  # 24 hours
+    SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+else:
+    # Production settings
+    SESSION_COOKIE_AGE = 86400  # 24 hours
+    SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+    SESSION_COOKIE_SECURE = True  # HTTPS only
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Strict'  # More strict
 
 ROOT_URLCONF = 'bfar_hris.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+
+                # BFAR custom — injects `current_user` into every template
+                'apps.core.context_processors.inject_current_user',
             ],
         },
     },
@@ -91,16 +176,159 @@ WSGI_APPLICATION = 'bfar_hris.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+# ── Database ─────────────────────────────────────────────────────────
+DATABASE_URL = config('DATABASE_URL', default=None)
+
+if DATABASE_URL:
+    # Production - PostgreSQL from the HOST Platform
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
+    print("Using PostgreSQL (Production)")
+else:
+    # Development - PostgrSQL Development Mode
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME'),
+            'USER': config('DB_USER'),
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': config('DB_HOST'),
+            'PORT': config('DB_PORT'),
+        }
+    }
+    print("PostgreSQL - Development (.env credentials)")
+
+# Django will warn about this on every migration.
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CACHE
+#
+# Dev:  LocMemCache — no Redis install needed locally.
+#       Required (not DummyCache) because login lockout uses cache.incr()
+#       and cache.get(). DummyCache silently discards writes → lockout breaks.
+#
+# Prod: Redis database /1, separate from Celery broker on /0.
+# ─────────────────────────────────────────────────────────────────────────────
+
+if DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'bfar-hris-dev',
+        }
+    }
+    print("Cache: LocMemCache (dev)")
+else:
+    _REDIS_BASE = os.getenv('REDIS_URL', 'redis://localhost:6379').rstrip('/')
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': f'{_REDIS_BASE}/1',
+            'KEY_PREFIX': 'bfar_hris',
+            'TIMEOUT': 300,
+        }
+    }
+    print("Cache Redis: Redis ({_REDIS_BASE}/1)")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CELERY + REDIS
+#
+# Queues and their purpose:
+#   biometrics  → ZKTeco push punch data → async DTRRecord creation
+#   payroll     → heavy computation jobs (cutoff, SED generation)
+#   emails      → SMTP notifications (leave approvals, payslip delivery)
+#   default     → everything else (leave accrual, holiday sync, etc.)
+#
+# Dev without Redis: add CELERY_EAGER_MODE=True to .env
+#   → tasks run synchronously in the same process, no worker needed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379').rstrip('/')
+
+CELERY_BROKER_URL = f'{REDIS_URL}/0'
+CELERY_RESULT_BACKEND = f'{REDIS_URL}/0'
+
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Manila'
+CELERY_ENALBE_UTC = True
+CELERY_TASK_TRACK_STARTED = True
+
+CELERY_TASK_TIME_LIMIT = 20 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 18 * 60
+CELERY_RESULT_EXPIRES = 60 * 60 * 24
+
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_WORKER_MAX_TASK_PER_CHILD = 100
+
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_TASK_QUEUES = (
+    Queue('default'),
+    Queue('biometrics'),
+    Queue('payroll'),
+    Queue('emails'),
+)
+
+CELERY_TASK_ROUTES = {
+    'apps.biometrics.tasks.*': {'queue': 'biometrics'},
+    'apps.dtr.tasks.*': {'queue': 'biometrics'},
+    'apps.payroll.tasks*': {'queue': 'payroll'},
+    'apps.accounts.tasks.*': {'queue': 'emails'},
+    'apps.leaves.tasks.*': {'queue': 'default'},
 }
 
+_EAGER = os.getenv('CELERY_EAGER_MODE', 'False').lower() in ['true', 1, 'yes']
+CELERY_TASK_ALWAYS_EAGER     = _EAGER
+CELERY_TASK_EAGER_PROPAGATES = _EAGER
+
+if _EAGER:
+    print("Celery: EAGER MODE - tasks run synchronously (no Redis needed)")
+else:
+    print(f"Celery: broker = {CELERY_BROKER_URL}")
+
+# ===================== EMAIL =========================
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True) in ['True', 'true', '1']
+
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+
+# ===================== DJANGO MESSAGES -> maps to .toast--{tag} CSS classes in messages.html =========================
+MESSAGES_TAGS = {
+    messages.DEBUG: 'debug',
+    messages.INFO: 'info',
+    messages.SUCCESS: 'success',
+    messages.WARNING: 'warning',
+    messages.ERROR: 'error',
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
+
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+]
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -121,16 +349,187 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
+# ================================== TIMEZONE & INTENATIONALIZATION ================================
 LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
+TIME_ZONE = 'Asia/Manila'
 USE_I18N = True
-
 USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
+# ── Static & Media ───────────────────────────────────────────────────
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static"
+]
+
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder'
+]
+
+if DEBUG:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# White noise configuration
+# This is necessary because when I host this to get all the styles of pages
+if DEBUG:
+    # Development mode - no compression
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFileStorage'
+
+# URLS & WSGI
+ROOT_URLCONF = 'bfar_hris.urls'
+WSGI_APPLICATION = 'bfar_hris.wsgi.application'
+
+# LOGIN REDIRECT
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
+
+# Media files (user uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+if DEBUG:
+    # Development mode - local storage
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+else:
+    # Production mode - Cloudinary or other Storage for media files
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # Fallback for the chosen cloud storage for media files
+
+# FILE UPLOADS LIMITS
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+
+# Password hashes
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',  # Most secure
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+]
+
+# ── Third-party config ───────────────────────────────────────────────
+# CRISPY FORMS
+CRISPY_ALLOWED_TEMPLATE_PACKS = 'bootstrap5'
+CRISPY_TEMPLATE_PACK = 'bootstrap5'
+
+# REST FRAMEWORK
+# Needed for the biometric SDK API endpoint (/api/biometrics/receive/)
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_RENDER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+}
+
+CORS_ALLOWED_ORIGINS = [] # Add device IP in production
+CORS_ALLOWED_ALL_ORIGINS = False # Keep False - only allow specific IPs
+
+# For development/LAN:
+if DEBUG:
+    # Use ALLOW_ALL instead of ALLOWED_ORIGINS to avoid the "sequence of strings" error
+    CORS_ALLOWED_ALL_ORIGINS = True # Relax in dev only
+else:
+    CORS_ALLOWED_ALL_ORIGINS = False
+    # In production, list your specific domains here
+    CORS_ALLOWED_ORIGINS = [
+        "https://your-domain.com",
+    ]
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+            'level': 'DEBUG' if DEBUG else 'INFO',
+        },
+        'auth_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'auth.log',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+            'formatter': 'verbose',
+            'level': 'INFO',
+        },
+        'dtr_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'dtr.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter': 'verbose',
+            'level': 'INFO',
+        },
+        'payroll_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'payroll.log',
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 3,
+            'formatter': 'verbose',
+            'level': 'INFO',
+        },
+        'general_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'general.log',
+            'maxBytes': 5 * 1024 * 1024,
+            'formatter': 'verbose',
+            'level': 'INFO'
+        },
+    },
+
+    'loggers': {
+        'apps.accounts': {
+            'handlers': ['console', 'auth_file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'apps.dtr': {
+            'handlers': ['console', 'dtr_file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'apps.biometrics': {
+            'handlers': ['console', 'dtr_file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'apps.payroll': {
+            'handlers': ['console', 'payroll_file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+        'apps': {
+            'handlers': ['console', 'general_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.core.mail': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'WARNING',
+            'propagate': False,
+        },
+    },
+}

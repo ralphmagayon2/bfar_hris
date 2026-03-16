@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Payroll — {{ period.label }} — BFAR HRIS{% endblock %}
+{% block page_title %}Payroll Records{% endblock %}
+
+{% block css %}
+<style>
+.period-banner { background:linear-gradient(135deg,var(--navy-900),var(--navy-800));border-radius:10px;padding:16px 20px;color:var(--white);margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px; }
+.pb-label { font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--navy-200);margin-bottom:2px; }
+.pb-period { font-size:1.05rem;font-weight:700; }
+.pb-dates  { font-size:.78rem;color:var(--navy-200); }
+.toolbar { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px; }
+.toolbar-left,.toolbar-right { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.search-wrap { position:relative;width:240px; }
+.search-wrap i { position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:.78rem;pointer-events:none; }
+.search-wrap input { padding:7px 12px 7px 30px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.82rem;font-family:var(--font);color:var(--navy-900);width:100%;transition:border-color .2s; }
+.search-wrap input:focus { outline:none;border-color:var(--navy-700); }
+.filter-select { padding:7px 26px 7px 10px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.82rem;font-family:var(--font);background:var(--white);color:var(--navy-900);appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2378909C' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center; }
+.emp-cell { display:flex;align-items:center;gap:9px; }
+.emp-avatar { width:32px;height:32px;border-radius:7px;background:var(--navy-50);color:var(--navy-700);font-size:.74rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden; }
+.emp-avatar img { width:100%;height:100%;object-fit:cover; }
+.emp-name-text { font-weight:600;font-size:.83rem;color:var(--navy-900); }
+.emp-div-text  { font-size:.7rem;color:var(--gray-400); }
+.row-actions { display:flex;align-items:center;gap:4px;justify-content:flex-end; }
+.row-btn { width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.75rem;cursor:pointer;text-decoration:none;color:var(--gray-400);transition:background .2s,color .2s; }
+.row-btn.print:hover { background:var(--success-light);color:var(--success); }
+
+/* Totals row */
+.totals-row td { font-weight:800;background:var(--navy-900)!important;color:var(--white)!important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">{{ period.label }}</h1>
+    <p class="page-sub">{{ period.date_from|date:"F d" }} – {{ period.date_to|date:"F d, Y" }} &mdash; Release: {{ period.release_date|date:"F d, Y" }}</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="#" class="btn btn-outline btn-sm"><i class="fas fa-file-excel"></i> Export</a>
+    <a href="{% url 'payroll:compute' period.id %}" class="btn btn-primary">
+      <i class="fas fa-calculator"></i> {% if records %}Re-compute{% else %}Compute Payroll{% endif %}
+    </a>
+    <a href="{% url 'payroll:periods' %}" class="btn btn-ghost btn-sm"><i class="fas fa-arrow-left"></i></a>
+  </div>
+</div>
+
+<!-- Summary totals -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;">
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:14px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-400);margin-bottom:4px;">Employees</div>
+    <div style="font-size:1.6rem;font-weight:800;font-family:var(--font-mono);color:var(--navy-900);">{{ records|length }}</div>
+  </div>
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:14px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-400);margin-bottom:4px;">Total Gross</div>
+    <div style="font-size:1.6rem;font-weight:800;font-family:var(--font-mono);color:var(--navy-900);">₱{{ totals.gross|floatformat:2|default:"0.00" }}</div>
+  </div>
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:14px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-400);margin-bottom:4px;">Total Deductions</div>
+    <div style="font-size:1.6rem;font-weight:800;font-family:var(--font-mono);color:var(--danger);">₱{{ totals.deductions|floatformat:2|default:"0.00" }}</div>
+  </div>
+  <div style="background:var(--navy-900);border-radius:10px;box-shadow:var(--shadow);padding:14px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--navy-200);margin-bottom:4px;">Total Net Pay</div>
+    <div style="font-size:1.6rem;font-weight:800;font-family:var(--font-mono);color:var(--white);">₱{{ totals.net|floatformat:2|default:"0.00" }}</div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="search-wrap"><i class="fas fa-search"></i>
+      <input type="text" id="pr-search" placeholder="Search employee…" oninput="filterPR()">
+    </div>
+    <select class="filter-select" id="pr-type-filter" onchange="filterPR()">
+      <option value="">All Types</option>
+      <option value="permanent">Permanent</option>
+      <option value="cos">COS</option>
+      <option value="jo">JO</option>
+    </select>
+  </div>
+  <span id="pr-count" style="font-size:.76rem;color:var(--gray-400);">{{ records|length }} records</span>
+</div>
+
+<!-- Table -->
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;">
+  <div class="table-wrap">
+    <table class="table-hris">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Type</th>
+          <th>Days</th>
+          <th>Late (min)</th>
+          <th>Gross Pay</th>
+          <th>GSIS</th>
+          <th>PhilHealth</th>
+          <th>Pag-IBIG</th>
+          <th>Tax</th>
+          <th>Other Ded.</th>
+          <th>Net Pay</th>
+          <th style="text-align:right;">Payslip</th>
+        </tr>
+      </thead>
+      <tbody id="pr-tbody">
+        {% for rec in records %}
+        <tr data-name="{{ rec.employee.get_full_name|lower }}"
+            data-type="{{ rec.employee.employment_type|lower }}">
+          <td>
+            <div class="emp-cell">
+              <div class="emp-avatar">
+                {% if rec.employee.profile_picture %}<img src="{{ rec.employee.profile_picture.url }}" alt="">
+                {% else %}{{ rec.employee.first_name|first|upper }}{{ rec.employee.last_name|first|upper }}{% endif %}
+              </div>
+              <div>
+                <div class="emp-name-text">{{ rec.employee.get_full_name }}</div>
+                <div class="emp-div-text">{{ rec.employee.division.name|default:"—" }}</div>
+              </div>
+            </div>
+          </td>
+          <td><span style="display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:.65rem;font-weight:700;text-transform:uppercase;background:var(--navy-50);color:var(--navy-700);">{{ rec.employee.employment_type|upper }}</span></td>
+          <td style="text-align:center;font-family:var(--font-mono);font-size:.8rem;">{{ rec.days_present|default:"0" }}</td>
+          <td style="text-align:center;font-family:var(--font-mono);font-size:.8rem;color:var(--warning);">{{ rec.total_late_minutes|default:"0" }}</td>
+          <td style="font-family:var(--font-mono);font-size:.82rem;font-weight:600;">₱{{ rec.gross_pay|floatformat:2 }}</td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">₱{{ rec.gsis_deduction|floatformat:2|default:"0.00" }}</td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">₱{{ rec.philhealth_deduction|floatformat:2|default:"0.00" }}</td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">₱{{ rec.pagibig_deduction|floatformat:2|default:"0.00" }}</td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">₱{{ rec.tax_deduction|floatformat:2|default:"0.00" }}</td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">₱{{ rec.other_deductions|floatformat:2|default:"0.00" }}</td>
+          <td style="font-family:var(--font-mono);font-size:.9rem;font-weight:800;color:var(--success);">₱{{ rec.net_pay|floatformat:2 }}</td>
+          <td>
+            <div class="row-actions">
+              <a href="{% url 'payroll:print_payslip' rec.id %}" class="row-btn print" title="Print payslip" target="_blank">
+                <i class="fas fa-print"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="12" style="text-align:center;padding:48px;color:var(--gray-400);">
+          <i class="fas fa-calculator" style="font-size:2rem;display:block;opacity:.2;margin-bottom:10px;"></i>
+          No payroll records. <a href="{% url 'payroll:compute' period.id %}" style="color:var(--navy-700);font-weight:600;">Compute payroll now.</a>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+function filterPR() {
+  const q  = document.getElementById('pr-search').value.toLowerCase();
+  const tp = document.getElementById('pr-type-filter').value;
+  const rows = document.querySelectorAll('#pr-tbody tr[data-name]');
+  let count = 0;
+  rows.forEach(row => {
+    const show = (!q||row.dataset.name.includes(q)) && (!tp||row.dataset.type===tp);
+    row.style.display = show ? '' : 'none';
+    if(show) count++;
+  });
+  document.getElementById('pr-count').textContent = count + ' records';
+}
+</script>
+{% endblock %}

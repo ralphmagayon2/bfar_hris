@@ -1,0 +1,252 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daily Time Record — BFAR HRIS{% endblock %}
+{% block page_title %}Daily Time Record{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/dtr_list.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Daily Time Record</h1>
+    {% comment %} {#
+      BUG FIX: 'today' was used here but never passed by the view → 500 error.
+      Now passed explicitly from dtr_list() as a date object.
+      selected_date falls back to today when no date filter is active.
+    #} {% endcomment %}
+    <p class="page-sub">Attendance records for all employees &mdash; {{ selected_date|date:"F d, Y"|default:today|date:"F d, Y" }}</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="#" class="btn btn-outline btn-sm"><i class="fas fa-file-excel"></i> Export</a>
+  </div>
+</div>
+
+<!-- Summary chips -->
+<div class="summary-chips">
+  <div class="summary-chip">
+    <span class="status-badge badge-present">Present</span>
+    <span class="chip-val">{{ summary.present|default:0 }}</span>
+  </div>
+  <div class="summary-chip">
+    <span class="status-badge badge-absent">Absent</span>
+    <span class="chip-val">{{ summary.absent|default:0 }}</span>
+  </div>
+  <div class="summary-chip">
+    <span class="status-badge badge-late">Late</span>
+    <span class="chip-val">{{ summary.late|default:0 }}</span>
+  </div>
+  <div class="summary-chip">
+    <span class="status-badge badge-to">Travel</span>
+    <span class="chip-val">{{ summary.on_travel|default:0 }}</span>
+  </div>
+  <div class="summary-chip">
+    <span class="status-badge badge-leave">Leave</span>
+    <span class="chip-val">{{ summary.on_leave|default:0 }}</span>
+  </div>
+  <div class="summary-chip">
+    <span class="status-badge badge-holiday">Holiday</span>
+    <span class="chip-val">{{ summary.holiday|default:0 }}</span>
+  </div>
+  <div class="summary-chip">
+    <span class="status-badge badge-halfday">Half-day</span>
+    <span class="chip-val">{{ summary.halfday|default:0 }}</span>
+  </div>
+</div>
+
+<!-- Date filter bar -->
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);
+            box-shadow:var(--shadow);padding:14px 18px;margin-bottom:16px;
+            display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <form method="get" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;">
+    <label style="font-size:.78rem;font-weight:600;color:var(--gray-500);white-space:nowrap;">
+      <i class="fas fa-calendar-day" style="margin-right:4px;"></i>Date
+    </label>
+    {% comment %} {#
+      BUG FIX: original had today|date:'Y-m-d' as a filter fallback inside value="",
+      which fails because today was not in context. Now selected_date is always set by
+      the view, so we use it directly. Falls back to empty string when month filter is active.
+    #} {% endcomment %}
+    <input type="date" name="date"
+           value="{{ selected_date|date:'Y-m-d'|default:'' }}"
+           class="filter-select" style="padding:7px 10px;width:auto;">
+    <span style="font-size:.78rem;color:var(--gray-400);">or</span>
+    <label style="font-size:.78rem;font-weight:600;color:var(--gray-500);white-space:nowrap;">Month</label>
+    <input type="month" name="month"
+           value="{{ selected_month|date:'Y-m'|default:'' }}"
+           class="filter-select" style="padding:7px 10px;width:auto;">
+    <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-search"></i> Filter</button>
+    <a href="{% url 'dtr:list' %}" class="btn btn-ghost btn-sm">Reset</a>
+  </form>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" id="dtr-search" placeholder="Search employee…" oninput="filterDtr()">
+    </div>
+
+    <div class="filter-row">
+      <select class="filter-select" id="dtr-status-filter" onchange="filterDtr()">
+        <option value="">All Status</option>
+        <option value="present">Present</option>
+        <option value="absent">Absent</option>
+        <option value="late">Late</option>
+        <option value="on_travel">Travel Order</option>
+        <option value="leave">On Leave</option>
+        <option value="holiday">Holiday</option>
+        <option value="halfday">Half-day</option>
+      </select>
+      <select class="filter-select" id="dtr-type-filter" onchange="filterDtr()">
+        <option value="">All Types</option>
+        <option value="permanent">Permanent</option>
+        <option value="cos">COS</option>
+        <option value="jo">JO</option>
+      </select>
+    </div>
+    
+  </div>
+  <div class="toolbar-right">
+    {% comment %} {#
+      BUG FIX: dtr_records is now a Page object from Paginator.
+      Use paginator.count for total, or object_list length for current page.
+      Use |length on the page's object_list to avoid AttributeError.
+    #} {% endcomment %}
+    <span id="dtr-count" style="font-size:.76rem;color:var(--gray-400);">
+      {{ dtr_records.paginator.count }} records
+    </span>
+  </div>
+</div>
+
+<!-- Table -->
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;">
+  <div class="table-wrap">
+    <table class="table-hris">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Type</th>
+          <th>AM In</th>
+          <th>AM Out</th>
+          <th>PM In</th>
+          <th>PM Out</th>
+          <th>Late (min)</th>
+          <th>Undertime</th>
+          <th>Status</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="dtr-tbody">
+        {% for rec in dtr_records %}
+        {% comment %} {#
+          data-status uses the derived rec.status set by the view.
+          JS filter options must match exactly: on_travel not "to".
+        #} {% endcomment %}
+        <tr data-name="{{ rec.employee.get_full_name|lower }}"
+            data-status="{{ rec.status }}"
+            data-type="{{ rec.employee.employment_type|lower }}">
+          <td>
+            <div class="emp-cell">
+              <div class="emp-avatar">
+                {% comment %} {# BUG FIX: Employee model has no profile_picture — use initials #} {% endcomment %}
+                {{ rec.employee.get_initials }}
+              </div>
+              <div>
+                <div class="emp-name-text">{{ rec.employee.get_full_name }}</div>
+                {% comment %} {# BUG FIX: Division field is division_name not name #} {% endcomment %}
+                <div class="emp-div-text">{{ rec.employee.division.division_name|default:"—" }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="emp-type {{ rec.employee.employment_type|lower }}"
+                  style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:.65rem;font-weight:700;text-transform:uppercase;">
+              {{ rec.employee.employment_type|upper }}
+            </span>
+          </td>
+          <td class="time-cell">{{ rec.am_in|time:"h:i A"|default:"—" }}</td>
+          <td class="time-cell">{{ rec.am_out|time:"h:i A"|default:"—" }}</td>
+          <td class="time-cell">{{ rec.pm_in|time:"h:i A"|default:"—" }}</td>
+          <td class="time-cell">{{ rec.pm_out|time:"h:i A"|default:"—" }}</td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;
+                     {% if rec.minutes_late > 0 %}color:var(--warning);font-weight:700;{% endif %}">
+            {% comment %} {# BUG FIX: model field is minutes_late not late_minutes #} {% endcomment %}
+            {{ rec.minutes_late|default:"0" }}
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;">
+            {% comment %} {#
+              BUG FIX: model field is hours_undertime (a decimal in hours).
+              Multiply by 60 for minutes display, using the alias set in the view.
+            #} {% endcomment %}
+            {{ rec.undertime_minutes|default:"0" }}min
+          </td>
+          <td>
+            <span class="status-badge
+              {% if rec.status == 'present' %}badge-present
+              {% elif rec.status == 'late' %}badge-late
+              {% elif rec.status == 'absent' %}badge-absent
+              {% elif rec.status == 'on_travel' %}badge-to
+              {% elif rec.status == 'holiday' %}badge-holiday
+              {% elif rec.status == 'leave' %}badge-leave
+              {% else %}badge-halfday{% endif %}">
+              {{ rec.status|capfirst }}
+            </span>
+          </td>
+          <td>
+            <div class="row-actions">
+              {# BUG FIX: PK is employee_id not id #}
+              <a href="{% url 'dtr:detail' rec.employee.employee_id %}" class="row-btn view" title="View full DTR">
+                <i class="fas fa-eye"></i>
+              </a>
+              <a href="{% url 'dtr:print_dtr' rec.employee.employee_id %}" class="row-btn print" title="Print DTR" target="_blank">
+                <i class="fas fa-print"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="10" style="text-align:center;padding:48px;color:var(--gray-400);">
+          <i class="fas fa-clock" style="font-size:2rem;display:block;opacity:.2;margin-bottom:10px;"></i>
+          No DTR records found for the selected date.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if dtr_records.has_other_pages %}
+  <div style="padding:12px 18px;border-top:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div class="page-info">
+      Showing {{ dtr_records.start_index }}–{{ dtr_records.end_index }} of {{ dtr_records.paginator.count }}
+    </div>
+    <div class="page-btns">
+      {% if dtr_records.has_previous %}
+        <a href="?page={{ dtr_records.previous_page_number }}" class="page-btn">
+          <i class="fas fa-chevron-left"></i>
+        </a>
+      {% endif %}
+      {% for num in dtr_records.paginator.page_range %}
+        {% if dtr_records.number == num %}
+          <span class="page-btn active">{{ num }}</span>
+        {% elif num > dtr_records.number|add:"-3" and num < dtr_records.number|add:"3" %}
+          <a href="?page={{ num }}" class="page-btn">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if dtr_records.has_next %}
+        <a href="?page={{ dtr_records.next_page_number }}" class="page-btn">
+          <i class="fas fa-chevron-right"></i>
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/dtr_list.js' %}"></script>
+{% endblock %}

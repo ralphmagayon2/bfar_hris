@@ -1,0 +1,121 @@
+/* ── BFAR-III DTR Print Styles ─────────────────────────── */
+body { font-size: 10pt; }
+
+.dtr-doc-title {
+  text-align: center;
+  font-size: 11pt;
+  font-weight: 700;
+  margin-bottom: 2mm;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.dtr-doc-subtitle {
+  text-align: center;
+  font-size: 8pt;
+  color: #555;
+  margin-bottom: 4mm;
+}
+
+/* ── Employee info header ─────────────────────────────────── */
+.dtr-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20mm;
+  margin-bottom: 4mm;
+  font-size: 9.5pt;
+}
+.dtr-info-row {
+  display: flex;
+  gap: 4mm;
+  padding: 2mm 0;
+  border-bottom: 1px solid #ccc;
+}
+.dtr-info-label {
+  font-weight: 700;
+  color: #333;
+  min-width: 32mm;
+  flex-shrink: 0;
+  font-size: 8.5pt;
+  text-transform: uppercase;
+}
+.dtr-info-value { color: #000; }
+
+/* ── DTR Table ─────────────────────────────────────────────── */
+.dtr-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+  margin-bottom: 6mm;
+}
+.dtr-print-table thead tr {
+  background: #1a237e;
+  color: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.dtr-print-table thead th {
+  padding: 3mm 2mm;
+  font-size: 7.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  text-align: center;
+  border: 1px solid #1a237e;
+}
+.dtr-print-table thead th.left { text-align: left; }
+.dtr-print-table tbody tr {
+  border-bottom: 1px solid #ddd;
+}
+.dtr-print-table tbody tr:nth-child(even) {
+  background: #f5f7fa;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.dtr-print-table tbody tr.holiday-row {
+  background: #fff8e1;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.dtr-print-table tbody td {
+  padding: 2.5mm 2mm;
+  text-align: center;
+  border: 1px solid #e0e0e0;
+  vertical-align: middle;
+}
+.dtr-print-table tbody td.left { text-align: left; }
+.dtr-print-table .late-time { color: #e65100; font-weight: 700; }
+.dtr-print-table .absent-marker { color: #c62828; font-weight: 700; }
+
+/* ── Totals row ─────────────────────────────────────────────── */
+.dtr-print-table tfoot tr { background: #0a2342; color: #fff;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.dtr-print-table tfoot td { padding: 3mm 2mm; font-weight: 700; font-size: 9pt; border: 1px solid #0a2342; }
+
+/* ── Signature section ───────────────────────────────────────── */
+.sig-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10mm;
+  margin-top: 6mm;
+  font-size: 9pt;
+}
+/* .sig-block { } */
+.sig-label { font-size: 8pt; color: #555; text-transform: uppercase;
+  letter-spacing: .5px; margin-bottom: 8mm; }
+.sig-name { font-weight: 700; font-size: 10pt; border-top: 1px solid #000;
+  padding-top: 2mm; }
+.sig-title { font-size: 8.5pt; color: #333; }
+
+/* ── Certifying officer box ───────────────────────────────────── */
+.certify-box {
+  border: 1px solid #ccc;
+  border-radius: 3mm;
+  padding: 4mm;
+  margin-top: 5mm;
+  font-size: 9pt;
+}
+.certify-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .5px; color: #777; margin-bottom: 2mm; }
+.certify-text  { font-size: 8.5pt; line-height: 1.4; color: #333; }
+.certify-sig-line { margin-top: 8mm; border-top: 1px solid #000; padding-top: 2mm; }
+.certify-sig-name  { font-weight: 700; }
+.certify-sig-title { font-size: 8pt; color: #555; }

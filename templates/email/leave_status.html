@@ -1,0 +1,157 @@
+{# templates/emails/leave_status.html #}
+{#
+   Sent when a leave application is approved, denied, or cancelled.
+
+   Context variables (from leaves/tasks.py send_leave_status_email):
+     employee_name    — "DELA CRUZ, Juan M."
+     leave_type       — e.g. "Vacation Leave"
+     date_from        — formatted string e.g. "April 1, 2026"
+     date_to          — formatted string e.g. "April 3, 2026"
+     num_days         — integer
+     remaining_balance — e.g. "12.5 days" or "—"
+     status           — 'approved' | 'denied' | 'cancelled'
+     status_label     — "Approved" | "Denied" | "Cancelled"
+     processed_by     — name of HR staff who acted on it (optional)
+     remarks          — optional text reason (especially for denial)
+#}
+{% extends "emails/base_email.html" %}
+
+{% block subject %}Leave Application &mdash; {{ status_label }}{% endblock %}
+
+{% block banner %}
+<tr>
+  <td align="center"
+      style="background-color:
+             {% if status == 'approved' %}#166534
+             {% elif status == 'denied' %}#991B1B
+             {% else %}#374151{% endif %};
+             padding:10px 24px;">
+    <p style="margin:0;font-size:12px;font-weight:700;
+               color:#FFFFFF;letter-spacing:0.8px;text-transform:uppercase;">
+      {% if status == 'approved' %}&#9989;{% elif status == 'denied' %}&#10060;{% else %}&#8635;{% endif %}
+      Leave Application &mdash; {{ status_label }}
+    </p>
+  </td>
+</tr>
+{% endblock %}
+
+{% block body %}
+
+  <!-- Greeting -->
+  <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1E293B;">
+    Dear {{ employee_name }},
+  </h2>
+  <p style="margin:0 0 24px;font-size:14px;color:#475569;line-height:1.7;">
+    Your leave application has been
+    <strong style="color:
+      {% if status == 'approved' %}#166534
+      {% elif status == 'denied' %}#991B1B
+      {% else %}#374151{% endif %};">
+      {{ status_label }}
+    </strong>.
+    Please see the details below.
+  </p>
+
+  <!-- Leave details box -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="background:#F8FAFC;border:1px solid #E2E8F0;
+                border-radius:8px;margin-bottom:{% if remarks %}16{% else %}24{% endif %}px;">
+    <tr>
+      <td style="padding:20px 24px;">
+
+        <p style="margin:0 0 14px;font-size:11px;font-weight:700;
+                   color:#374151;text-transform:uppercase;letter-spacing:0.6px;">
+          Leave Details
+        </p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="font-size:13px;color:#64748B;font-weight:500;
+                       width:160px;padding:5px 0;vertical-align:top;">Leave Type</td>
+            <td style="font-size:13px;color:#1E293B;font-weight:600;
+                       padding:5px 0;">{{ leave_type }}</td>
+          </tr>
+          <tr>
+            <td style="font-size:13px;color:#64748B;font-weight:500;
+                       padding:5px 0;vertical-align:top;">Inclusive Dates</td>
+            <td style="font-size:13px;color:#1E293B;
+                       padding:5px 0;">{{ date_from }} &ndash; {{ date_to }}</td>
+          </tr>
+          <tr>
+            <td style="font-size:13px;color:#64748B;font-weight:500;
+                       padding:5px 0;vertical-align:top;">Number of Days</td>
+            <td style="font-size:13px;color:#1E293B;
+                       padding:5px 0;">{{ num_days }} day{% if num_days != 1 %}s{% endif %}</td>
+          </tr>
+          {% if remaining_balance %}
+          <tr>
+            <td style="font-size:13px;color:#64748B;font-weight:500;
+                       padding:5px 0;vertical-align:top;">Leave Balance (After)</td>
+            <td style="font-size:13px;color:#1E293B;
+                       padding:5px 0;">{{ remaining_balance }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td colspan="2"
+                style="border-top:1px solid #E2E8F0;padding:5px 0 0;"></td>
+          </tr>
+          <tr>
+            <td style="font-size:13px;color:#64748B;font-weight:500;
+                       padding:5px 0;vertical-align:top;">Status</td>
+            <td style="padding:5px 0;">
+              <span style="display:inline-block;
+                           padding:2px 12px;border-radius:99px;
+                           font-size:12px;font-weight:700;
+                           letter-spacing:0.5px;text-transform:uppercase;
+                           background:
+                             {% if status == 'approved' %}#DCFCE7{% elif status == 'denied' %}#FEE2E2{% else %}#F3F4F6{% endif %};
+                           color:
+                             {% if status == 'approved' %}#166534{% elif status == 'denied' %}#991B1B{% else %}#374151{% endif %};">
+                {{ status_label }}
+              </span>
+            </td>
+          </tr>
+          {% if processed_by %}
+          <tr>
+            <td style="font-size:13px;color:#64748B;font-weight:500;
+                       padding:5px 0;vertical-align:top;">Processed By</td>
+            <td style="font-size:13px;color:#1E293B;
+                       padding:5px 0;">{{ processed_by }}</td>
+          </tr>
+          {% endif %}
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+  <!-- Remarks (denial reason, notes) -->
+  {% if remarks %}
+  <table width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="background:
+                  {% if status == 'denied' %}#FFF1F2{% else %}#F8FAFC{% endif %};
+                border:1px solid
+                  {% if status == 'denied' %}#FECDD3{% else %}#E2E8F0{% endif %};
+                border-radius:8px;margin-bottom:24px;">
+    <tr>
+      <td style="padding:16px 20px;">
+        <p style="margin:0 0 5px;font-size:12px;font-weight:700;
+                   text-transform:uppercase;letter-spacing:0.5px;
+                   color:{% if status == 'denied' %}#9F1239{% else %}#374151{% endif %};">
+          Remarks
+        </p>
+        <p style="margin:0;font-size:13px;line-height:1.6;
+                   color:{% if status == 'denied' %}#9F1239{% else %}#475569{% endif %};">
+          {{ remarks }}
+        </p>
+      </td>
+    </tr>
+  </table>
+  {% endif %}
+
+  <p style="margin:0;font-size:13px;color:#64748B;line-height:1.6;">
+    For questions or concerns regarding this leave application,
+    please coordinate directly with the HR Division.
+  </p>
+
+{% endblock %}

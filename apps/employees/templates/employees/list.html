@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Employees — BFAR HRIS{% endblock %}
+{% block page_title %}Employees{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/list.css' %}">
+{% endblock %}
+
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Employees</h1>
+    <p class="page-sub">
+      {{ total_active }} active &mdash; {{ total_all }} total &mdash; BFAR Region III
+    </p>
+  </div>
+  <div class="employee-action-btns">
+    <a href="#" class="btn btn-outline btn-sm" id="export-btn">
+      <i class="fas fa-file-excel"></i> Export
+    </a>
+    <a href="{% url 'employees:form' %}" class="btn btn-primary">
+      <i class="fas fa-user-plus"></i> Add Employee
+    </a>
+  </div>
+</div>
+
+<!-- Type filter chips -->
+<div class="type-chips">
+  <div class="type-chip active-chip" onclick="chipFilter('', this)" id="chip-all">
+    <span class="emp-type permanent" style="background:var(--navy-50);color:var(--navy-700);">All</span>
+    <span class="chip-count">{{ total_all }}</span>
+  </div>
+  {% for stat in type_stats %}
+  <div class="type-chip" onclick="chipFilter('{{ stat.employment_type|lower }}', this)">
+    <span class="emp-type {{ stat.employment_type|lower }}">{{ stat.employment_type }}</span>
+    <span class="chip-count">{{ stat.count }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" id="emp-search" placeholder="Search name or employee ID…" oninput="filterTable()">
+    </div>
+
+    {% comment %} Wrapper {% endcomment %}
+    <div class="filter-row">
+      <select class="filter-select" id="div-filter" onchange="filterTable()">
+        <option value="">All Divisions</option>
+        {% for div in divisions %}
+        <option value="{{ div.id }}">{{ div.name }}</option>
+        {% endfor %}
+      </select>
+      <select class="filter-select" id="status-filter" onchange="filterTable()">
+        <option value="">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+    
+  </div>
+  <div class="toolbar-right">
+    <span id="emp-count" style="font-size:.78rem;color:var(--gray-400);">{{ employees|length }} shown</span>
+  </div>
+</div>
+
+<!-- Table -->
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;">
+  <div class="table-wrap">
+    <table class="table-hris" id="emp-table">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Employee ID</th>
+          <th>Position</th>
+          <th>Division / Unit</th>
+          <th>Type</th>
+          <th>Monthly Salary</th>
+          <th>Status</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="emp-tbody">
+        {% for emp in employees %}
+        <tr data-name="{{ emp.get_full_name|lower }}"
+            data-empid="{{ emp.employee_id|lower|default:'' }}"
+            data-type="{{ emp.employment_type|lower }}"
+            data-division="{{ emp.division.id|default:'' }}"
+            data-status="{% if emp.is_active %}active{% else %}inactive{% endif %}">
+          <td>
+            <div class="emp-cell">
+              <div class="emp-avatar">
+                {% if emp.profile_picture %}
+                  <img src="{{ emp.profile_picture.url }}" alt="{{ emp.get_full_name }}">
+                {% else %}
+                  {{ emp.first_name|first|upper }}{{ emp.last_name|first|upper }}
+                {% endif %}
+              </div>
+              <div>
+                <div class="emp-name-text">{{ emp.get_full_name }}</div>
+                <div class="emp-id-text">{{ emp.employee_id|default:"—" }}</div>
+              </div>
+            </div>
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">
+            {{ emp.employee_id|default:"—" }}
+          </td>
+          <td style="font-size:.82rem;">{{ emp.position.title|default:"—" }}</td>
+          <td>
+            <div style="font-size:.82rem;font-weight:500;">{{ emp.division.name|default:"—" }}</div>
+            {% if emp.unit %}
+            <div style="font-size:.7rem;color:var(--gray-400);">{{ emp.unit.name }}</div>
+            {% endif %}
+          </td>
+          <td>
+            <span class="emp-type {{ emp.employment_type|lower }}">
+              {{ emp.employment_type|upper }}
+            </span>
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.82rem;">
+            ₱{{ emp.monthly_salary|floatformat:2 }}
+          </td>
+          <td>
+            <span class="status-badge {% if emp.is_active %}badge-present{% else %}badge-absent{% endif %}">
+              {% if emp.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </td>
+          <td>
+            <div class="row-actions">
+              <a href="{% url 'dtr:detail' emp.id %}" class="row-btn dtr" title="View DTR">
+                <i class="fas fa-clock"></i>
+              </a>
+              <a href="{% url 'employees:edit' emp.id %}" class="row-btn edit" title="Edit">
+                <i class="fas fa-pen"></i>
+              </a>
+              <a href="{% url 'employees:detail' emp.id %}" class="row-btn view" title="View Profile">
+                <i class="fas fa-eye"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" style="text-align:center;padding:52px;color:var(--gray-400);">
+            <i class="fas fa-users" style="font-size:2rem;display:block;opacity:.25;margin-bottom:10px;"></i>
+            No employees found.
+            <a href="{% url 'employees:form' %}" style="color:var(--navy-700);font-weight:600;">
+              Add the first one.
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if employees.has_other_pages %}
+  <div class="pagination">
+    <div class="page-info">
+      Showing {{ employees.start_index }}–{{ employees.end_index }} of {{ employees.paginator.count }}
+    </div>
+    <div class="page-btns">
+      {% if employees.has_previous %}
+      <a href="?page={{ employees.previous_page_number }}" class="page-btn">
+        <i class="fas fa-chevron-left"></i>
+      </a>
+      {% endif %}
+      {% for num in employees.paginator.page_range %}
+        {% if employees.number == num %}
+        <span class="page-btn active">{{ num }}</span>
+        {% elif num > employees.number|add:"-3" and num < employees.number|add:"3" %}
+        <a href="?page={{ num }}" class="page-btn">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if employees.has_next %}
+      <a href="?page={{ employees.next_page_number }}" class="page-btn">
+        <i class="fas fa-chevron-right"></i>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+
+{% block js %}
+  <script src="{% static 'js/list.js' %}"></script>
+{% endblock %}

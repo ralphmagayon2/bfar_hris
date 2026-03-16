@@ -1,0 +1,73 @@
+/* ── Employee hero strip ─────────────────────────────────── */
+.dtr-hero {
+  background: var(--white); border-radius: 10px;
+  border: 1px solid var(--gray-100); box-shadow: var(--shadow);
+  padding: 16px 20px; margin-bottom: 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.dtr-hero-left { display: flex; align-items: center; gap: 14px; }
+.dtr-avatar { width: 52px; height: 52px; border-radius: 10px;
+  background: var(--navy-50); color: var(--navy-700);
+  font-size: 1.1rem; font-weight: 700; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; overflow: hidden; }
+.dtr-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.dtr-emp-name { font-size: 1rem; font-weight: 700; color: var(--navy-900); }
+.dtr-emp-meta { font-size: .78rem; color: var(--gray-500); margin-top: 2px;
+  display: flex; flex-wrap: wrap; gap: 8px; }
+.dtr-emp-meta span { display: flex; align-items: center; gap: 4px; }
+.dtr-hero-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ── Month nav ───────────────────────────────────────────── */
+.month-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.month-title { font-size: 1rem; font-weight: 700; color: var(--navy-900); }
+.month-nav-btns { display: flex; gap: 6px; }
+.month-nav-btn {
+  width: 32px; height: 32px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gray-500); font-size: .8rem; text-decoration: none;
+  border: 1px solid var(--gray-200); background: var(--white);
+  transition: background .2s, color .2s;
+}
+.month-nav-btn:hover { background: var(--navy-50); color: var(--navy-700); border-color: var(--navy-700); }
+
+/* ── Summary bar ─────────────────────────────────────────── */
+.month-summary {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 10px; margin-bottom: 20px;
+}
+@media (max-width: 700px) { .month-summary { grid-template-columns: repeat(4, 1fr); } }
+.ms-card {
+  background: var(--white); border-radius: 8px;
+  border: 1px solid var(--gray-100); box-shadow: var(--shadow);
+  padding: 10px 12px; text-align: center;
+}
+.ms-val { font-size: 1.4rem; font-weight: 800; font-family: var(--font-mono); color: var(--navy-900); }
+.ms-label { font-size: .68rem; color: var(--gray-500); margin-top: 3px; }
+
+/* ── DTR table (detailed monthly view) ──────────────────── */
+.dtr-table { width: 100%; border-collapse: collapse; font-size: .81rem; }
+.dtr-table thead th {
+  background: var(--navy-900); color: var(--white);
+  padding: 9px 12px; font-size: .68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px; text-align: center;
+  white-space: nowrap;
+}
+.dtr-table thead th:first-child { text-align: left; }
+.dtr-table tbody tr { border-bottom: 1px solid var(--gray-100); }
+.dtr-table tbody tr:hover { background: var(--navy-25); }
+.dtr-table tbody tr.is-holiday { background: var(--amber-50); }
+.dtr-table tbody tr.is-today   { background: var(--navy-25); font-weight: 600; }
+.dtr-table tbody td {
+  padding: 7px 12px; color: var(--gray-700); text-align: center; vertical-align: middle;
+}
+.dtr-table tbody td:first-child { text-align: left; }
+.time-cell { font-family: var(--font-mono); font-size: .8rem; }
+.time-cell.late { color: var(--warning); font-weight: 700; }
+.day-label { font-weight: 500; white-space: nowrap; }
+.day-label .dow { font-size: .68rem; color: var(--gray-400); font-weight: 400; }
+.remarks-cell { font-size: .73rem; color: var(--gray-500); max-width: 120px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

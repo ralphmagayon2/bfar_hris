@@ -1,0 +1,132 @@
+{% extends 'base_print.html' %}
+{% load static %}
+
+{% block toolbar_title %}ELR — {{ employee.get_full_name }} — {{ selected_year }}{% endblock %}
+
+{% block extra_print_css %}
+<style>
+body { font-size: 10pt; }
+.elr-title { text-align:center;font-size:11pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:1mm; }
+.elr-subtitle { text-align:center;font-size:8pt;color:#555;margin-bottom:5mm; }
+.elr-info-grid { display:grid;grid-template-columns:1fr 1fr;gap:0 16mm;margin-bottom:4mm; }
+.elr-info-row { display:flex;gap:3mm;padding:1.5mm 0;border-bottom:1px solid #ddd;font-size:9pt; }
+.elr-info-label { font-weight:700;color:#333;min-width:30mm;flex-shrink:0;font-size:8pt;text-transform:uppercase; }
+.elr-table { width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:5mm; }
+.elr-table thead tr { background:#1a237e;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact; }
+.elr-table thead th { padding:2.5mm 2mm;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:.3px;text-align:center;border:1px solid #1a237e; }
+.elr-table thead th.left { text-align:left; }
+.elr-table tbody tr:nth-child(even) { background:#f5f7fa;-webkit-print-color-adjust:exact;print-color-adjust:exact; }
+.elr-table tbody tr { border-bottom:1px solid #e0e0e0; }
+.elr-table tbody td { padding:2mm;text-align:center;border:1px solid #e0e0e0;vertical-align:middle; }
+.elr-table tbody td.left { text-align:left; }
+.elr-table tfoot tr { background:#0a2342;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact; }
+.elr-table tfoot td { padding:2.5mm 2mm;font-weight:700;border:1px solid #0a2342; }
+.balance-grid { display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-bottom:5mm; }
+.balance-box { border:1px solid #ccc;border-radius:3mm;padding:4mm; }
+.balance-label { font-size:7.5pt;text-transform:uppercase;letter-spacing:.5px;color:#777;font-weight:700; }
+.balance-val { font-size:18pt;font-weight:800;color:#1a237e; }
+.sig-section { display:grid;grid-template-columns:1fr 1fr;gap:12mm;margin-top:8mm; }
+.sig-line { border-top:1px solid #000;padding-top:2mm;margin-top:10mm; }
+.sig-name { font-weight:700; }
+.sig-title { font-size:8pt;color:#555; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="elr-title">Employee Leave Record</div>
+<div class="elr-subtitle">Bureau of Fisheries and Aquatic Resources — Regional Office III, San Fernando, Pampanga</div>
+
+<div class="elr-info-grid">
+  <div>
+    <div class="elr-info-row"><span class="elr-info-label">Name:</span><span><strong>{{ employee.get_full_name }}</strong></span></div>
+    <div class="elr-info-row"><span class="elr-info-label">Position:</span><span>{{ employee.position.title|default:"—" }}</span></div>
+    <div class="elr-info-row"><span class="elr-info-label">Division:</span><span>{{ employee.division.name|default:"—" }}</span></div>
+  </div>
+  <div>
+    <div class="elr-info-row"><span class="elr-info-label">Year:</span><span><strong>{{ selected_year }}</strong></span></div>
+    <div class="elr-info-row"><span class="elr-info-label">Employee ID:</span><span>{{ employee.employee_id|default:"—" }}</span></div>
+    <div class="elr-info-row"><span class="elr-info-label">Employment:</span><span>Permanent</span></div>
+  </div>
+</div>
+
+<!-- Balance summary -->
+<div class="balance-grid">
+  <div class="balance-box">
+    <div class="balance-label">Vacation Leave Balance</div>
+    <div class="balance-val">{{ leave_credits.vl_balance|floatformat:3 }}</div>
+    <div style="font-size:8pt;color:#555;margin-top:2mm;">
+      Earned: {{ leave_credits.vl_earned_ytd|floatformat:3 }} &nbsp;|&nbsp;
+      Used: {{ leave_credits.vl_used_ytd|floatformat:3 }} &nbsp;|&nbsp;
+      Carried: {{ leave_credits.vl_carried_over|floatformat:3 }}
+    </div>
+  </div>
+  <div class="balance-box">
+    <div class="balance-label">Sick Leave Balance</div>
+    <div class="balance-val" style="color:#00838f;">{{ leave_credits.sl_balance|floatformat:3 }}</div>
+    <div style="font-size:8pt;color:#555;margin-top:2mm;">
+      Earned: {{ leave_credits.sl_earned_ytd|floatformat:3 }} &nbsp;|&nbsp;
+      Used: {{ leave_credits.sl_used_ytd|floatformat:3 }} &nbsp;|&nbsp;
+      Carried: {{ leave_credits.sl_carried_over|floatformat:3 }}
+    </div>
+  </div>
+</div>
+
+<!-- Transactions -->
+<table class="elr-table">
+  <thead>
+    <tr>
+      <th class="left" style="width:22mm;">Date</th>
+      <th style="width:18mm;">Month</th>
+      <th>VL Earned</th><th>SL Earned</th>
+      <th>VL Used</th><th>SL Used</th>
+      <th>VL Balance</th><th>SL Balance</th>
+      <th class="left">Remarks</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for tx in transactions %}
+    <tr>
+      <td class="left">{{ tx.date|date:"M d, Y" }}</td>
+      <td>{{ tx.date|date:"F" }}</td>
+      <td>{% if tx.vl_earned > 0 %}{{ tx.vl_earned|floatformat:3 }}{% endif %}</td>
+      <td>{% if tx.sl_earned > 0 %}{{ tx.sl_earned|floatformat:3 }}{% endif %}</td>
+      <td>{% if tx.vl_used > 0 %}{{ tx.vl_used|floatformat:3 }}{% endif %}</td>
+      <td>{% if tx.sl_used > 0 %}{{ tx.sl_used|floatformat:3 }}{% endif %}</td>
+      <td style="font-weight:700;">{{ tx.vl_balance|floatformat:3 }}</td>
+      <td style="font-weight:700;">{{ tx.sl_balance|floatformat:3 }}</td>
+      <td class="left" style="font-size:7.5pt;">{{ tx.remarks|default:"" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td class="left" colspan="2">TOTALS / ENDING BALANCE</td>
+      <td>{{ leave_credits.vl_earned_ytd|floatformat:3 }}</td>
+      <td>{{ leave_credits.sl_earned_ytd|floatformat:3 }}</td>
+      <td>{{ leave_credits.vl_used_ytd|floatformat:3 }}</td>
+      <td>{{ leave_credits.sl_used_ytd|floatformat:3 }}</td>
+      <td>{{ leave_credits.vl_balance|floatformat:3 }}</td>
+      <td>{{ leave_credits.sl_balance|floatformat:3 }}</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+
+<!-- Signatures -->
+<div class="sig-section">
+  <div>
+    <div style="font-size:8pt;color:#777;margin-bottom:10mm;">I certify that the above is a true and correct record of leave credits.</div>
+    <div class="sig-line">
+      <div class="sig-name">{{ employee.get_full_name }}</div>
+      <div class="sig-title">{{ employee.position.title|default:"Employee" }}</div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:8pt;color:#777;margin-bottom:10mm;">Verified and certified correct:</div>
+    <div class="sig-line">
+      <div class="sig-name">ZENAIDA S. SIMON</div>
+      <div class="sig-title">Administrative Officer V</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

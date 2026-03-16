@@ -1,0 +1,516 @@
+{% extends 'base.html' %}
+{% load static %}
+{% comment %} apps/core/templates/core/dashboard.html {% endcomment %}
+
+{% block title %}Dashboard — BFAR HRIS{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════════════════
+     PAGE HEADER
+══════════════════════════════════════════════════ -->
+<div class="dash-header">
+  <div>
+    <h1 class="dash-greeting">
+      Good {% now "G" as current_hour %}
+      {% if current_hour|add:"0" < 12 %}Morning{% elif current_hour|add:"0" < 18 %}Afternoon{% else %}Evening{% endif %},
+      <span>{{ request.user.first_name|default:request.user.username }}</span> 👋
+    </h1>
+    <p class="dash-date">
+      <i class="fas fa-calendar-day"></i>
+      {{ today|date:"l, F d, Y" }}
+      &mdash; BFAR Region III Human Resource Information System
+    </p>
+  </div>
+  <div class="dash-actions">
+    
+    <a href="{% url 'dtr:list' %}" class="btn btn-outline btn-sm">
+      <i class="fas fa-clock"></i> DTR
+    </a>
+
+    {% if can_approve %}
+    <a href="{% url 'employees:form' %}" class="btn btn-outline btn-sm">
+      <i class="fas fa-user-plus"></i> Add Employee
+    </a>
+    <a href="{% url 'payroll:periods' %}" class="btn btn-primary btn-sm">
+      <i class="fas fa-peso-sign"></i> Payroll
+    </a>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     STAT CARDS
+══════════════════════════════════════════════════ -->
+<div class="dash-stats">
+
+  <div class="stat-card navy">
+    <div class="stat-top">
+      <div class="stat-icon navy"><i class="fas fa-users"></i></div>
+      <span class="stat-trend flat">All</span>
+    </div>
+    <div class="stat-value">{{ total_employees|default:"0" }}</div>
+    <div class="stat-label">Total Employees</div>
+  </div>
+
+  <div class="stat-card green">
+    <div class="stat-top">
+      <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
+      <span class="stat-trend up" id="trend-present">
+        {% if total_employees and present_today %}
+          {% widthratio present_today total_employees 100 %}%
+        {% else %}0%{% endif %}
+      </span>
+    </div>
+    <div class="stat-value">{{ present_today|default:"0" }}</div>
+    <div class="stat-label">Present Today</div>
+  </div>
+
+  <div class="stat-card red">
+    <div class="stat-top">
+      <div class="stat-icon red"><i class="fas fa-user-xmark"></i></div>
+      <span class="stat-trend down" id="trend-absent">
+        {% if total_employees and absent_today %}
+          {% widthratio absent_today total_employees 100 %}%
+        {% else %}0%{% endif %}
+      </span>
+    </div>
+    <div class="stat-value">{{ absent_today|default:"0" }}</div>
+    <div class="stat-label">Absent Today</div>
+  </div>
+
+  <div class="stat-card amber">
+    <div class="stat-top">
+      <div class="stat-icon amber"><i class="fas fa-user-clock"></i></div>
+      <span class="stat-trend down" id="trend-late">
+        {% if total_employees and late_today %}
+          {% widthratio late_today total_employees 100 %}%
+        {% else %}0%{% endif %}
+      </span>
+    </div>
+    <div class="stat-value">{{ late_today|default:"0" }}</div>
+    <div class="stat-label">Late Today</div>
+  </div>
+
+  <div class="stat-card teal">
+    <div class="stat-top">
+      <div class="stat-icon teal"><i class="fas fa-route"></i></div>
+      <span class="stat-trend flat">TO/TT</span>
+    </div>
+    <div class="stat-value">{{ on_travel_today|default:"0" }}</div>
+    <div class="stat-label">On Travel Order</div>
+  </div>
+
+  <div class="stat-card purple">
+    <div class="stat-top">
+      <div class="stat-icon purple"><i class="fas fa-umbrella-beach"></i></div>
+      <span class="stat-trend flat">Leave</span>
+    </div>
+    <div class="stat-value">{{ on_leave_today|default:"0" }}</div>
+    <div class="stat-label">On Leave</div>
+  </div>
+
+</div><!-- /.dash-stats -->
+
+
+<!-- ══════════════════════════════════════════════════
+     PAYROLL BANNER (current cutoff period)
+══════════════════════════════════════════════════ -->
+{% if current_payroll_period %}
+<div class="payroll-banner">
+  <div class="pb-label">Current Payroll Cutoff</div>
+  <div class="pb-period">{{ current_payroll_period.label|default:"Period" }}</div>
+  <div class="pb-cutoff">
+    {{ current_payroll_period.date_from|date:"M d" }} – {{ current_payroll_period.date_to|date:"M d, Y" }}
+    &mdash; Release: {{ current_payroll_period.release_date|date:"M d, Y" }}
+  </div>
+  <div class="pb-bar-wrap">
+    <div class="pb-bar" id="pb-progress" style="width: 0%;"></div>
+  </div>
+  <div class="pb-meta">
+    <span id="pb-days-in">Day <strong id="pb-day-num">—</strong> of period</span>
+    <span><strong id="pb-pct">—</strong>% complete</span>
+  </div>
+  <div class="pb-actions">
+    <a href="{% url 'payroll:list' current_payroll_period.period_id %}" class="pb-btn primary">
+      <i class="fas fa-list"></i> View Records
+    </a>
+    {% if can_approve %}
+    <a href="{% url 'payroll:compute' current_payroll_period.period_id %}" class="pb-btn outline">
+      <i class="fas fa-calculator"></i> Compute Payroll
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+
+<!-- ══════════════════════════════════════════════════
+     MAIN BODY (two columns)
+══════════════════════════════════════════════════ -->
+<div class="dash-body">
+
+  <!-- ── LEFT COLUMN ──────────────────────────────── -->
+  <div class="dash-left">
+
+    <!-- Live Biometric Feed -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-title">
+          <i class="fas fa-fingerprint navy"></i>
+          Live Attendance Feed
+          <span class="nav-live-badge" style="margin-left:4px;">LIVE</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:.74rem;color:var(--gray-400);" id="last-updated">
+            {{ today|date:"M d, Y" }}
+          </span>
+          <a href="{% url 'dtr:list' %}" class="btn btn-ghost btn-sm">
+            Full DTR <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="feed-tabs">
+        <button class="feed-tab-btn active" data-filter="all">
+          All <span class="feed-count-all" style="font-size:.68rem;margin-left:3px;
+            background:var(--navy-50);color:var(--navy-700);padding:1px 6px;
+            border-radius:999px;">{{ today_logs|length|default:"0" }}</span>
+        </button>
+        <button class="feed-tab-btn" data-filter="AM_IN">AM In</button>
+        <button class="feed-tab-btn" data-filter="AM_OUT">AM Out</button>
+        <button class="feed-tab-btn" data-filter="PM_IN">PM In</button>
+        <button class="feed-tab-btn" data-filter="PM_OUT">PM Out</button>
+        <button class="feed-tab-btn" data-filter="late">Late Only</button>
+      </div>
+
+      <!-- Feed table -->
+      <div class="feed-wrap">
+        {% if today_logs %}
+        <table class="feed-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Scan</th>
+              <th>Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="feed-tbody">
+            {% for log in today_logs %}
+            <tr class="feed-row"
+                data-scan="{{ log.scan_type }}"
+                data-late="{{ log.is_late|yesno:'1,0' }}">
+              <td>
+                <div class="emp-cell">
+                  <div class="emp-avatar">
+                    {{ log.employee.first_name|first|upper }}{{ log.employee.last_name|first|upper }}
+                  </div>
+                  <div>
+                    <div class="emp-name">{{ log.employee.get_full_name }}</div>
+                    <div class="emp-div">{{ log.employee.division.name|default:"—" }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                {% if log.scan_type == 'AM_IN' %}
+                  <span class="scan-chip am-in">AM In</span>
+                {% elif log.scan_type == 'AM_OUT' %}
+                  <span class="scan-chip am-out">AM Out</span>
+                {% elif log.scan_type == 'PM_IN' %}
+                  <span class="scan-chip pm-in">PM In</span>
+                {% elif log.scan_type == 'PM_OUT' %}
+                  <span class="scan-chip pm-out">PM Out</span>
+                {% endif %}
+              </td>
+              <td class="time-mono">{{ log.scan_time|time:"h:i A" }}</td>
+              <td>
+                {% if log.is_late %}
+                  <span class="status-badge badge-late">Late</span>
+                {% else %}
+                  <span class="status-badge badge-present">On Time</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="feed-empty">
+          <i class="fas fa-fingerprint"></i>
+          <p>No biometric scans recorded yet today.</p>
+          <span style="font-size:.75rem;">Scans will appear here once the biometric device sends data.</span>
+        </div>
+        {% endif %}
+      </div>
+      
+    </div>
+
+    <!-- Recent Travel Orders -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-title">
+          <i class="fas fa-route teal"></i>
+          Recent Travel Orders
+        </div>
+        <a href="{% url 'travel_orders:list' %}" class="btn btn-ghost btn-sm">
+          View All <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
+        </a>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="to-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Destination</th>
+              <th>Date</th>
+              <th>Days</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if recent_travel_orders %}
+              {% for to in recent_travel_orders|slice:"6" %}
+              <tr>
+                <td>
+                  <div style="font-weight:500;font-size:.83rem;color:var(--navy-900);">
+                    {{ to.employee.get_full_name }}
+                  </div>
+                  <div style="font-size:.7rem;color:var(--gray-400);">
+                    {{ to.employee.division.name|default:"—" }}
+                  </div>
+                </td>
+                <td style="font-size:.8rem;max-width:160px;white-space:nowrap;
+                           overflow:hidden;text-overflow:ellipsis;">
+                  {{ to.destination }}
+                </td>
+                <td style="font-family:var(--font-mono);font-size:.78rem;white-space:nowrap;">
+                  {{ to.date_from|date:"M d" }} – {{ to.date_to|date:"M d" }}
+                </td>
+                <td style="text-align:center;font-family:var(--font-mono);font-weight:600;">
+                  {{ to.num_days }}
+                </td>
+                <td>
+                  <span class="status-badge badge-to">
+                    {{ to.travel_type|upper|default:"TO" }}
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="5" style="text-align:center;padding:32px;
+                                       color:var(--gray-400);font-size:.83rem;">
+                  No recent travel orders.
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </div><!-- /.dash-left -->
+
+
+  <!-- ── RIGHT COLUMN ─────────────────────────────── -->
+  <div class="dash-right">
+
+    <!-- Today's Summary -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-title">
+          <i class="fas fa-chart-pie navy"></i>
+          Today's Summary
+        </div>
+        <span style="font-size:.74rem;color:var(--gray-400);">{{ today|date:"M d, Y" }}</span>
+      </div>
+      <div class="dash-card-body">
+        <div class="summary-bars" id="summary-bars">
+
+          <div class="summary-row">
+            <div class="summary-label">
+              <span class="summary-dot" style="background:var(--success);"></span>
+              Present
+            </div>
+            <div class="summary-bar-wrap">
+              <div class="summary-bar" style="background:var(--success);width:0%;"
+                   data-val="{{ present_today|default:0 }}"
+                   data-total="{{ total_employees|default:1 }}"></div>
+            </div>
+            <div class="summary-count">{{ present_today|default:0 }}</div>
+          </div>
+
+          <div class="summary-row">
+            <div class="summary-label">
+              <span class="summary-dot" style="background:var(--warning);"></span>
+              Late
+            </div>
+            <div class="summary-bar-wrap">
+              <div class="summary-bar" style="background:var(--warning);width:0%;"
+                   data-val="{{ late_today|default:0 }}"
+                   data-total="{{ total_employees|default:1 }}"></div>
+            </div>
+            <div class="summary-count">{{ late_today|default:0 }}</div>
+          </div>
+
+          <div class="summary-row">
+            <div class="summary-label">
+              <span class="summary-dot" style="background:var(--danger);"></span>
+              Absent
+            </div>
+            <div class="summary-bar-wrap">
+              <div class="summary-bar" style="background:var(--danger);width:0%;"
+                   data-val="{{ absent_today|default:0 }}"
+                   data-total="{{ total_employees|default:1 }}"></div>
+            </div>
+            <div class="summary-count">{{ absent_today|default:0 }}</div>
+          </div>
+
+          <div class="summary-row">
+            <div class="summary-label">
+              <span class="summary-dot" style="background:var(--teal-700);"></span>
+              Travel
+            </div>
+            <div class="summary-bar-wrap">
+              <div class="summary-bar" style="background:var(--teal-700);width:0%;"
+                   data-val="{{ on_travel_today|default:0 }}"
+                   data-total="{{ total_employees|default:1 }}"></div>
+            </div>
+            <div class="summary-count">{{ on_travel_today|default:0 }}</div>
+          </div>
+
+          <div class="summary-row">
+            <div class="summary-label">
+              <span class="summary-dot" style="background:#6A1B9A;"></span>
+              On Leave
+            </div>
+            <div class="summary-bar-wrap">
+              <div class="summary-bar" style="background:#6A1B9A;width:0%;"
+                   data-val="{{ on_leave_today|default:0 }}"
+                   data-total="{{ total_employees|default:1 }}"></div>
+            </div>
+            <div class="summary-count">{{ on_leave_today|default:0 }}</div>
+          </div>
+
+        </div>
+        <div class="summary-total">
+          <span>Total active employees</span>
+          <strong>{{ total_employees|default:0 }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-title">
+          <i class="fas fa-bolt amber"></i>
+          Quick Actions
+        </div>
+      </div>
+
+      <div class="dash-card-body">
+        <div class="quick-actions">
+
+          {% if can_approve %}
+          <a href="{% url 'employees:form' %}" class="qa-btn navy">
+            <i class="fas fa-user-plus"></i>
+            Add Employee
+          </a>
+          {% endif %}
+
+          <a href="{% url 'travel_orders:create' %}" class="qa-btn teal">
+            <i class="fas fa-route"></i>
+            New Travel Order
+          </a>
+
+          {% if can_approve %}
+          <a href="{% url 'payroll:periods' %}" class="qa-btn green">
+            <i class="fas fa-peso-sign"></i>
+            Payroll
+          </a>
+          {% endif %}
+
+          <a href="{% url 'holidays:list' %}" class="qa-btn amber">
+            <i class="fas fa-calendar-days"></i>
+            Holidays
+          </a>
+
+          <a href="{% url 'leaves:list' %}" class="qa-btn purple">
+            <i class="fas fa-umbrella-beach"></i>
+            Leave Credits
+          </a>
+
+          <a href="{% url 'biometrics:devices' %}" class="qa-btn teal">
+            <i class="fas fa-fingerprint"></i>
+            Biometrics
+          </a>
+
+          <a href="{% url 'dtr:list' %}" class="qa-btn teal">
+            <i class="fas fa-clock"></i>
+            DTR
+          </a>
+
+        </div>
+      </div>
+      
+    </div>
+
+    <!-- Upcoming Holidays -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div class="dash-card-title">
+          <i class="fas fa-calendar-days amber"></i>
+          Upcoming Holidays
+        </div>
+        <a href="{% url 'holidays:list' %}" class="btn btn-ghost btn-sm">Manage</a>
+      </div>
+      <div class="dash-card-body" style="padding-top:4px;padding-bottom:4px;">
+        {% if upcoming_holidays %}
+        <div class="holiday-list">
+          {% for holiday in upcoming_holidays|slice:"5" %}
+          <div class="holiday-item">
+            <div class="holiday-date-block">
+              <span class="hday-day">{{ holiday.date|date:"d" }}</span>
+              <span class="hday-mon">{{ holiday.date|date:"M" }}</span>
+            </div>
+            <div class="holiday-info">
+              <div class="holiday-name">{{ holiday.name }}</div>
+              <div class="holiday-days-left">{{ holiday.date|timeuntil }} from now</div>
+            </div>
+            <span class="holiday-type-chip
+              {% if holiday.holiday_type == 'regular' %}regular{% else %}special{% endif %}">
+              {% if holiday.holiday_type == 'regular' %}Regular{% else %}Special{% endif %}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="feed-empty" style="padding:28px 16px;">
+          <i class="fas fa-calendar-check"></i>
+          <p>No upcoming holidays on record.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /.dash-right -->
+
+</div><!-- /.dash-body -->
+
+{% endblock %}
+
+
+{% block js %}
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ELR — {{ employee.get_full_name }} — BFAR HRIS{% endblock %}
+{% block page_title %}Employee Leave Record{% endblock %}
+
+{% block css %}
+<style>
+.elr-hero { background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px; }
+.elr-hero-left { display:flex;align-items:center;gap:14px; }
+.elr-avatar { width:52px;height:52px;border-radius:10px;background:var(--navy-50);color:var(--navy-700);font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden; }
+.elr-avatar img { width:100%;height:100%;object-fit:cover; }
+.elr-emp-name { font-size:1rem;font-weight:700;color:var(--navy-900); }
+.elr-emp-meta { font-size:.78rem;color:var(--gray-500);margin-top:2px; }
+
+.credit-cards { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px; }
+@media(max-width:600px) { .credit-cards { grid-template-columns:1fr; } }
+.credit-card { background:var(--white);border-radius:12px;border:1px solid var(--gray-100);box-shadow:var(--shadow);padding:20px; }
+.cc-label { font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--gray-400);margin-bottom:8px; }
+.cc-balance { font-size:2.5rem;font-weight:800;font-family:var(--font-mono);line-height:1; }
+.cc-rows { display:flex;flex-direction:column;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--gray-100); }
+.cc-row { display:flex;justify-content:space-between;font-size:.8rem; }
+.cc-row-label { color:var(--gray-500); }
+.cc-row-val { font-weight:600;font-family:var(--font-mono); }
+
+.emp-type { display:inline-flex;align-items:center;padding:1px 7px;border-radius:999px;font-size:.65rem;font-weight:700;text-transform:uppercase; }
+.emp-type.permanent { background:var(--navy-50);color:var(--navy-700); }
+
+.year-filter { display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap; }
+.year-btn { padding:5px 12px;border-radius:999px;font-size:.78rem;font-weight:600;border:1.5px solid var(--gray-200);background:var(--white);color:var(--gray-500);cursor:pointer;text-decoration:none;transition:background .2s,color .2s,border-color .2s; }
+.year-btn:hover,.year-btn.active { background:var(--navy-700);border-color:var(--navy-700);color:var(--white); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Employee hero -->
+<div class="elr-hero">
+  <div class="elr-hero-left">
+    <div class="elr-avatar">
+      {% if employee.profile_picture %}<img src="{{ employee.profile_picture.url }}" alt="">
+      {% else %}{{ employee.first_name|first|upper }}{{ employee.last_name|first|upper }}{% endif %}
+    </div>
+    <div>
+      <div class="elr-emp-name">{{ employee.get_full_name }}</div>
+      <div class="elr-emp-meta">
+        {{ employee.position.title|default:"—" }} &mdash; {{ employee.division.name|default:"—" }}
+        &nbsp;<span class="emp-type permanent">Permanent</span>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{% url 'leaves:print_elr' employee.id %}" class="btn btn-outline btn-sm" target="_blank">
+      <i class="fas fa-print"></i> Print ELR
+    </a>
+    <a href="{% url 'leaves:list' %}" class="btn btn-ghost btn-sm">
+      <i class="fas fa-arrow-left"></i> Back
+    </a>
+  </div>
+</div>
+
+<!-- Credit balance cards -->
+<div class="credit-cards">
+  <div class="credit-card">
+    <div class="cc-label">Vacation Leave (VL)</div>
+    <div class="cc-balance" style="color:var(--navy-700);">{{ leave_credits.vl_balance|floatformat:3 }}</div>
+    <div class="cc-rows">
+      <div class="cc-row"><span class="cc-row-label">Earned this year</span><span class="cc-row-val" style="color:var(--success);">+{{ leave_credits.vl_earned_ytd|floatformat:3 }}</span></div>
+      <div class="cc-row"><span class="cc-row-label">Used this year</span><span class="cc-row-val" style="color:var(--warning);">-{{ leave_credits.vl_used_ytd|floatformat:3 }}</span></div>
+      <div class="cc-row"><span class="cc-row-label">Carried over</span><span class="cc-row-val">{{ leave_credits.vl_carried_over|floatformat:3 }}</span></div>
+      <div class="cc-row"><span class="cc-row-label">Monthly accrual</span><span class="cc-row-val">1.250</span></div>
+    </div>
+  </div>
+  <div class="credit-card">
+    <div class="cc-label">Sick Leave (SL)</div>
+    <div class="cc-balance" style="color:var(--teal-700);">{{ leave_credits.sl_balance|floatformat:3 }}</div>
+    <div class="cc-rows">
+      <div class="cc-row"><span class="cc-row-label">Earned this year</span><span class="cc-row-val" style="color:var(--success);">+{{ leave_credits.sl_earned_ytd|floatformat:3 }}</span></div>
+      <div class="cc-row"><span class="cc-row-label">Used this year</span><span class="cc-row-val" style="color:var(--warning);">-{{ leave_credits.sl_used_ytd|floatformat:3 }}</span></div>
+      <div class="cc-row"><span class="cc-row-label">Carried over</span><span class="cc-row-val">{{ leave_credits.sl_carried_over|floatformat:3 }}</span></div>
+      <div class="cc-row"><span class="cc-row-label">Monthly accrual</span><span class="cc-row-val">1.250</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Year filter -->
+<div class="year-filter">
+  <span style="font-size:.78rem;color:var(--gray-500);font-weight:600;">Year:</span>
+  {% for yr in available_years %}
+  <a href="?year={{ yr }}" class="year-btn {% if selected_year == yr %}active{% endif %}">{{ yr }}</a>
+  {% endfor %}
+</div>
+
+<!-- Transactions table -->
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;">
+  <div style="padding:12px 18px;border-bottom:1px solid var(--gray-100);background:var(--gray-50);font-size:.88rem;font-weight:700;color:var(--navy-900);">
+    Leave Transactions — {{ selected_year }}
+  </div>
+  <div class="table-wrap">
+    <table class="table-hris">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Month</th>
+          <th>VL Earned</th>
+          <th>SL Earned</th>
+          <th>VL Used</th>
+          <th>SL Used</th>
+          <th>VL Balance</th>
+          <th>SL Balance</th>
+          <th>Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in transactions %}
+        <tr>
+          <td style="font-family:var(--font-mono);font-size:.8rem;white-space:nowrap;">{{ tx.date|date:"M d, Y" }}</td>
+          <td style="font-size:.8rem;">{{ tx.date|date:"F" }}</td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:{% if tx.vl_earned > 0 %}var(--success){% else %}var(--gray-300){% endif %};">
+            {% if tx.vl_earned > 0 %}+{{ tx.vl_earned|floatformat:3 }}{% else %}—{% endif %}
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:{% if tx.sl_earned > 0 %}var(--success){% else %}var(--gray-300){% endif %};">
+            {% if tx.sl_earned > 0 %}+{{ tx.sl_earned|floatformat:3 }}{% else %}—{% endif %}
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:{% if tx.vl_used > 0 %}var(--warning){% else %}var(--gray-300){% endif %};">
+            {% if tx.vl_used > 0 %}-{{ tx.vl_used|floatformat:3 }}{% else %}—{% endif %}
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:{% if tx.sl_used > 0 %}var(--warning){% else %}var(--gray-300){% endif %};">
+            {% if tx.sl_used > 0 %}-{{ tx.sl_used|floatformat:3 }}{% else %}—{% endif %}
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;font-weight:700;">{{ tx.vl_balance|floatformat:3 }}</td>
+          <td style="font-family:var(--font-mono);font-size:.8rem;font-weight:700;">{{ tx.sl_balance|floatformat:3 }}</td>
+          <td style="font-size:.78rem;color:var(--gray-500);">{{ tx.remarks|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--gray-400);">
+          No leave transactions for {{ selected_year }}.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

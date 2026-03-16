@@ -1,0 +1,232 @@
+{% comment %} 
+
+{# templates/base_viewer.html #}
+{#
+   Base layout for EMPLOYEE SELF-SERVICE (viewer role).
+   Intentionally separate from base.html (HR staff layout):
+     - No biometric device status
+     - No HR modules in nav (DTR list, payroll periods, etc.)
+     - Only own-record links
+     - Logout goes to /accounts/login/ not /accounts/admin/login/
+
+   Blocks provided (same as base.html for template compatibility):
+     title, page_title, css, content, js
+#} 
+
+{% endcomment %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}BFAR HRIS{% endblock %}</title>
+
+  <link rel="icon" href="{% static 'img/HRIS.png' %}" type="image/png" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
+
+  <!-- Base styles (same CSS — sidebar collapse, topbar, CSS vars all defined there) -->
+  <link rel="stylesheet" href="{% static 'css/base.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/messages.css' %}" />
+
+  {% block css %}{% endblock %}
+</head>
+
+<body>
+  {% include 'includes/messages.html' %}
+
+  <div class="layout" id="layout">
+
+    <!-- ══════════════════════════════════════
+         SIDEBAR — VIEWER VERSION
+         Only shows own-record pages.
+         No biometric status, no HR modules.
+    ══════════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+
+      <button class="sidebar-close-btn" id="sidebar-close">
+        <i class="fas fa-times"></i>
+      </button>
+
+      <!-- Brand -->
+      <div class="sidebar-brand">
+        <div class="brand-icon-fallback">
+          <i class="fas fa-fish"></i>
+        </div>
+        <div class="sidebar-brand-text">
+          <span class="brand-title">BFAR HRIS</span>
+          <span class="brand-sub">Employee Portal</span>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="sidebar-nav">
+        <ul>
+
+          <li class="nav-section-label"><span>My Dashboard</span></li>
+
+          <li class="{% if request.resolver_match.url_name == 'dashboard' %}nav-active{% endif %}">
+            <a href="{% url 'core:dashboard' %}" data-tooltip="Dashboard">
+              <i class="fas fa-house"></i>
+              <span>Dashboard</span>
+            </a>
+          </li>
+
+          <li class="nav-section-label"><span>My Records</span></li>
+
+          {# These URLs will be built when dtr/leaves/payroll viewer views are ready. #}
+          {# Until then they point to the list views which redirects or shows own records. #}
+          <li class="{% if 'dtr' in request.resolver_match.namespace %}nav-active{% endif %}">
+            <a href="{% url 'dtr:list' %}" data-tooltip="My DTR">
+              <i class="fas fa-clock"></i>
+              <span>My DTR</span>
+            </a>
+          </li>
+
+          <li class="{% if 'leaves' in request.resolver_match.namespace %}nav-active{% endif %}">
+            <a href="#" data-tooltip="My Leaves">
+              <i class="fas fa-calendar-check"></i>
+              <span>My Leaves</span>
+            </a>
+          </li>
+
+          <li class="{% if 'payroll' in request.resolver_match.namespace %}nav-active{% endif %}">
+            <a href="#" data-tooltip="My Payslips">
+              <i class="fas fa-receipt"></i>
+              <span>My Payslips</span>
+            </a>
+          </li>
+
+          <li class="{% if 'travel_orders' in request.resolver_match.namespace %}nav-active{% endif %}">
+            <a href="{% url 'travel_orders:list' %}" data-tooltip="My Travel Orders">
+              <i class="fas fa-route"></i>
+              <span>My Travel Orders</span>
+            </a>
+          </li>
+
+          <li class="nav-section-label"><span>Info</span></li>
+
+          <li class="{% if 'holidays' in request.resolver_match.namespace %}nav-active{% endif %}">
+            <a href="{% url 'holidays:list' %}" data-tooltip="Holidays">
+              <i class="fas fa-calendar-days"></i>
+              <span>Holidays</span>
+            </a>
+          </li>
+
+        </ul>
+      </nav>
+
+      <!-- Sidebar footer -->
+      <div class="sidebar-footer">
+        <a href="#" class="sidebar-footer-link" data-tooltip="My Profile">
+          <i class="fas fa-circle-user"></i>
+          <span>My Profile</span>
+        </a>
+        <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;width:100%;">
+          {% csrf_token %}
+          <button type="submit"
+                  class="sidebar-footer-link sidebar-logout"
+                  style="background:none;border:none;width:100%;cursor:pointer;
+                         font-family:inherit;text-align:left;"
+                  data-tooltip="Sign Out">
+            <i class="fas fa-right-from-bracket"></i>
+            <span>Sign Out</span>
+          </button>
+        </form>
+      </div>
+
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- ══════════════════════════════════════
+         MAIN WRAP
+    ══════════════════════════════════════ -->
+    <div class="main-wrap" id="main-wrap">
+
+      <!-- TOP NAVBAR -->
+      <header class="topbar">
+
+        <div class="topbar-left">
+          <button class="topbar-toggle" id="sidebar-toggle">
+            <i class="fas fa-bars"></i>
+          </button>
+          <div class="breadcrumb-wrap">
+            <span class="breadcrumb-agency">BFAR Region III</span>
+            <i class="fas fa-chevron-right bc-sep"></i>
+            <span class="breadcrumb-page">{% block page_title %}Dashboard{% endblock %}</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+
+          <!-- Live clock -->
+          <div class="topbar-clock">
+            <i class="fas fa-clock"></i>
+            <span id="live-clock">--:-- --</span>
+          </div>
+
+          <!-- User chip + dropdown -->
+          <div class="topbar-user" id="user-trigger">
+            {# Avatar: shows initials always (no profile picture for viewer yet) #}
+            <div class="user-avatar-initials"
+                 style="background:{% if current_user.role == 'viewer' %}#8E24AA{% else %}#1565C0{% endif %};">
+              {{ current_user.get_initials }}
+            </div>
+            <div class="user-info">
+              <span class="user-name">{{ current_user.get_display_name|default:"Employee" }}</span>
+              <span class="user-role">Employee</span>
+            </div>
+            <i class="fas fa-chevron-down user-caret" id="user-caret"></i>
+
+            <!-- Dropdown -->
+            <div class="user-dropdown" id="user-dropdown">
+              <div class="user-dropdown-header">
+                <div class="dropdown-avatar-initials"
+                     style="background:{% if current_user.role == 'viewer' %}#8E24AA{% else %}#1565C0{% endif %};">
+                  {{ current_user.get_initials }}
+                </div>
+                <div>
+                  <p class="dropdown-name">{{ current_user.get_display_name|default:"Employee" }}</p>
+                  <p class="dropdown-role">Employee Self-Service</p>
+                </div>
+              </div>
+              <div class="user-dropdown-divider"></div>
+              <a href="#" class="user-dropdown-item">
+                <i class="fas fa-circle-user"></i> My Profile
+              </a>
+              <div class="user-dropdown-divider"></div>
+              <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit"
+                        class="user-dropdown-item danger"
+                        style="background:none;border:none;width:100%;cursor:pointer;
+                               font-family:inherit;text-align:left;">
+                  <i class="fas fa-right-from-bracket"></i> Sign Out
+                </button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <main class="page-content">
+        {% block content %}{% endblock %}
+      </main>
+
+    </div><!-- /main-wrap -->
+  </div><!-- /layout -->
+
+  <script src="{% static 'js/base.js' %}"></script>
+  {% block js %}{% endblock %}
+</body>
+</html>

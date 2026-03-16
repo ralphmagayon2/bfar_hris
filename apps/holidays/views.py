@@ -1,3 +1,5 @@
+# apps/holidays/views.py
 from django.shortcuts import render
 
-# Create your views here.
+def holidays(request):
+    return render(request, 'holidays/list.html')

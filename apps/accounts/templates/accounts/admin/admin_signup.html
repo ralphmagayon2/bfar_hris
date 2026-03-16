@@ -1,0 +1,389 @@
+{% extends 'base_admin_auth.html' %}
+{% load static %}
+
+{% block title %}Create Admin Account — BFAR HRIS{% endblock title %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'css/admin/admin_signup.css' %}">
+{% endblock css %}
+
+{% block content %}
+
+<div class="page-layout">
+
+  <!-- ── LEFT info panel ─────────────────────────────── -->
+  <aside class="info-panel">
+
+    <div class="info-logo">
+      <div class="info-logo-icon">
+        <img src="{% static 'img/bfar_logo.png' %}" alt="BFAR Logo" />
+      </div>
+      <div>
+        <span class="info-logo-title">BFAR HRIS</span>
+        <span class="info-logo-sub">Region III — Admin Portal</span>
+      </div>
+    </div>
+
+    <h2 class="info-heading">Admin Account Creation</h2>
+    <p class="info-sub">
+      Only the Super Admin can create accounts for HR personnel.
+      Each account is assigned a specific role that determines
+      what they can view and modify in the system.
+    </p>
+
+    <div class="role-info-list">
+
+      <div class="role-info-card">
+        <div class="role-info-icon superadmin">
+          <i class="fas fa-crown"></i>
+        </div>
+        <div>
+          <span class="role-info-name">Super Admin</span>
+          <span class="role-info-desc">Full access. User management, server config, audit logs. Cannot be restricted.</span>
+        </div>
+      </div>
+
+      <div class="role-info-card">
+        <div class="role-info-icon hr_admin">
+          <i class="fas fa-user-tie"></i>
+        </div>
+        <div>
+          <span class="role-info-name">HR Admin</span>
+          <span class="role-info-desc">All HR modules — enrollment, DTR approval, payroll, leave, SED, printing.</span>
+        </div>
+      </div>
+
+      <div class="role-info-card">
+        <div class="role-info-icon hr_staff">
+          <i class="fas fa-user"></i>
+        </div>
+        <div>
+          <span class="role-info-name">HR Staff</span>
+          <span class="role-info-desc">View DTR, encode TOs and leave credits. Cannot approve or delete records.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="info-warning">
+      <i class="fas fa-triangle-exclamation"></i>
+      <span>
+        All account creations are recorded in the audit log.
+        Credentials are encrypted — passwords cannot be recovered, only reset.
+      </span>
+    </div>
+
+  </aside>
+
+  <!-- ── RIGHT form panel ────────────────────────────── -->
+  <main class="form-panel">
+    <div class="form-card">
+
+      <div class="admin-badge">
+        {% comment %} <i class="fas fa-shield-halved"></i> {% endcomment %}
+        Administration Portal — New Account
+      </div>
+
+      <h2 class="card-heading">Create Admin Account</h2>
+      <div class="subheading-box">
+        <p class="card-subheading">
+            Fill in the details below. The new user will log in using their username and password
+            at the <strong>Admin Sign In</strong> page.
+        </p>
+    </div>
+
+      <!-- Messages -->
+      {% if messages %}
+      <div class="msg">
+        {% for message in messages %}
+          {% if message.tags == 'success' %}
+          <div class="msg-success"><i class="fas fa-circle-check"></i> {{ message }}</div>
+          {% else %}
+          <div class="msg-error"><i class="fas fa-circle-exclamation"></i> {{ message }}</div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if form.non_field_errors %}
+      <div class="msg">
+        {% for error in form.non_field_errors %}
+        <div class="msg-error"><i class="fas fa-circle-exclamation"></i> {{ error }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <form method="post" class="admin-signup" id="admin-signup-form" novalidate>
+        {% csrf_token %}
+
+        <!-- SECTION 1: Role assignment -->
+        <div class="section-label">Step 1 — Assign Role</div>
+
+        <div class="field-group">
+          <label class="field-label">
+            System Role <span class="req">*</span>
+          </label>
+
+          <div class="role-grid" id="role-grid">
+
+            <div>
+              <input type="radio" class="role-radio" name="role"
+                     id="role_superadmin" value="superadmin"
+                     {% if form.role.value == 'superadmin' %}checked{% endif %}>
+              <label class="role-card" for="role_superadmin" data-role="superadmin">
+                <div class="role-card-icon" style="background:rgba(245,158,11,.15);color:#FCD34D;">
+                  <i class="fas fa-crown"></i>
+                </div>
+                <span class="role-card-name">Super Admin</span>
+                <span class="role-card-sub">Full access</span>
+              </label>
+            </div>
+
+            <div>
+              <input type="radio" class="role-radio" name="role"
+                     id="role_hr_admin" value="hr_admin"
+                     {% if form.role.value == 'hr_admin' or not form.role.value %}checked{% endif %}>
+              <label class="role-card" for="role_hr_admin" data-role="hr_admin">
+                <div class="role-card-icon" style="background:rgba(21,101,192,.2);color:#90CAF9;">
+                  <i class="fas fa-user-tie"></i>
+                </div>
+                <span class="role-card-name">HR Admin</span>
+                <span class="role-card-sub">All HR modules</span>
+              </label>
+            </div>
+
+            <div>
+              <input type="radio" class="role-radio" name="role"
+                     id="role_hr_staff" value="hr_staff"
+                     {% if form.role.value == 'hr_staff' %}checked{% endif %}>
+              <label class="role-card" for="role_hr_staff" data-role="hr_staff">
+                <div class="role-card-icon" style="background:rgba(0,131,143,.15);color:#67E8F9;">
+                  <i class="fas fa-user"></i>
+                </div>
+                <span class="role-card-name">HR Staff</span>
+                <span class="role-card-sub">View &amp; encode</span>
+              </label>
+            </div>
+
+            <span id="role-field-error" style="font-size:.78rem;color:var(--danger);display:none;margin-top:6px;display:block;"></span>
+          </div>
+
+          {% if form.role.errors %}
+            <span class="field-error">{{ form.role.errors.0 }}</span>
+          {% endif %}
+        </div>
+
+        <!-- SECTION 2: Link to employee (optional) -->
+        <div class="section-label">Step 2 — Link to Employee Record (Optional)</div>
+
+        <div class="field-group">
+          <label class="field-label" for="linked_employee">Link to Employee</label>
+          <div class="field-wrap select-wrap">
+            <i class="fas fa-users field-icon"></i>
+            <select name="linked_employee" id="linked_employee">
+              <option value="">— None (IT admin with no employee record) —</option>
+              {% for emp in employees %}
+              <option value="{{ emp.employee_id }}"
+                {% if form.linked_employee.value == emp.employee_id|stringformat:"s" %}selected{% endif %}>
+                {{ emp.get_full_name }} — {{ emp.position.position_title|default:"—" }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <p class="field-hint">
+            Link this account to an employee record so their name and position
+            appear in the system. Leave blank for IT administrators.
+          </p>
+          {% if form.linked_employee.errors %}
+            <span class="field-error">{{ form.linked_employee.errors.0 }}</span>
+          {% endif %}
+        </div>
+
+        <!-- SECTION 3: Account credentials -->
+        <div class="section-label">Step 3 — Set Login Credentials</div>
+
+        <div class="field-group">
+          <label class="field-label" for="id_username">
+            Username <span class="req">*</span>
+          </label>
+          <div class="field-wrap" id="username-wrap">
+            <i class="fas fa-at field-icon"></i>
+            <input
+              type="text"
+              name="username"
+              id="id_username"
+              placeholder="e.g. hr.staff01 or zen.simon"
+              autocomplete="username"
+              value="{{ form.username.value|default:'' }}"
+              required
+            />
+          </div>
+          <span id="username-field-error" style="font-size:.78rem;color:var(--danger);display:none;"></span>
+          <p class="field-hint">Letters, numbers, dots, and underscores only. This cannot be changed later without IT help.</p>
+          {% if form.username.errors %}
+            <span class="field-error">{{ form.username.errors.0 }}</span>
+          {% endif %}
+        </div>
+
+        <div class="field-row-2">
+
+          <div class="field-group">
+            <label class="field-label" for="id_password1">
+              Password <span class="req">*</span>
+            </label>
+            <div class="field-wrap" id="password1-wrap">
+              <i class="fas fa-lock field-icon"></i>
+              <input
+                type="password"
+                name="password1"
+                id="id_password1"
+                placeholder="New password"
+                autocomplete="new-password"
+                required
+                oninput="checkStrength(this.value)"
+              />
+              <button type="button" class="toggle-pw" onclick="togglePw('id_password1','eye1')">
+                <i class="fas fa-eye" id="eye1"></i>
+              </button>
+            </div>
+            <div class="pw-strength-bar">
+              <div class="pw-strength-fill" id="pw-fill"></div>
+            </div>
+            <div class="pw-strength-label" id="pw-label">Enter a password</div>
+            {% if form.password1.errors %}
+              <span class="field-error">{{ form.password1.errors.0 }}</span>
+            {% endif %}
+
+            <span id="password1-field-error" style="font-size:.78rem;color:var(--danger);display:none;"></span>
+
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="id_password2">
+              Confirm Password <span class="req">*</span>
+            </label>
+            <div class="field-wrap" id="password2-wrap">
+              <i class="fas fa-lock field-icon"></i>
+              <input
+                type="password"
+                name="password2"
+                id="id_password2"
+                placeholder="Repeat password"
+                autocomplete="new-password"
+                required
+                oninput="checkMatch()"
+              />
+              <button type="button" class="toggle-pw" onclick="togglePw('id_password2','eye2')">
+                <i class="fas fa-eye" id="eye2"></i>
+              </button>
+            </div>
+            <div class="pw-strength-label" id="match-label" style="margin-top:7px;">—</div>
+            {% if form.password2.errors %}
+              <span class="field-error">{{ form.password2.errors.0 }}</span>
+            {% endif %}
+
+            <span id="password2-field-error" style="font-size:.78rem; color:var(--danger); display: none;"></span>
+
+          </div>
+
+        </div>
+
+        <!-- SECTION 3b: Recovery email (needed for forgot password) -->
+        <div class="section-label">Step 3b — Password Recovery Email</div>
+
+        <div class="field-group">
+          <label class="field-label" for="id_personal_email">
+            Personal Email <span class="req">*</span>
+          </label>
+          <div class="field-wrap" id="personal-email-wrap">
+            <i class="fas fa-envelope field-icon"></i>
+            <input
+              type="email"
+              name="personal_email"
+              id="id_personal_email"
+              placeholder="e.g. jdelacruz@gmail.com"
+              autocomplete="email"
+              value="{{ form.personal_email.value|default:'' }}"
+              required
+            />
+          </div>
+          <p class="field-hint">
+            Use the staff member's personal (non-work) email.
+            This is the only way they can reset their password if locked out.
+          </p>
+          {% if form.personal_email.errors %}
+            <span class="field-error">{{ form.personal_email.errors.0 }}</span>
+          {% endif %}
+          <span id="personal-email-field-error" style="font-size:.78rem;color:var(--danger);display:none;"></span>
+        </div>
+
+        <!-- SECTION 4: Account status -->
+        <div class="section-label">Step 4 — Account Status</div>
+
+        <div class="field-group">
+          <label class="field-label">Initial Status</label>
+          <div style="display:flex;gap:10px;">
+
+            <div>
+              <input type="radio" class="role-radio" name="is_active"
+                     id="status_active" value="1"
+                     {% if form.is_active.value != '0' %}checked{% endif %}>
+              <label for="status_active" style="
+                display:inline-flex;align-items:center;gap:7px;
+                padding:8px 16px;border-radius:var(--r);cursor:pointer;
+                border:1.5px solid rgba(34,197,94,.2);
+                background:rgba(34,197,94,.06);
+                font-size:.8rem;font-weight:600;color:rgba(255,255,255,.45);
+                transition:all .18s;
+              " id="label_active">
+                <i class="fas fa-circle-check" style="color:#4ADE80;font-size:.82rem;"></i>
+                Active (can log in immediately)
+              </label>
+            </div>
+
+            <div>
+              <input type="radio" class="role-radio" name="is_active"
+                     id="status_inactive" value="0"
+                     {% if form.is_active.value == '0' %}checked{% endif %}>
+              <label for="status_inactive" style="
+                display:inline-flex;align-items:center;gap:7px;
+                padding:8px 16px;border-radius:var(--r);cursor:pointer;
+                border:1.5px solid rgba(255,255,255,.07);
+                background:rgba(255,255,255,.03);
+                font-size:.8rem;font-weight:600;color:rgba(255,255,255,.3);
+                transition:all .18s;
+              " id="label_inactive">
+                <i class="fas fa-circle-xmark" style="color:rgba(255,255,255,.2);font-size:.82rem;"></i>
+                Inactive (account disabled)
+              </label>
+            </div>
+
+          </div>
+          <p class="field-hint">An inactive account cannot log in. The superadmin can activate it later from the user list.</p>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" class="btn-submit" id="btn-submit">
+          <span class="btn-text">
+            <i class="fas fa-user-plus"></i>&nbsp; Create Admin Account
+          </span>
+          <span class="btn-spinner"><div class="spinner-ring"></div></span>
+        </button>
+
+      </form>
+
+      <div class="card-footer">
+        Already have an account? <a href="{% url 'accounts:admin_login' %}">Sign in here</a>
+        &nbsp;·&nbsp;
+        {% comment %} <a href="{% url 'accounts:user_list' %}">View all users</a> {% endcomment %}
+      </div>
+
+      <p class="card-version">bfar_hris &nbsp;·&nbsp; Admin Portal &nbsp;·&nbsp; v1.0.0</p>
+
+    </div>
+  </main>
+
+</div>
+
+<script src="{% static 'js/admin/admin_signup.js' %}"></script>
+{% endblock content %}

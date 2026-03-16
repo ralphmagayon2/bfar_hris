@@ -1,0 +1,125 @@
+{# templates/emails/base_email.html #}
+{#
+   BFAR Region III — HRIS
+   Base email template. All transactional emails extend this.
+
+   Child templates must override:
+     {% block subject %}   — used in <title> only (subject is set in tasks.py)
+     {% block banner %}    — the colored strip under the BFAR header
+     {% block body %}      — the main email content
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>{% block subject %}BFAR Region III HRIS{% endblock %}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F0F4F8;
+             font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+             -webkit-font-smoothing:antialiased;">
+
+  <!-- Outer wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0"
+         bgcolor="#F0F4F8" style="background-color:#F0F4F8;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <!-- Card: max 600px -->
+        <table width="600" cellpadding="0" cellspacing="0" border="0"
+               style="background:#FFFFFF;
+                      border-radius:10px;
+                      box-shadow:0 2px 12px rgba(0,0,0,0.10);
+                      overflow:hidden;
+                      max-width:100%;">
+
+          <!-- ── BFAR HEADER ──────────────────────────────────── -->
+          <tr>
+            <td align="center"
+                style="background-color:#0A2342;padding:26px 24px 22px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center">
+                    <!-- Logo circle (replace src with actual logo image when available) -->
+                    <div style="display:inline-block;
+                                background:#FFFFFF;
+                                border-radius:50%;
+                                width:58px;height:58px;
+                                line-height:58px;
+                                text-align:center;
+                                font-size:14px;
+                                font-weight:800;
+                                color:#0A2342;
+                                margin-bottom:12px;
+                                letter-spacing:-0.5px;">
+                      BFAR
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center">
+                    <p style="margin:0;font-size:17px;font-weight:700;
+                               color:#FFFFFF;letter-spacing:0.4px;">
+                      Bureau of Fisheries and Aquatic Resources
+                    </p>
+                    <p style="margin:4px 0 0;font-size:12px;font-weight:400;
+                               color:#90CAF9;letter-spacing:1px;">
+                      REGION III &nbsp;&middot;&nbsp; HUMAN RESOURCE INFORMATION SYSTEM
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ── BANNER (overridden by each child template) ──── -->
+          {# Child overrides this entire block including the <tr> wrapper #}
+          {% block banner %}
+          <tr>
+            <td align="center"
+                style="background-color:#1565C0;padding:10px 24px;">
+              <p style="margin:0;font-size:12px;font-weight:700;
+                         color:#FFFFFF;letter-spacing:0.8px;
+                         text-transform:uppercase;">
+                NOTIFICATION
+              </p>
+            </td>
+          </tr>
+          {% endblock %}
+
+          <!-- ── BODY (all email-specific content) ────────────── -->
+          <tr>
+            <td style="padding:32px 36px 28px;">
+              {% block body %}{% endblock %}
+            </td>
+          </tr>
+
+          <!-- ── FOOTER ────────────────────────────────────────── -->
+          <tr>
+            <td style="background-color:#F8FAFC;
+                       border-top:1px solid #E2E8F0;
+                       padding:20px 36px;
+                       text-align:center;">
+              <p style="margin:0 0 4px;font-size:12px;color:#64748B;line-height:1.5;">
+                This is an automated message from the BFAR Region III HRIS.
+                Please do not reply directly to this email.
+              </p>
+              <p style="margin:0 0 8px;font-size:12px;color:#94A3B8;">
+                Bureau of Fisheries and Aquatic Resources &mdash; Regional Office III
+              </p>
+              <p style="margin:0;font-size:11px;color:#CBD5E1;">
+                San Fernando, Pampanga &nbsp;&middot;&nbsp; Philippines
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Card -->
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

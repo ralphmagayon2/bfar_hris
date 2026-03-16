@@ -1,0 +1,328 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}BFAR HRIS — Print{% endblock %}</title>
+
+  <!-- JetBrains Mono for tables (only font we need for print) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', Arial, sans-serif;
+      font-size: 11pt;
+      color: #000;
+      background: #fff;
+      line-height: 1.4;
+    }
+    a   { text-decoration: none; color: inherit; }
+    ul  { list-style: none; }
+    img { display: block; max-width: 100%; }
+
+    /* ── Print page setup ──────────────────────────────── */
+    @page {
+      {% block page_size %}size: A4 portrait;{% endblock %}
+      margin: 15mm 15mm 15mm 15mm;
+    }
+
+    /* ── Screen preview wrapper ──────────────────────────
+       Shows a paper-like card on screen so you can preview
+       before printing. Hidden in actual print.              */
+    .print-preview-wrap {
+      background: #EEF2F7;
+      min-height: 100vh;
+      padding: 30px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .print-preview-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 860px;
+      background: #0A2342;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 8px 8px 0 0;
+      font-size: .83rem;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .print-preview-toolbar strong { font-weight: 700; }
+    .print-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #1565C0; color: #fff;
+      border: none; padding: 7px 18px; border-radius: 5px;
+      font-size: .82rem; font-weight: 600; cursor: pointer;
+      transition: background .2s;
+    }
+    .print-btn:hover { background: #1E88E5; }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,.1); color: rgba(255,255,255,.85);
+      border: 1px solid rgba(255,255,255,.2);
+      padding: 7px 14px; border-radius: 5px;
+      font-size: .82rem; cursor: pointer; transition: background .2s;
+    }
+    .back-btn:hover { background: rgba(255,255,255,.2); }
+
+    .print-paper {
+      width: 100%;
+      max-width: 860px;
+      background: #fff;
+      box-shadow: 0 4px 24px rgba(10,35,66,.15);
+      padding: 25mm 20mm;
+      min-height: 1100px;
+    }
+
+    @media print {
+      .print-preview-wrap  { background: none; padding: 0; display: block; }
+      .print-preview-toolbar { display: none !important; }
+      .print-paper {
+        box-shadow: none; padding: 0;
+        max-width: none; width: 100%;
+        min-height: unset;
+      }
+    }
+
+    /* ── BFAR Letterhead ─────────────────────────────────── */
+    .bfar-letterhead {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding-bottom: 10px;
+      border-bottom: 3px solid #0A2342;
+      margin-bottom: 16px;
+    }
+    .letterhead-logo {
+      width: 64px; height: 64px;
+      flex-shrink: 0;
+    }
+    .letterhead-logo img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+    }
+    /* Fallback if logo not yet available */
+    .letterhead-logo-placeholder {
+      width: 64px; height: 64px;
+      border: 2px solid #0A2342;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; color: #0A2342; flex-shrink: 0;
+    }
+    .letterhead-text {
+      flex: 1;
+      text-align: center;
+    }
+    .letterhead-republic {
+      font-size: 8pt; letter-spacing: .5px; color: #555;
+      text-transform: uppercase;
+    }
+    .letterhead-agency {
+      font-size: 13pt; font-weight: 700; color: #0A2342;
+      line-height: 1.2;
+    }
+    .letterhead-region {
+      font-size: 9pt; color: #555; margin-top: 2px;
+    }
+    .letterhead-address {
+      font-size: 7.5pt; color: #777; margin-top: 2px;
+    }
+
+    /* ── Document title block ───────────────────────────── */
+    .doc-title-block {
+      text-align: center;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+    .doc-title {
+      font-size: 13pt; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .8px;
+      color: #0A2342;
+    }
+    .doc-subtitle {
+      font-size: 9pt; color: #555; margin-top: 3px;
+    }
+    .doc-period {
+      font-size: 9pt; font-weight: 600; color: #000; margin-top: 4px;
+    }
+
+    /* ── Info grid (employee details) ───────────────────── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 20px;
+      margin-bottom: 14px;
+      font-size: 9.5pt;
+    }
+    .info-grid.three-col { grid-template-columns: 1fr 1fr 1fr; }
+    .info-row {
+      display: flex; gap: 6px; align-items: baseline;
+    }
+    .info-label {
+      font-weight: 600; white-space: nowrap; color: #333;
+      min-width: 90px;
+    }
+    .info-value {
+      border-bottom: 1px solid #aaa;
+      flex: 1; padding-bottom: 1px;
+      color: #000;
+    }
+
+    /* ── Print tables ───────────────────────────────────── */
+    .print-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 12px;
+    }
+    .print-table th {
+      background: #0A2342;
+      color: #fff;
+      padding: 5px 8px;
+      text-align: center;
+      font-size: 8pt;
+      font-weight: 600;
+      border: 1px solid #0A2342;
+    }
+    .print-table td {
+      padding: 4px 8px;
+      border: 1px solid #ccc;
+      vertical-align: middle;
+      text-align: center;
+    }
+    .print-table tbody tr:nth-child(even) { background: #F8FAFC; }
+    .print-table .text-left  { text-align: left; }
+    .print-table .text-right { text-align: right; }
+    .print-table tfoot td {
+      font-weight: 700; background: #EEF2F7;
+      border-top: 2px solid #0A2342;
+    }
+
+    /* ── Signature block ────────────────────────────────── */
+    .signature-section {
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      font-size: 9.5pt;
+    }
+    .signature-col { flex: 1; }
+    .signature-label {
+      font-size: 7.5pt; color: #555; text-transform: uppercase;
+      letter-spacing: .5px; margin-bottom: 32px;
+    }
+    .signature-line {
+      border-top: 1px solid #000;
+      padding-top: 4px;
+    }
+    .signature-name { font-weight: 700; font-size: 10pt; }
+    .signature-position { font-size: 8pt; color: #555; }
+
+    /* ── Certification block ────────────────────────────── */
+    .certification-block {
+      margin-top: 16px;
+      padding: 10px 14px;
+      border: 1px solid #0A2342;
+      border-radius: 4px;
+      font-size: 9pt;
+      background: #F0F4F8;
+    }
+    .certification-block p { line-height: 1.6; }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    .print-footer {
+      margin-top: 20px;
+      padding-top: 8px;
+      border-top: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7.5pt;
+      color: #999;
+    }
+
+    /* ── Utility ─────────────────────────────────────────── */
+    .text-center { text-align: center; }
+    .text-right  { text-align: right; }
+    .font-bold   { font-weight: 700; }
+    .mt-4   { margin-top: 4mm; }
+    .mt-8   { margin-top: 8mm; }
+    .mt-12  { margin-top: 12mm; }
+    .mb-4   { margin-bottom: 4mm; }
+    .mb-8   { margin-bottom: 8mm; }
+    .page-break { page-break-after: always; }
+    .no-print   { display: none !important; }
+
+    {% block extra_print_css %}{% endblock %}
+  </style>
+</head>
+
+<body>
+  <div class="print-preview-wrap">
+
+    <!-- Screen-only toolbar (hidden when printing) -->
+    <div class="print-preview-toolbar">
+      <div>
+        <strong>BFAR HRIS</strong> &mdash;
+        {% block toolbar_title %}Print Preview{% endblock %}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="back-btn" onclick="history.back()">
+          &#8592; Back
+        </button>
+        <button class="print-btn" onclick="window.print()">
+          &#128438; Print / Save PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Paper content -->
+    <div class="print-paper">
+
+      <!-- Letterhead (shown on every print template) -->
+      <div class="bfar-letterhead">
+        <div class="letterhead-logo">
+          {% comment %} Uncomment once you have the logo in static/img/ {% endcomment %}
+          {% comment %} <img src="{% static 'img/bfar_logo.png' %}" alt="BFAR Logo" /> {% endcomment %}
+          <div class="letterhead-logo-placeholder">&#127843;</div>
+        </div>
+        <div class="letterhead-text">
+          <div class="letterhead-republic">Republic of the Philippines</div>
+          <div class="letterhead-agency">
+            Bureau of Fisheries and Aquatic Resources<br />Regional Office No. III
+          </div>
+          <div class="letterhead-region">
+            San Fernando, Pampanga &bull; Tel: (045) 000-0000
+          </div>
+        </div>
+        <div class="letterhead-logo" style="visibility:hidden;">
+          {# Mirror logo placeholder for centered alignment #}
+        </div>
+      </div>
+
+      {% block content %}
+      <!-- Print page content goes here -->
+      {% endblock %}
+
+      <!-- Standard print footer -->
+      <div class="print-footer">
+        <span>BFAR Region III &mdash; Human Resource Information System</span>
+        <span>Printed: {{ now|date:"F d, Y g:i A" }}</span>
+      </div>
+
+    </div><!-- /print-paper -->
+  </div><!-- /print-preview-wrap -->
+
+  {% block js %}{% endblock %}
+</body>
+</html>

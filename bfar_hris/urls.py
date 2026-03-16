@@ -15,8 +15,44 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from django.core.exceptions import PermissionDenied
+
+def trigger_403(request):
+    return PermissionDenied
+
+def trigger_404(request):
+    from django.http import Http404
+    raise Http404
+
+def trigger_500(request):
+    return 1 / 0
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-]
+    path('dj-admin/', admin.site.urls),
+    path('', include('apps.accounts.urls', namespace='accounts')),
+    path('', include('apps.core.urls', namespace='core')),
+    path('employees/', include('apps.employees.urls', namespace='employees')),
+    path('biometrics/', include('apps.biometrics.urls', namespace='biometrics')),
+    path('api/biometrics/', include('apps.biometrics.urls', namespace='biometrics_api')),
+    path('dtr/', include('apps.dtr.urls', namespace='dtr')),
+    path('travel-orders/', include('apps.travel_orders.urls', namespace='travel_orders')),
+    path('leaves/', include('apps.leaves.urls', namespace='leaves')),
+    path('payroll/', include('apps.payroll.urls', namespace='payroll')),
+    path('holidays/', include('apps.holidays.urls', namespace='holidays')),
+    path('audit/', include('apps.audit.urls', namespace='audit')),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# ============================================
+# MEDIA & STATIC FILES CONFIGURATION
+# ============================================
+
+# Development: Serve both static and media files locally
+if settings.DEBUG:
+    # Static files (CSS, JS, images)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+    # Media urls (user uploads) - only in development
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

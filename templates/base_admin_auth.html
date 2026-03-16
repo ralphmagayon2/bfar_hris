@@ -1,0 +1,42 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %} This is a Base Template for Admin Auth{% endblock title %}</title>
+
+    {% comment %} CSS {% endcomment %}
+    <link rel="stylesheet" href="{% static 'css/base_admin_auth.css' %}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="icon" href="{% static 'img/HRIS.png' %}" type="image/png" />
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
+
+    {% comment %} Styles of message {% endcomment %}
+    <link rel="stylesheet" href="{% static 'css/messages.css' %}">
+
+    {% block css %}
+    
+    {% endblock css %}
+</head>
+<body>
+    {% comment %} Messages for different templates/html file {% endcomment %}
+    {% include 'includes/messages.html' %}
+
+    <div class="admin-auth-container">
+
+    {% comment %} Content goes here  {% endcomment %}
+    {% block content %}
+    
+    {% endblock content %}
+
+    </div>
+
+    {% block js %}
+    {% comment %} Javascript goes here {% endcomment %}
+    {% endblock js %}
+</body>
+</html>

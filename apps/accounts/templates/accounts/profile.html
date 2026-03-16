@@ -1,0 +1,623 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Profile — BFAR HRIS{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block css %}
+<style>
+.profile-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 22px;
+  align-items: start;
+}
+@media (max-width: 960px) { .profile-layout { grid-template-columns: 1fr; } }
+
+.p-card {
+  background: var(--white);
+  border-radius: 12px;
+  border: 1px solid var(--gray-100);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* LEFT identity card */
+.p-card-banner {
+  height: 76px;
+  background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-700) 100%);
+}
+.p-card-body { padding: 0 20px 20px; text-align: center; }
+
+.avatar-wrap {
+  position: relative;
+  display: inline-block;
+  margin-top: -38px;
+  margin-bottom: 10px;
+}
+.avatar-ring {
+  width: 76px; height: 76px;
+  border-radius: 14px;
+  border: 3px solid var(--white);
+  box-shadow: var(--shadow-lg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; font-weight: 800; color: var(--navy-700);
+  background: var(--navy-50);
+  overflow: hidden;
+}
+.avatar-ring img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-edit-btn {
+  position: absolute; bottom: -6px; right: -6px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--navy-700); color: var(--white);
+  border: 2px solid var(--white);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .65rem; cursor: pointer;
+  transition: background var(--t);
+}
+.avatar-edit-btn:hover { background: var(--navy-900); }
+
+.p-name { font-size: 1rem; font-weight: 700; color: var(--navy-900); margin-bottom: 4px; }
+.p-role {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 10px; border-radius: 999px;
+  background: var(--navy-50); color: var(--navy-700);
+  font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 16px;
+}
+
+.p-meta-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0; text-align: left;
+  border-bottom: 1px solid var(--gray-100);
+}
+.p-meta-row:last-child { border-bottom: none; }
+.p-meta-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: var(--gray-50); color: var(--gray-400);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .72rem; flex-shrink: 0;
+}
+.p-meta-label { font-size: .67rem; color: var(--gray-400); margin-bottom: 1px; }
+.p-meta-value { font-size: .82rem; font-weight: 500; color: var(--navy-900); }
+
+/* RIGHT tabs */
+.p-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--gray-100);
+  background: var(--gray-50);
+  overflow-x: auto;
+}
+.p-tab {
+  padding: 12px 20px; font-size: .82rem; font-weight: 600;
+  color: var(--gray-400); cursor: pointer; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color var(--t), border-color var(--t);
+  display: flex; align-items: center; gap: 7px;
+}
+.p-tab:hover { color: var(--navy-700); }
+.p-tab.active { color: var(--navy-700); border-bottom-color: var(--navy-700); }
+.p-tab i { font-size: .78rem; }
+
+.p-panel { display: none; padding: 22px 24px; }
+.p-panel.active { display: block; }
+
+/* Forms */
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) {
+  .form-grid-2 { grid-template-columns: 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr; }
+}
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-label {
+  font-size: .72rem; font-weight: 700;
+  color: var(--gray-500); text-transform: uppercase; letter-spacing: .5px;
+}
+.form-label .req { color: var(--danger); }
+.form-hint { font-size: .7rem; color: var(--gray-400); margin-top: 2px; }
+.form-control {
+  padding: 9px 12px;
+  border: 1.5px solid var(--gray-200); border-radius: var(--radius);
+  font-size: .875rem; font-family: var(--font); color: var(--navy-900);
+  background: var(--white); width: 100%;
+  transition: border-color .2s, box-shadow .2s;
+}
+.form-control:focus {
+  outline: none; border-color: var(--navy-700);
+  box-shadow: 0 0 0 3px rgba(21,101,192,.1);
+}
+.form-control:disabled { background: var(--gray-50); color: var(--gray-400); cursor: not-allowed; }
+.section-title {
+  font-size: .74rem; font-weight: 700; color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: .7px;
+  padding-bottom: 7px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--gray-100);
+  display: flex; align-items: center; gap: 7px;
+}
+.section-title i { color: var(--navy-700); }
+
+/* Password */
+.pw-wrap { position: relative; }
+.pw-wrap .form-control { padding-right: 38px; }
+.pw-eye {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-400); font-size: .8rem; cursor: pointer;
+}
+.pw-eye:hover { color: var(--navy-700); }
+.strength-bar-wrap { height: 4px; background: var(--gray-100); border-radius: 999px; overflow: hidden; margin-top: 5px; }
+.strength-bar { height: 100%; border-radius: 999px; width: 0; transition: width .35s, background .35s; }
+.strength-label { font-size: .7rem; margin-top: 3px; font-weight: 600; }
+.pw-match-msg  { font-size: .7rem; margin-top: 3px; font-weight: 600; }
+.ok  { color: var(--success); }
+.bad { color: var(--danger); }
+
+/* Activity */
+.activity-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--gray-100);
+}
+.activity-item:last-child { border-bottom: none; }
+.act-icon {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: .75rem;
+}
+.act-login   { background: var(--success-light); color: var(--success); }
+.act-edit    { background: var(--navy-50);        color: var(--navy-700); }
+.act-print   { background: #F3E5F5;               color: #6A1B9A; }
+.act-compute { background: var(--amber-50);       color: var(--amber-700); }
+.act-other   { background: var(--gray-100);       color: var(--gray-400); }
+.act-desc { font-size: .82rem; color: var(--navy-900); line-height: 1.4; }
+.act-meta { font-size: .7rem; color: var(--gray-400); margin-top: 2px; }
+
+/* Panel footer */
+.panel-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 14px 24px; border-top: 1px solid var(--gray-100); background: var(--gray-50);
+}
+
+/* Avatar upload overlay */
+.av-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(10,35,66,.5); z-index: 1100;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.av-overlay.show { display: flex; animation: avFade .2s ease; }
+@keyframes avFade { from{opacity:0}to{opacity:1} }
+.av-box {
+  background: var(--white); border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.28);
+  width: 100%; max-width: 400px;
+  animation: avSlide .25s ease;
+}
+@keyframes avSlide { from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1} }
+.av-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--gray-100);
+}
+.av-title { font-size: .9rem; font-weight: 700; color: var(--navy-900); display: flex; align-items: center; gap: 8px; }
+.av-close { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--gray-400); font-size: .8rem; cursor: pointer; transition: background .2s; }
+.av-close:hover { background: var(--gray-100); color: var(--navy-900); }
+.av-body { padding: 20px; }
+.av-preview {
+  width: 96px; height: 96px; border-radius: 14px;
+  background: var(--navy-50); border: 2px solid var(--gray-100);
+  margin: 0 auto 16px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; font-weight: 800; color: var(--navy-700);
+}
+.av-preview img { width: 100%; height: 100%; object-fit: cover; }
+.av-drop {
+  border: 2px dashed var(--gray-200); border-radius: var(--radius);
+  padding: 20px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.av-drop:hover,.av-drop.drag { border-color: var(--navy-700); background: var(--navy-25); }
+.av-drop input { display: none; }
+.av-drop-icon { font-size: 1.4rem; color: var(--gray-300); margin-bottom: 8px; }
+.av-drop-text { font-size: .82rem; color: var(--gray-500); }
+.av-drop-text strong { color: var(--navy-700); }
+.av-drop-note { font-size: .7rem; color: var(--gray-300); margin-top: 6px; }
+.av-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--gray-100); }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">My Profile</h1>
+    <p class="page-sub">Manage your account information and security settings</p>
+  </div>
+</div>
+
+<div class="profile-layout">
+
+  <!-- ════ LEFT: Identity Card ════ -->
+  <div class="p-card">
+    <div class="p-card-banner"></div>
+    <div class="p-card-body">
+
+      <div class="avatar-wrap">
+        <div class="avatar-ring">
+          {% if user.profile_picture %}
+            <img src="{{ user.profile_picture.url }}" alt="{{ user.get_full_name }}" id="sidebar-avatar">
+          {% else %}
+            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+          {% endif %}
+        </div>
+        <button class="avatar-edit-btn" onclick="openAv()" title="Change photo">
+          <i class="fas fa-camera"></i>
+        </button>
+      </div>
+
+      <div class="p-name">{{ user.get_full_name|default:user.username }}</div>
+      <div class="p-role">
+        <i class="fas fa-shield-halved"></i>
+        {{ user.admin_role|default:"viewer"|capfirst }}
+      </div>
+
+      <div class="p-meta-row">
+        <div class="p-meta-icon"><i class="fas fa-at"></i></div>
+        <div>
+          <div class="p-meta-label">Username</div>
+          <div class="p-meta-value" style="font-family:var(--font-mono);font-size:.79rem;">{{ user.username }}</div>
+        </div>
+      </div>
+      <div class="p-meta-row">
+        <div class="p-meta-icon"><i class="fas fa-envelope"></i></div>
+        <div>
+          <div class="p-meta-label">Email</div>
+          <div class="p-meta-value">{{ user.email|default:"—" }}</div>
+        </div>
+      </div>
+      <div class="p-meta-row">
+        <div class="p-meta-icon"><i class="fas fa-phone"></i></div>
+        <div>
+          <div class="p-meta-label">Mobile</div>
+          <div class="p-meta-value">{{ user.contact_number|default:"—" }}</div>
+        </div>
+      </div>
+      <div class="p-meta-row">
+        <div class="p-meta-icon"><i class="fas fa-calendar-plus"></i></div>
+        <div>
+          <div class="p-meta-label">Member Since</div>
+          <div class="p-meta-value">{{ user.date_joined|date:"M d, Y" }}</div>
+        </div>
+      </div>
+      <div class="p-meta-row">
+        <div class="p-meta-icon"><i class="fas fa-clock-rotate-left"></i></div>
+        <div>
+          <div class="p-meta-label">Last Login</div>
+          <div class="p-meta-value">{{ user.last_login|date:"M d, Y g:i A"|default:"—" }}</div>
+        </div>
+      </div>
+      <div class="p-meta-row">
+        <div class="p-meta-icon"><i class="fas fa-circle-check"></i></div>
+        <div>
+          <div class="p-meta-label">Status</div>
+          <div class="p-meta-value">
+            <span class="status-badge {% if user.is_active %}badge-present{% else %}badge-absent{% endif %}">
+              {% if user.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════ RIGHT: Tabs ════ -->
+  <div class="p-card">
+
+    <div class="p-tabs">
+      <div class="p-tab active" onclick="switchTab('personal')" id="tab-personal">
+        <i class="fas fa-user"></i> Personal Info
+      </div>
+      <div class="p-tab" onclick="switchTab('security')" id="tab-security">
+        <i class="fas fa-lock"></i> Change Password
+      </div>
+      <div class="p-tab" onclick="switchTab('activity')" id="tab-activity">
+        <i class="fas fa-clipboard-list"></i> Recent Activity
+      </div>
+    </div>
+
+    <!-- Panel 1: Personal Info -->
+    <form method="post" action="?action=update_info">
+      {% csrf_token %}
+      <div class="p-panel active" id="panel-personal">
+
+        <div class="section-title"><i class="fas fa-user-circle"></i> Basic Information</div>
+
+        <div class="form-grid-3" style="margin-bottom:14px;">
+          <div class="form-group">
+            <label class="form-label">First Name <span class="req">*</span></label>
+            <input type="text" name="first_name" class="form-control"
+                   value="{{ user.first_name }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Middle Name</label>
+            <input type="text" name="middle_name" class="form-control"
+                   value="{{ user.middle_name|default:'' }}" placeholder="Optional">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name <span class="req">*</span></label>
+            <input type="text" name="last_name" class="form-control"
+                   value="{{ user.last_name }}" required>
+          </div>
+        </div>
+
+        <div class="form-grid-2" style="margin-bottom:16px;">
+          <div class="form-group">
+            <label class="form-label">Email Address <span class="req">*</span></label>
+            <input type="email" name="email" class="form-control"
+                   value="{{ user.email }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mobile / Contact</label>
+            <input type="tel" name="contact_number" class="form-control"
+                   value="{{ user.contact_number|default:'' }}"
+                   placeholder="09XX-XXX-XXXX">
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top:4px;">
+          <i class="fas fa-shield-halved"></i> Account Details
+          <span style="font-size:.68rem;font-weight:400;color:var(--gray-400);
+                       text-transform:none;letter-spacing:0;margin-left:4px;">
+            — contact admin to change
+          </span>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" class="form-control" value="{{ user.username }}" disabled>
+            <span class="form-hint">Your username cannot be changed here.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role / Permission Level</label>
+            <input type="text" class="form-control"
+                   value="{{ user.admin_role|default:'viewer'|capfirst }}" disabled>
+          </div>
+        </div>
+
+      </div>
+      <div class="panel-footer" id="footer-personal">
+        <button type="reset" class="btn btn-ghost btn-sm">Reset</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fas fa-floppy-disk"></i> Save Changes
+        </button>
+      </div>
+    </form>
+
+    <!-- Panel 2: Change Password -->
+    <form method="post" action="?action=change_password">
+      {% csrf_token %}
+      <div class="p-panel" id="panel-security">
+
+        <div class="section-title"><i class="fas fa-key"></i> Change Password</div>
+
+        <div style="max-width:420px;display:flex;flex-direction:column;gap:14px;">
+
+          <div class="form-group">
+            <label class="form-label">Current Password <span class="req">*</span></label>
+            <div class="pw-wrap">
+              <input type="password" name="old_password" id="old_password"
+                     class="form-control" required autocomplete="current-password">
+              <span class="pw-eye" onclick="togglePw('old_password',this)">
+                <i class="fas fa-eye"></i>
+              </span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">New Password <span class="req">*</span></label>
+            <div class="pw-wrap">
+              <input type="password" name="new_password1" id="new_password1"
+                     class="form-control" required autocomplete="new-password"
+                     oninput="checkStrength(this.value); checkMatch();">
+              <span class="pw-eye" onclick="togglePw('new_password1',this)">
+                <i class="fas fa-eye"></i>
+              </span>
+            </div>
+            <div class="strength-bar-wrap">
+              <div class="strength-bar" id="str-bar"></div>
+            </div>
+            <div class="strength-label" id="str-label"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Confirm New Password <span class="req">*</span></label>
+            <div class="pw-wrap">
+              <input type="password" name="new_password2" id="new_password2"
+                     class="form-control" required autocomplete="new-password"
+                     oninput="checkMatch()">
+              <span class="pw-eye" onclick="togglePw('new_password2',this)">
+                <i class="fas fa-eye"></i>
+              </span>
+            </div>
+            <div class="pw-match-msg" id="match-msg"></div>
+          </div>
+
+          <div style="background:var(--navy-25);border-radius:8px;
+                      padding:12px 14px;font-size:.76rem;color:var(--gray-600,var(--gray-500));
+                      line-height:1.5;">
+            <i class="fas fa-circle-info" style="color:var(--navy-700);margin-right:5px;"></i>
+            Password must be at least <strong>8 characters</strong>,
+            contain a mix of letters and numbers,
+            and must not be too similar to your username or email.
+          </div>
+        </div>
+
+      </div>
+      <div class="panel-footer" id="footer-security" style="display:none;">
+        <button type="reset" class="btn btn-ghost btn-sm">Clear</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="pw-submit" disabled>
+          <i class="fas fa-lock"></i> Update Password
+        </button>
+      </div>
+    </form>
+
+    <!-- Panel 3: Recent Activity -->
+    <div class="p-panel" id="panel-activity">
+      <div class="section-title">
+        <i class="fas fa-clock-rotate-left"></i> Recent Activity
+        <span style="margin-left:auto;font-size:.7rem;font-weight:400;
+                     color:var(--gray-400);text-transform:none;letter-spacing:0;">
+          Last 20 actions
+        </span>
+      </div>
+
+      {% for log in recent_activity %}
+      <div class="activity-item">
+        <div class="act-icon act-{% if log.action == 'login' %}login{% elif log.action == 'print' %}print{% elif log.action == 'compute' %}compute{% elif log.action == 'edit' or log.action == 'update' %}edit{% else %}other{% endif %}">
+          {% if log.action == 'login' %}<i class="fas fa-right-to-bracket"></i>
+          {% elif log.action == 'print' %}<i class="fas fa-print"></i>
+          {% elif log.action == 'compute' %}<i class="fas fa-calculator"></i>
+          {% elif log.action == 'edit' or log.action == 'update' %}<i class="fas fa-pen"></i>
+          {% else %}<i class="fas fa-circle-dot"></i>{% endif %}
+        </div>
+        <div>
+          <div class="act-desc">{{ log.description|default:"System action" }}</div>
+          <div class="act-meta">
+            {{ log.created_at|date:"M d, Y" }} &middot; {{ log.created_at|time:"g:i A" }}
+            {% if log.ip_address %}&middot; {{ log.ip_address }}{% endif %}
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div style="text-align:center;padding:40px;color:var(--gray-400);">
+        <i class="fas fa-clipboard-list" style="font-size:1.8rem;display:block;opacity:.2;margin-bottom:10px;"></i>
+        No activity recorded yet.
+      </div>
+      {% endfor %}
+    </div>
+
+  </div><!-- /.p-card right -->
+</div><!-- /.profile-layout -->
+
+
+<!-- Avatar Upload Overlay -->
+<div class="av-overlay" id="av-overlay">
+  <div class="av-box">
+    <div class="av-header">
+      <div class="av-title"><i class="fas fa-camera" style="color:var(--navy-700);"></i> Update Photo</div>
+      <button class="av-close" onclick="closeAv()"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="post" action="?action=update_avatar" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="av-body">
+        <div class="av-preview" id="av-preview">
+          {% if user.profile_picture %}
+            <img src="{{ user.profile_picture.url }}" id="av-preview-img">
+          {% else %}
+            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+          {% endif %}
+        </div>
+        <div class="av-drop" id="av-drop"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleDrop(event)">
+          <input type="file" name="profile_picture" id="av-file"
+                 accept="image/*" onchange="previewAv(this)">
+          <div class="av-drop-icon"><i class="fas fa-cloud-arrow-up"></i></div>
+          <div class="av-drop-text">
+            Drag &amp; drop or
+            <strong onclick="document.getElementById('av-file').click()">browse</strong>
+          </div>
+          <div class="av-drop-note">PNG, JPG, WEBP &mdash; max 2 MB</div>
+        </div>
+      </div>
+      <div class="av-footer">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeAv()">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="av-save" disabled>
+          <i class="fas fa-floppy-disk"></i> Save Photo
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block js %}
+<script>
+/* Tabs */
+function switchTab(name) {
+  ['personal','security','activity'].forEach(n => {
+    document.getElementById('tab-'   + n).classList.toggle('active', n === name);
+    document.getElementById('panel-' + n).classList.toggle('active', n === name);
+    const f = document.getElementById('footer-' + n);
+    if (f) f.style.display = (n === name) ? 'flex' : 'none';
+  });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('footer-personal').style.display = 'flex';
+});
+
+/* Password strength */
+function checkStrength(pw) {
+  let s = 0;
+  if (pw.length >= 8) s++;
+  if (/[A-Z]/.test(pw)) s++;
+  if (/[0-9]/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  const bar = document.getElementById('str-bar');
+  const lbl = document.getElementById('str-label');
+  const map = [
+    {w:'25%',bg:'var(--danger)',    cls:'bad', txt:'Weak'},
+    {w:'50%',bg:'var(--amber-700)',cls:'',    txt:'Fair'},
+    {w:'75%',bg:'var(--navy-700)', cls:'',    txt:'Good'},
+    {w:'100%',bg:'var(--success)', cls:'ok',  txt:'Strong'},
+  ];
+  if (!pw) { bar.style.width='0'; lbl.textContent=''; return; }
+  const m = map[Math.max(0, s-1)];
+  bar.style.width = m.w; bar.style.background = m.bg;
+  lbl.textContent = m.txt; lbl.className = 'strength-label ' + m.cls;
+}
+function checkMatch() {
+  const p1 = document.getElementById('new_password1').value;
+  const p2 = document.getElementById('new_password2').value;
+  const msg = document.getElementById('match-msg');
+  const btn = document.getElementById('pw-submit');
+  if (!p2) { msg.textContent=''; msg.className='pw-match-msg'; btn.disabled=true; return; }
+  if (p1===p2) { msg.textContent='✓ Passwords match'; msg.className='pw-match-msg ok'; btn.disabled=false; }
+  else         { msg.textContent='✗ Passwords do not match'; msg.className='pw-match-msg bad'; btn.disabled=true; }
+}
+function togglePw(id, btn) {
+  const input = document.getElementById(id);
+  const icon  = btn.querySelector('i');
+  input.type  = (input.type === 'password') ? 'text' : 'password';
+  icon.className = (input.type === 'text') ? 'fas fa-eye-slash' : 'fas fa-eye';
+}
+
+/* Avatar upload */
+function openAv()  { document.getElementById('av-overlay').classList.add('show'); document.body.style.overflow='hidden'; }
+function closeAv() { document.getElementById('av-overlay').classList.remove('show'); document.body.style.overflow=''; }
+document.getElementById('av-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('av-overlay')) closeAv();
+});
+function previewAv(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('av-preview').innerHTML =
+      '<img src="' + e.target.result + '" id="av-preview-img" style="width:100%;height:100%;object-fit:cover;">';
+    document.getElementById('av-save').disabled = false;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('av-drop').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  const dt = new DataTransfer(); dt.items.add(file);
+  const input = document.getElementById('av-file');
+  input.files = dt.files;
+  previewAv(input);
+}
+</script>
+{% endblock %}
