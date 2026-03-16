@@ -269,7 +269,7 @@ body {
 .form-subheading { font-size: .85rem; color: var(--gray-500); margin-bottom: 32px; }
 
 /* Django messages inline */
-.form-messages { margin-bottom: 16px; }
+/* .form-messages { margin-bottom: 16px; }
 .form-message-error {
     display: flex; align-items: center; gap: 8px;
     padding: 10px 14px;
@@ -277,7 +277,7 @@ body {
     border-left: 3px solid var(--danger);
     border-radius: var(--r-md);
     font-size: .82rem; color: var(--danger);
-}
+} */
 
 /* Form fields */
 .field-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
@@ -310,6 +310,22 @@ body {
 }
 .field-wrap input:focus + .field-focus-effect,
 .field-wrap input:focus ~ .field-icon { color: var(--navy-700); }
+
+/* Shake animation for error */
+.field-wrap.error input,
+.field-wrap.error select {
+    border-color: var(--danger, #E53935);
+}
+
+.field-wrap.shake {
+    animation: shake .35s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+}
 
 /* Password toggle */
 .field-toggle-pw {

@@ -115,14 +115,14 @@
         body: fd,
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       })
-      .then(() => {
+      .then(function () {
         btn.textContent = '✓ Sent again!';
-        setTimeout(() => {
+        setTimeout(function () {
           btn.textContent = 'Resend the link';
           btn.disabled = false;
         }, 4000);
       })
-      .catch(() => {
+      .catch(function () {
         btn.textContent = 'Failed — try again';
         btn.disabled = false;
       });
