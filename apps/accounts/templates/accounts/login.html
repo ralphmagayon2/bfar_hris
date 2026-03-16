@@ -98,29 +98,6 @@
       <h2 class="form-heading">Welcome back</h2>
       <p class="form-subheading">Sign in to your HR account to continue.</p>
 
-      <!-- Django messages -->
-      {% if messages %}
-      <div class="form-messages">
-        {% for message in messages %}
-        <div class="form-message-error">
-          <i class="fas fa-circle-exclamation"></i>
-          {{ message }}
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <!-- Non-field errors from form -->
-      {% if form.non_field_errors %}
-      <div class="form-messages">
-        {% for error in form.non_field_errors %}
-        <div class="form-message-error">
-          <i class="fas fa-circle-exclamation"></i>{{ error }}
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
       <!-- Login Form -->
       <form method="post" id="login-form" novalidate>
         {% csrf_token %}
@@ -128,7 +105,7 @@
         <!-- Username / Employee ID -->
         <div class="field-group">
           <label class="field-label" for="id_username">Username or Employee ID</label>
-          <div class="field-wrap">
+          <div class="field-wrap" id="username-wrap">
             <i class="fas fa-user field-icon"></i>
             <input
               type="text"
@@ -143,12 +120,13 @@
           {% if form.username.errors %}
             <span style="font-size:.78rem;color:var(--danger);">{{ form.username.errors.0 }}</span>
           {% endif %}
+          <span id="username-error" style="font-size:.78rem; color:var(--danger); display:none;"></span>
         </div>
 
         <!-- Password -->
         <div class="field-group">
           <label class="field-label" for="id_password">Password</label>
-          <div class="field-wrap">
+          <div class="field-wrap" id="password-wrap">
             <i class="fas fa-lock field-icon"></i>
             <input
               type="password"
@@ -165,6 +143,7 @@
           {% if form.password.errors %}
             <span style="font-size:.78rem;color:var(--danger);">{{ form.password.errors.0 }}</span>
           {% endif %}
+          <span id="password-error" style="font-size:.78rem; color:var(--danger); display:none;"></span>
         </div>
 
         <!-- Remember + Forgot -->

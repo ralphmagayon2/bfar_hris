@@ -199,6 +199,17 @@
 .field-wrap.error input {
   border-color: var(--danger, #E53935);
 }
+
+/* Error Focus State */
+.field-wrap.error input:focus {
+    border-color: var(--danger, #E53935);
+    box-shadow: 0 0 0 3px rgba(229,57,53,.15);
+}
+
+.field-wrap.error .field-icon {
+    color: var(--danger, #E53935);
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60%  { transform: translateX(-5px); }

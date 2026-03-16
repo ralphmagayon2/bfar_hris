@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*.py[cod]
 *.pyc
 *.pyo
 *.pyd
@@ -7,6 +8,7 @@ __pycache__/
 
 # Virtual environment
 env/
+env-bfar/
 venv/
 ENV/
 

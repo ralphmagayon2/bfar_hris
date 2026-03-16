@@ -151,7 +151,6 @@ def employee_login(request):
                 username=username, role='viewer',
             )
         except SystemUser.DoesNotExist:
-            _record_failure(username, request)
             messages.error(request, 'Invalid username or password.')
             return render(request, 'accounts/login.html', {'username': username})
         
