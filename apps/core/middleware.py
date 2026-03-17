@@ -89,7 +89,7 @@ class InjectCurrentUserMiddleware:
             user = (
                 SystemUser.objects
                 .select_related('employee')
-                .get(user_id=user_id, is_active=True)
+                .get(pk=user_id, is_active=True)
             )
             return user
         except SystemUser.DoesNotExist:

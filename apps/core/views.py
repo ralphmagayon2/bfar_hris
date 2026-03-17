@@ -28,20 +28,21 @@ from django.utils import timezone
 from datetime import timedelta
 from django.contrib import messages
 
-def _get_session_user(request):
-    from apps.accounts.models import SystemUser
+# def _get_session_user(request):
+#     from apps.accounts.models import SystemUser
 
-    user_id = request.session.get('user_id')
-    if not user_id:
-        return None
+#     user_id = request.session.get('user_id')
+#     if not user_id:
+#         return None
 
-    try:
-        return SystemUser.objects.select_related('employee').get(pk=user_id)
-    except SystemUser.DoesNotExist:
-        return None
+#     try:
+#         return SystemUser.objects.select_related('employee').get(pk=user_id)
+#     except SystemUser.DoesNotExist:
+#         return None
     
 def dashboard(request):
-    system_user = _get_session_user(request)
+    system_user = request.current_user # FIXED this part because the _get_session cause infinite loop in admin login
+    
     if not system_user:
         messages.warning(request, "Please logged in to access this page.")
         return redirect('accounts:login')
@@ -74,8 +75,8 @@ def _hr_dashboard(request, system_user):
     recent_travel_orders = (
         TravelOrder.objects
         .filter(date_to__gte=today)
-        .select_related('employee_division')
-        .order_by('holiday_date')[:5]
+        .select_related('employee__division')
+        .order_by('date_from')[:5]
     )
 
     current_payroll_period = (

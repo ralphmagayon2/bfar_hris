@@ -102,7 +102,8 @@ from apps.accounts.utils import (
     MAX_ATTEMPTS, LOCKOUT_MINUTES,
     get_attempts, increment_attempts, lock_account, is_locked, clear_attempts,
     get_client_ip, generate_temp_password, validate_password_strength,
-    generate_reset_token, hash_token, generate_username, mask_email
+    generate_reset_token, hash_token, generate_username, mask_email,
+    clean_input, is_valid_email
 )
 
 # DECORATORS from apps/accounts/decorators.py
@@ -149,12 +150,24 @@ def employee_login(request):
         try:
             user = SystemUser.objects.select_related('employee').get(
                 username=username, role='viewer',
-            )
+            )   
         except SystemUser.DoesNotExist:
+            _record_failure(username, request)
             messages.error(request, 'Invalid username or password.')
             return render(request, 'accounts/login.html', {'username': username})
+        except Exception as exc:
+            logger.error('[accounts] employee_login DB error: %s', exc)
+            messages.error(request, 'A system error occured. Please try again.')
+            return render(request, 'accounts/login.html', {'username': username})
         
-        if not user.check_password(password):
+        try:
+            password_ok = user.check_password(password)
+        except Exception as exc:
+            logger.error('[accounts] employee_login check_password error: %s', exc)
+            messages.error(request, 'A system error occured. Please try again.')
+            return render(request, 'accounts/login.html', {'username': username})
+        
+        if not password_ok:
             _record_failure(username, request)
             attempts_left = MAX_ATTEMPTS - get_attempts(username)
             messages.error(request, f'Invalid username or password. {attempts_left} attempt(s) remaining.')
@@ -164,8 +177,14 @@ def employee_login(request):
             messages.error(request, 'Your account is inactive. Please contact HR.')
             return render(request, 'accounts/login.html', {'username': username})
         
-        clear_attempts(username)
-        _start_session(request, user)
+        try:
+            clear_attempts(username)
+            _start_session(request, user)
+        except Exception as exc:
+            logger.error('[accounts] employee_login session error: %s', exc)
+            messages.error(request, 'Login failed due to a session error. Please try again.')
+            return render(request, 'accounts/login.html', {'username': username})
+        
         if remember:
             request.session.set_expiry(30 * 24 * 60 * 60)
 
@@ -193,9 +212,9 @@ def signup(request):
         return redirect('core:dashboard')
  
     if request.method == 'POST':
-        id_number    = request.POST.get('id_number', '').strip()
+        id_number    = clean_input(request.POST.get('id_number', ''), 50)
         employee_pk  = request.POST.get('employee_pk', '').strip()
-        username     = request.POST.get('username', '').strip()
+        username     = clean_input(request.POST.get('username', ''), 50)
         password1    = request.POST.get('password1', '')
         password2    = request.POST.get('password2', '')
  
@@ -345,25 +364,42 @@ def admin_login(request):
             _record_failure(username, request)
             messages.error(request, 'Invalid username or password.')
             return render(request, 'accounts/admin/admin_login.html', {'username': username})
- 
-        if not user.check_password(password):
+        except Exception as exc:
+            logger.error('[accounts] admin_login DB error: %s', exc)
+            messages.error(request, 'A system error occurred. Please try again.')
+            return render(request, 'accounts/admin/admin_login.html', {'username': username})
+        
+        try:
+            password_ok = user.check_password(password)
+        except Exception as exc:
+            logger.error('[accounts] admin_login check_password error: %s', exc)
+            messages.error(request, 'A system error occured. Please try again.')
+            return render(request, 'accounts/admin/admin_login.html', {'username': username})
+        
+        if not password_ok:
             _record_failure(username, request)
             attempts_left = MAX_ATTEMPTS - get_attempts(username)
             messages.error(request, f'Invalid username or password. {attempts_left} attempt(s) remaining.')
             return render(request, 'accounts/admin/admin_login.html', {'username': username})
- 
+
         if not user.is_active:
-            messages.error(request, 'Account is deactivated. Contact IT.')
+            messages.error(request, 'Account is deactivated. Contact IT')
             return render(request, 'accounts/admin/admin_login.html', {'username': username})
- 
+        
         if user.role == 'viewer':
-            messages.error(request, 'Employee accounts must use the employee portal.')
+            messages.error(request, 'Employee accounts must user the employee portal.')
+            return render(request, 'accounts/login.html', {'username': username})
+
+        try:
+            clear_attempts(username)
+            _start_session(request, user)
+        except Exception as exc:
+            logger.error('[accounts] admin_login session error: %s', exc)
+            messages.error(request, 'Login failed due to a session error. Please try again.')
             return render(request, 'accounts/admin/admin_login.html', {'username': username})
- 
-        clear_attempts(username)
-        _start_session(request, user)
+
         if remember:
-            request.session.set_expiry(8 * 60 * 60)   # 8-hour max for admin
+            request.session.set_expiry(8 * 60 * 60)
  
         logger.info('[accounts] Admin login: %s (%s) from %s', username, user.role, get_client_ip(request))
         return redirect('core:dashboard')
@@ -411,7 +447,7 @@ def admin_signup(request):
         p = request.POST
  
         role            = p.get('role', '').strip()
-        username        = p.get('username', '').strip()
+        username        = clean_input(p.get('username', ''), 50)
         password1       = p.get('password1', '')
         password2       = p.get('password2', '')
         is_active       = p.get('is_active', '1') == '1'
@@ -420,28 +456,30 @@ def admin_signup(request):
  
         errors = []
  
-        # ── Role ──────────────────────────────────────────────────────────────
+        # ── Role 
         if not role or role not in dict(SystemUser.ROLE_CHOICES):
             errors.append('Please select a valid role.')
  
-        # ── Username ─────────────────────────────────────────────────────────
+        # ── Username 
         if not username:
             errors.append('Username is required.')
         elif SystemUser.objects.filter(username=username).exists():
             errors.append(f'Username "{username}" is already taken.')
  
-        # ── Password ─────────────────────────────────────────────────────────
+        # ── Password
         pw_errors = validate_password_strength(password1)
         if pw_errors:
             errors.extend(pw_errors)
         if password1 and password2 and password1 != password2:
             errors.append('Passwords do not match.')
  
-        # ── Personal email ────────────────────────────────────────────────────
-        if personal_email and SystemUser.objects.filter(personal_email__iexact=personal_email).exists():
+        # ── Personal email 
+        if personal_email and not is_valid_email(personal_email):
+            errors.append('Please enter a valid personal email address.')
+        elif personal_email and SystemUser.objects.filter(personal_email__iexact=personal_email).exists():
             errors.append('That personal email is already registered to another account.')
  
-        # ── Optional employee link ────────────────────────────────────────────
+        # ── Optional employee link 
         linked_employee = None
         if linked_emp_id:
             try:
@@ -545,6 +583,11 @@ def forgot_password(request):
         if not email:
             messages.error(request, 'Please enter your personal email address.')
             return render(request, 'accounts/forgot_password.html')
+        
+        if not is_valid_email(email):
+            # Show same screen as "email not found" — don't confirm email format is wrong
+            ctx = {'success_email': mask_email(email)}
+            return render(request, 'accounts/forgot_password.html', ctx)
  
         # Always show the same success screen whether email exists or not
         ctx = {'success_email': mask_email(email)}
@@ -561,11 +604,16 @@ def forgot_password(request):
         if user.has_valid_reset_token():
             return render(request, 'accounts/forgot_password.html', ctx)
  
-        token = generate_reset_token()
-        user.reset_token_hash       = hash_token(token)
-        user.reset_token_expires_at = timezone.now() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)
-        user.save(update_fields=['reset_token_hash', 'reset_token_expires_at'])
- 
+        try:
+            token = generate_reset_token()
+            user.reset_token_hash       = hash_token(token)
+            user.reset_token_expires_at = timezone.now() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)
+            user.save(update_fields=['reset_token_hash', 'reset_token_expires_at'])
+        except Exception as exc:
+            logger.error('[accounts] forgot_password token save error: %s', exc)
+            # Still show the sucess screen — don't leak whether the email exists
+            return render(request, 'accounts/forgot_password.html', ctx)
+    
         try:
             from apps.accounts.tasks import send_password_reset_email
             reset_url = request.build_absolute_uri(f'/accounts/reset-password/{token}/')
@@ -596,6 +644,12 @@ def admin_forgot_password(request):
         if not username or not personal_email:
             messages.error(request, 'Both username and personal email are required.')
             return render(request, 'accounts/admin/admin_forgot_password.html', ctx)
+        
+        if not is_valid_email(personal_email):
+            # Show success screen — don't reveal format mismatch
+            return render(request, 'accounts/admin/admin_forgot_password.html', {
+            **ctx, 'success_email': mask_email(personal_email),
+        })
  
         # Same response whether match found or not (security)
         success_ctx = {**ctx, 'success_email': mask_email(personal_email)}
@@ -616,10 +670,14 @@ def admin_forgot_password(request):
         if user.has_valid_reset_token():
             return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
  
-        token = generate_reset_token()
-        user.reset_token_hash       = hash_token(token)
-        user.reset_token_expires_at = timezone.now() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)
-        user.save(update_fields=['reset_token_hash', 'reset_token_expires_at'])
+        try:
+            token = generate_reset_token()
+            user.reset_token_hash       = hash_token(token)
+            user.reset_token_expires_at = timezone.now() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)
+            user.save(update_fields=['reset_token_hash', 'reset_token_expires_at'])
+        except Exception as exc:
+            logger.error('[accounts] admin_fogot_password token save error: %s', exc)
+            return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
  
         try:
             from apps.accounts.tasks import send_password_reset_email
@@ -665,12 +723,17 @@ def reset_password(request, token: str):
         if new_password != confirm_password:
             messages.error(request, 'Passwords do not match.')
             return render(request, 'accounts/reset_password.html', {'token': token})
- 
-        with transaction.atomic():
-            user.set_password(new_password)
-            user.clear_reset_token()
-            clear_attempts(user.username)
-            user.save(update_fields=['password_hash'])
+
+        try:
+            with transaction.atomic():
+                user.set_password(new_password)
+                user.clear_reset_token()
+                clear_attempts(user.username)
+                user.save(update_fields=['password_hash'])
+        except Exception as exc:
+            logger.error('[accounts] reset_password save error: %s', exc)
+            messages.error(request, 'A system error occured while saving your password. Please try again.')
+            return render(request, 'accounts/reset_password.html', {'token': token})
  
         messages.success(request, 'Password updated successfully. Please sign in.')
         logger.info('[accounts] Password reset completed: user_id=%s', user.user_id)
@@ -719,13 +782,15 @@ def create_employee(request):
                 errors.append(f'{label} is required.')
  
         from apps.employees.models import Employee
-        id_number = p.get('id_number', '').strip()
+        id_number = clean_input(p.get('id_number', ''), 50)
         if id_number and Employee.objects.filter(id_number=id_number).exists():
             errors.append(f'Employee ID "{id_number}" is already registered.')
  
         personal_email = p.get('personal_email', '').strip().lower()
-        if personal_email and SystemUser.objects.filter(personal_email__iexact=personal_email).exists():
-            errors.append('That personal email is already registered to another account.')
+        if personal_email and not is_valid_email(personal_email):
+            errors.append('Please enter a valid email address.')
+        elif personal_email and SystemUser.objects.filter(personal_email__iexact=personal_email).exists():
+            errors.append('That personal email is already been used.')
  
         if errors:
             for e in errors:
@@ -749,10 +814,10 @@ def create_employee(request):
  
                 employee = Employee.objects.create(
                     id_number       = id_number,
-                    last_name       = p.get('last_name', '').strip().upper(),
-                    first_name      = p.get('first_name', '').strip(),
-                    middle_name     = p.get('middle_name', '').strip() or None,
-                    suffix          = p.get('suffix', '').strip() or None,
+                    last_name       = clean_input(p.get('last_name',''), 100).upper(),
+                    first_name      = clean_input(p.get('first_name', ''), 100),
+                    middle_name     = clean_input(p.get('middle_name', ''), 100) or None,
+                    suffix = p.get('suffix', '').strip() or None,
                     employment_type = p.get('employment_type', 'COS'),
                     division        = _fk(Division,     'division_id'),
                     unit            = _fk(Unit,         'unit_id'),
@@ -842,10 +907,10 @@ def create_system_user(request):
         p = request.POST
         errors = []
  
-        username       = p.get('username', '').strip()
+        username       = clean_input(p.get('username', ''), 50)
         role           = p.get('role', '').strip()
         personal_email = p.get('personal_email', '').strip().lower()
-        employee_id_input = p.get('employee_id_number', '').strip()
+        employee_id_input = clean_input(p.get('employee_id_number', ''), 50)
  
         if not username:
             errors.append('Username is required.')
@@ -857,6 +922,8 @@ def create_system_user(request):
  
         if not personal_email:
             errors.append('Personal email is required for password recovery.')
+        elif not is_valid_email(personal_email):
+            errors.append('Please enter a valid email address')
         elif SystemUser.objects.filter(personal_email__iexact=personal_email).exists():
             errors.append('That personal email is already registered to another account.')
  
@@ -1033,11 +1100,11 @@ def _record_failure(username: str, request) -> None:
         logger.warning('[accounts] Account locked: %s (%s failures) from %s', username, count, get_client_ip(request))
 
 
-def signup_view(request):
-    return render(request, 'accounts/signup.html')
+# def signup_view(request):
+#     return render(request, 'accounts/signup.html')
 
 def profile(request):
     return render(request, 'accounts/profile.html')
 
-def admin_signup_view(request):
-    return render(request, 'accounts/admin/admin_signup.html')
+# def admin_signup_view(request):
+#     return render(request, 'accounts/admin/admin_signup.html')

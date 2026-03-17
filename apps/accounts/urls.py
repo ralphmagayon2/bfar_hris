@@ -9,7 +9,7 @@ urlpatterns = [
 
     # Employee Login and Signup and Logout
     path('login/',                          views.employee_login,       name='login'),
-    path('signup/', views.signup_view, name='signup'),
+    path('signup/', views.signup, name='signup'),
     path('logout/', views.logout, name='logout'),
 
     # Employee Forgot Password and Reset Password
@@ -18,8 +18,8 @@ urlpatterns = [
 
     # Admin Portal
     path('admin/login/', views.admin_login, name='admin_login'),
-    path('admin/signup/', views.admin_signup_view, name='admin_signup'),
-    path('admin/forgot-password/',          views.admin_forgot_password, name='admin_forgot_password'),
+    path('admin/signup/', views.admin_signup, name='admin_signup'),
+    path('admin/forgot-password/', views.admin_forgot_password, name='admin_forgot_password'),
 
     # Employee and HR Employees Profile
     path('profile/', views.profile, name='profile'),
