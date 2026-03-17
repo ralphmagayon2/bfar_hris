@@ -121,7 +121,7 @@
     <div class="rs-icon" style="background:var(--teal-50);color:var(--teal-700);"><i class="fas fa-keyboard"></i></div>
     <div>
       <div class="rs-val">{{ role_stats.encoder|default:0 }}</div>
-      <div class="rs-label">Encoder</div>
+      <div class="rs-label">HR Staff</div>
     </div>
   </div>
   <div class="rs-card">
@@ -144,7 +144,7 @@
       <option value="">All Roles</option>
       <option value="superadmin">Super Admin</option>
       <option value="hr_admin">HR Admin</option>
-      <option value="encoder">Encoder</option>
+      <option value="hr_staff">HR Staff</option>
       <option value="viewer">Viewer</option>
     </select>
     <select class="filter-select" id="u-status" onchange="filterUsers()">
@@ -174,20 +174,24 @@
       <tbody id="u-tbody">
         {% for u in users %}
         <tr data-name="{{ u.get_full_name|lower }} {{ u.username|lower }}"
-            data-role="{{ u.admin_role|default:'viewer'|lower }}"
+            data-role="{{ u.role|lower }}"
             data-status="{% if u.is_active %}active{% else %}inactive{% endif %}">
           <td>
             <div class="user-cell">
               <div class="user-avatar">
-                {% if u.profile_picture %}
-                  <img src="{{ u.profile_picture.url }}" alt="">
+                {% if u and u.get_profile_picture_url %}
+                  <img src="{{ u.get_profile_picture_url }}" alt="Profile" class="user-avatar-img">
                 {% else %}
-                  {{ u.first_name|first|upper }}{{ u.last_name|first|upper }}
+                  <div class="user-avatar-initials">
+                    {{ u.get_initials }}
+                  </div>
                 {% endif %}
               </div>
+
+              {% comment %} Info {% endcomment %}
               <div>
-                <div class="user-name">{{ u.get_full_name|default:u.username }}</div>
-                <div class="user-email">{{ u.email|default:"—" }}</div>
+                <div class="user-name">{{ u.get_display_name|default:u.username }}</div>
+                <div class="user-email">{{ u.email|default:"No email" }}</div>
               </div>
             </div>
           </td>
@@ -195,8 +199,8 @@
             {{ u.username }}
           </td>
           <td>
-            <span class="role-badge {{ u.admin_role|default:'viewer'|lower }}">
-              {{ u.admin_role|default:"viewer"|capfirst }}
+            <span class="role-badge {{ u.role|lower }}">
+              {{ u.get_role_display }}
             </span>
           </td>
           <td>
@@ -218,7 +222,13 @@
                 <i class="fas fa-key"></i>
               </button>
               <button class="row-btn edit" title="Edit user"
-                      onclick="openEditModal('{{ u.id }}','{{ u.first_name|escapejs }}','{{ u.last_name|escapejs }}','{{ u.email|escapejs }}','{{ u.admin_role|default:'viewer' }}','{% if u.is_active %}1{% else %}0{% endif %}')">
+                      onclick="openEditModal(
+                      '{{ u.id }}',
+                      '{{ u.first_name|escapejs }}',
+                      '{{ u.last_name|escapejs }}',
+                      '{{ u.email|escapejs }}',
+                      '{{ u.role }}',
+                      '{% if u.is_active %}1{% else %}0{% endif %}')">
                 <i class="fas fa-pen"></i>
               </button>
               <form method="post" action="" style="display:inline;"
