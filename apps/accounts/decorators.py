@@ -23,7 +23,7 @@ def admin_required(view_func):
             messages.error(request, 'Admin access required.')
             return redirect('accounts:admin_login')
         return view_func(request, *args, **kwargs)
-    wrapper.__name__ == view_func.__name__
+    wrapper.__name__ = view_func.__name__
     return wrapper
 
 
@@ -35,6 +35,6 @@ def role_required(*roles):
                 messages.error(request, 'You do not have permissions to access this page.')
                 return redirect('accounts:admin_login')
             return view_func(request, *args, **kwargs)
-        wrapper.__name__ == view_func.__name__
+        wrapper.__name__ = view_func.__name__
         return wrapper
     return decorator
