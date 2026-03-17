@@ -1013,35 +1013,65 @@ def create_system_user(request):
 def user_list(request):
     qs = (
         SystemUser.objects
-        .select_related('employee__division')
+        .select_related('employee__division','employee__position')
         .order_by('role', 'username')
     )
  
-    role_filter   = request.GET.get('role', '')
-    status_filter = request.GET.get('status', '')
+    role_filter   = request.GET.get('role', '').strip()
+    status_filter = request.GET.get('status', '').strip()
     search_q      = request.GET.get('q', '').strip()
  
     if role_filter:
         qs = qs.filter(role=role_filter)
+
     if status_filter == 'active':
         qs = qs.filter(is_active=True)
     elif status_filter == 'inactive':
         qs = qs.filter(is_active=False)
+
     if search_q:
-        qs = qs.filter(username__icontains=search_q)
+        qs = qs.filter(
+            username__icontains=search_q
+        ) | qs.filter(
+            employee__last_name_icontains=search_q
+        ) | qs.filter(
+            employee__first_name_icontains=search_q
+        )
+
+    # ROLE Statistics (for dashboard cards)
+    role_stats = {
+        'superadmin': SystemUser.objects.filter(role='superadmin').count(),
+        'hr_admin': SystemUser.objects.filter(role='hr_admin').count(),
+        'hr_staff': SystemUser.objects.filter(role='hr_staff').count(),
+        'viewer': SystemUser.objects.filter(role='viewer').count(),
+    }
  
-    total         = qs.count()
+    total_users   = SystemUser.objects.count()
+    active_users  = SystemUser.objects.filter(is_active=True).count()
+    inactive_users = SystemUser.objects.filter(is_active=False).count()
+
+    # PAGINATION
     paginator     = Paginator(qs, 25)
-    page_obj      = paginator.get_page(request.GET.get('page', 1))
+    page_number   = request.GET.get('page')
+    page_obj      = paginator.get_page(page_number)
  
-    return render(request, 'accounts/user_list.html', {
-        'page_obj':      page_obj,
-        'total':         total,
-        'role_filter':   role_filter,
+    context = {
+        'page_obj': page_obj,
+        'users': page_obj.object_list,
+
+        'role_filter': role_filter,
         'status_filter': status_filter,
-        'search_q':      search_q,
-        'role_choices':  SystemUser.ROLE_CHOICES,
-    })
+        'search_q': search_q,
+
+        'total_users': total_users,
+        'active_users': active_users,
+        'inactive_users': inactive_users,
+
+        'role_stats': role_stats,
+        'role_choices': SystemUser.ROLE_CHOICES,
+    }
+
+    return render(request, 'accounts/user_list.html', context)
 
 
 # TOGGLE USER ACTIVE  /accounts/users/<id>/toggle/   [superadmin, POST, AJAX]
