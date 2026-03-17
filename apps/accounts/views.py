@@ -135,7 +135,8 @@ def _clear_session(request) -> None:
 
 @require_http_methods(['GET', 'POST'])
 def employee_login(request):
-    if request.session.get('_auth_user_id'):
+    # Only redirect if logged in as a non-admin (viewer role)
+    if request.session.get('_auth_user_id') and request.session.get('_auth_user_role') == 'viewer':
         return redirect('core:dashboard')
     
     if request.method == 'POST':
@@ -197,20 +198,10 @@ def employee_login(request):
 # ----- EMPLOYEE SIGUP / ----- path: accounts/signup/
 @require_http_methods(['GET', 'POST'])
 def signup(request):
-    """
-    Employee self-registration wizard.
- 
-    GET:  Render the signup wizard (pane 1 — verify employee ID).
-    POST: Receive id_number, employee_pk, username, password1, password2.
-          Validate and create the SystemUser (viewer role).
- 
-    The wizard's pane 1 calls employee_lookup_public (see below) via AJAX
-    to verify the employee exists and doesn't already have an account.
-    """
-    # Already logged in → skip signup
-    if request.session.get('_auth_user_id'):
+    # Only redirect if logged in as a non-admin (viewer role)
+    if request.session.get('_auth_user_id') and request.session.get('_auth_user_role') == 'viewer':
         return redirect('core:dashboard')
- 
+    
     if request.method == 'POST':
         id_number    = clean_input(request.POST.get('id_number', ''), 50)
         employee_pk  = request.POST.get('employee_pk', '').strip()
@@ -922,7 +913,7 @@ def create_system_user(request):
         elif not is_valid_email(personal_email):
             errors.append('Please enter a valid email address')
         elif SystemUser.objects.filter(personal_email__iexact=personal_email).exists():
-            errors.append('That personal email is already registered to another account.')
+            errors.append('That personal email is already been used.')
  
         # Optional employee link
         linked_employee = None
