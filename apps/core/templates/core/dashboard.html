@@ -9,6 +9,16 @@
 <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 {% endblock %}
 
+{% block cache_control %}
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <script>
+      document.addEventListener('DOMContentLoaded', function() {
+          document.body.dataset.userLoggedIn = 'true';
+          sessionStorage.setItem('user_authenticated', 'true');
+      });
+  </script>
+{% endblock cache_control %}
+
 {% block content %}
 
 <!-- ══════════════════════════════════════════════════

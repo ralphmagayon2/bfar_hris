@@ -5,88 +5,7 @@
 {% block page_title %}User Accounts{% endblock %}
 
 {% block css %}
-<style>
-/* Role stat cards */
-.role-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
-@media(max-width:700px){ .role-stats{grid-template-columns:repeat(2,1fr);} }
-.rs-card {
-  background:var(--white); border-radius:10px;
-  border:1px solid var(--gray-100); box-shadow:var(--shadow);
-  padding:14px 16px;
-  display:flex; align-items:center; gap:12px;
-}
-.rs-icon {
-  width:38px; height:38px; border-radius:9px;
-  display:flex; align-items:center; justify-content:center; font-size:.85rem; flex-shrink:0;
-}
-.rs-val { font-size:1.5rem; font-weight:800; font-family:var(--font-mono); color:var(--navy-900); line-height:1; }
-.rs-label { font-size:.68rem; color:var(--gray-400); margin-top:2px; }
-
-/* Toolbar */
-.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
-.toolbar-left,.toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.search-wrap{position:relative;width:240px;}
-.search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:.78rem;pointer-events:none;}
-.search-wrap input{padding:7px 12px 7px 30px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.82rem;font-family:var(--font);color:var(--navy-900);width:100%;transition:border-color .2s;}
-.search-wrap input:focus{outline:none;border-color:var(--navy-700);}
-.filter-select{padding:7px 26px 7px 10px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.82rem;font-family:var(--font);background:var(--white);color:var(--navy-900);appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2378909C' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
-
-/* Table */
-.user-avatar{width:36px;height:36px;border-radius:8px;background:var(--navy-50);color:var(--navy-700);font-size:.78rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
-.user-avatar img{width:100%;height:100%;object-fit:cover;}
-.user-cell{display:flex;align-items:center;gap:10px;}
-.user-name{font-weight:600;font-size:.85rem;color:var(--navy-900);}
-.user-email{font-size:.7rem;color:var(--gray-400);}
-
-.role-badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
-.role-badge.superadmin{background:#FCE4EC;color:#C62828;}
-.role-badge.hr_admin  {background:var(--navy-50);color:var(--navy-700);}
-.role-badge.encoder   {background:var(--teal-50);color:var(--teal-700);}
-.role-badge.viewer    {background:var(--gray-100);color:var(--gray-500);}
-
-.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.status-dot.active{background:var(--success);}
-.status-dot.inactive{background:var(--gray-300);}
-
-.row-actions{display:flex;align-items:center;gap:4px;justify-content:flex-end;}
-.row-btn{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.75rem;cursor:pointer;text-decoration:none;color:var(--gray-400);transition:background .2s,color .2s;}
-.row-btn.edit:hover   {background:var(--navy-50);color:var(--navy-700);}
-.row-btn.reset:hover  {background:var(--amber-50);color:var(--amber-700);}
-.row-btn.toggle:hover {background:var(--danger-light);color:var(--danger);}
-
-/* Pagination */
-.pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-top:1px solid var(--gray-100);flex-wrap:wrap;gap:8px;}
-.page-info{font-size:.78rem;color:var(--gray-500);}
-.page-btns{display:flex;gap:4px;}
-.page-btn{min-width:32px;height:32px;padding:0 8px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;font-size:.8rem;border:1px solid var(--gray-200);background:var(--white);color:var(--gray-700);text-decoration:none;transition:background .2s,color .2s,border-color .2s;cursor:pointer;}
-.page-btn:hover{background:var(--navy-50);border-color:var(--navy-700);color:var(--navy-700);}
-.page-btn.active{background:var(--navy-700);border-color:var(--navy-700);color:var(--white);font-weight:700;}
-
-/* Modal */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,35,66,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;}
-.modal-overlay.show{display:flex;animation:mFade .2s ease;}
-@keyframes mFade{from{opacity:0}to{opacity:1}}
-.modal-box{background:var(--white);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.26);width:100%;max-width:480px;animation:mSlide .25s ease;}
-@keyframes mSlide{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
-.m-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--gray-100);}
-.m-title{font-size:.9rem;font-weight:700;color:var(--navy-900);display:flex;align-items:center;gap:8px;}
-.m-close{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--gray-400);font-size:.8rem;cursor:pointer;transition:background .2s;}
-.m-close:hover{background:var(--gray-100);color:var(--navy-900);}
-.m-body{padding:20px;}
-.m-footer{padding:12px 20px;border-top:1px solid var(--gray-100);display:flex;justify-content:flex-end;gap:8px;}
-.m-group{margin-bottom:13px;}
-.m-label{display:block;font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
-.m-label .req{color:var(--danger);}
-.m-input{width:100%;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.875rem;font-family:var(--font);color:var(--navy-900);transition:border-color .2s;}
-.m-input:focus{outline:none;border-color:var(--navy-700);box-shadow:0 0 0 3px rgba(21,101,192,.1);}
-.m-select{width:100%;padding:9px 28px 9px 12px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.875rem;font-family:var(--font);background:var(--white);color:var(--navy-900);appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2378909C' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
-.m-hint{font-size:.7rem;color:var(--gray-400);margin-top:3px;}
-.m-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.pw-wrap{position:relative;}
-.pw-wrap .m-input{padding-right:36px;}
-.pw-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--gray-400);font-size:.78rem;cursor:pointer;}
-.pw-eye:hover{color:var(--navy-700);}
-</style>
+  <link rel="stylesheet" href="{% static 'css/user_list.css' %}">
 {% endblock %}
 
 
@@ -120,7 +39,7 @@
   <div class="rs-card">
     <div class="rs-icon" style="background:var(--teal-50);color:var(--teal-700);"><i class="fas fa-keyboard"></i></div>
     <div>
-      <div class="rs-val">{{ role_stats.encoder|default:0 }}</div>
+      <div class="rs-val">{{ role_stats.hr_staff|default:0 }}</div>
       <div class="rs-label">HR Staff</div>
     </div>
   </div>
@@ -321,7 +240,7 @@
             <option value="">Select role…</option>
             <option value="superadmin">Super Admin — Full access</option>
             <option value="hr_admin">HR Admin — Can compute payroll, manage employees</option>
-            <option value="encoder">Encoder — Can add/edit DTR and travel orders</option>
+            <option value="hr_staff">HR Staff — Can add/edit DTR and travel orders</option>
             <option value="viewer">Viewer — Read-only access</option>
           </select>
         </div>
@@ -390,7 +309,7 @@
           <select name="admin_role" id="edit-role" class="m-select" required>
             <option value="superadmin">Super Admin</option>
             <option value="hr_admin">HR Admin</option>
-            <option value="encoder">Encoder</option>
+            <option value="hr_staff">HR Staff</option>
             <option value="viewer">Viewer</option>
           </select>
         </div>
@@ -455,60 +374,5 @@
 
 
 {% block js %}
-<script>
-/* Modal helpers */
-function openModal(id)  { document.getElementById(id).classList.add('show'); document.body.style.overflow='hidden'; }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); document.body.style.overflow=''; }
-document.querySelectorAll('.modal-overlay').forEach(o =>
-  o.addEventListener('click', e => { if(e.target===o) closeModal(o.id); })
-);
-document.addEventListener('keydown', e => {
-  if (e.key==='Escape') document.querySelectorAll('.modal-overlay.show').forEach(m=>closeModal(m.id));
-});
-
-/* Open edit with prefilled data */
-function openEditModal(id, fname, lname, email, role, active) {
-  document.getElementById('edit-uid').value    = id;
-  document.getElementById('edit-fname').value  = fname;
-  document.getElementById('edit-lname').value  = lname;
-  document.getElementById('edit-email').value  = email;
-  document.getElementById('edit-role').value   = role;
-  document.getElementById('edit-active').value = active;
-  openModal('edit-modal');
-}
-
-/* Open reset with prefilled data */
-function openResetModal(id, name) {
-  document.getElementById('reset-uid').value   = id;
-  document.getElementById('reset-uname').textContent = name;
-  document.getElementById('reset-pw').value    = '';
-  openModal('reset-modal');
-}
-
-/* Password visibility toggle */
-function togglePw2(id, btn) {
-  const input = document.getElementById(id);
-  const icon  = btn.querySelector('i');
-  input.type  = (input.type === 'password') ? 'text' : 'password';
-  icon.className = (input.type === 'text') ? 'fas fa-eye-slash' : 'fas fa-eye';
-}
-
-/* Live filter */
-function filterUsers() {
-  const q      = document.getElementById('u-search').value.toLowerCase();
-  const role   = document.getElementById('u-role').value;
-  const status = document.getElementById('u-status').value;
-  const rows   = document.querySelectorAll('#u-tbody tr[data-name]');
-  let count = 0;
-  rows.forEach(row => {
-    const mQ = !q      || row.dataset.name.includes(q);
-    const mR = !role   || row.dataset.role === role;
-    const mS = !status || row.dataset.status === status;
-    const show = mQ && mR && mS;
-    row.style.display = show ? '' : 'none';
-    if (show) count++;
-  });
-  document.getElementById('u-count').textContent = count + ' accounts';
-}
-</script>
+<script src="{% static 'js/user_list.js' %}"></script>
 {% endblock %}

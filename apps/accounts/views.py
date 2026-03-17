@@ -114,12 +114,12 @@ from apps.accounts.decorators import (
 logger = logging.getLogger(__name__)
 
 RESET_TOKEN_EXPIRY_HOURS = 1
-ADMIN_ROLES = ('superadmin', 'hr_admin', 'hr_staff')
+ADMIN_ROLES = ('superadmin', 'hr_admin', 'hr_staff') # Connected to _start_session function below
 
 # ----- SESSION HELPERS -----
 
 def _start_session(request, user: SystemUser) -> None:
-    request.session.cycle_key()           # prevent session fixation
+    request.session.cycle_key()          # prevent session fixation
     request.session['_auth_user_id']   = user.user_id
     request.session['_auth_user_role'] = user.role
     request.session['_auth_user_name'] = user.get_display_name()
@@ -546,10 +546,7 @@ def admin_signup(request):
             user.user_id, role, request.current_user.user_id,
         )
  
-        messages.success(
-            request,
-            f'Admin account "{username}" ({user.get_role_display()}) created successfully.',
-        )
+        messages.success(request, f'Admin account "{username}" ({user.get_role_display()}) created successfully.')
         return redirect('accounts:user_list')
  
     return render(request, 'accounts/admin/admin_signup.html', ctx)
