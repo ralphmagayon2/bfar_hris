@@ -13,74 +13,136 @@
 <div class="page-header">
   <div>
     <h1 class="page-heading">User Accounts</h1>
-    <p class="page-sub">System users and access level management — {{ total_users }} total accounts</p>
+    <p class="page-sub">
+      System users and access level management —
+      {{ total_users }} total account{{ total_users|pluralize }}
+    </p>
   </div>
+  {% if can_add_user %}
   <button class="btn btn-primary" onclick="openModal('add-modal')">
     <i class="fas fa-user-plus"></i> Add User
   </button>
+  {% endif %}
 </div>
 
-<!-- Role stat cards -->
+ {% comment %} ── Role stat cards ── {% endcomment %}
 <div class="role-stats">
+  {% if is_superadmin_actor %}
   <div class="rs-card">
-    <div class="rs-icon" style="background:#FCE4EC;color:#C62828;"><i class="fas fa-user-shield"></i></div>
+    <div class="rs-icon" style="background:#FCE4EC;color:#C62828;">
+      <i class="fas fa-user-shield"></i>
+    </div>
     <div>
-      <div class="rs-val">{{ role_stats.superadmin|default:0 }}</div>
+      <div class="rs-val" id="stat-superadmin">{{ role_stats.superadmin|default:0 }}</div>
       <div class="rs-label">Super Admin</div>
     </div>
   </div>
+  {% endif %}
   <div class="rs-card">
-    <div class="rs-icon" style="background:var(--navy-50);color:var(--navy-700);"><i class="fas fa-shield-halved"></i></div>
+    <div class="rs-icon" style="background:var(--navy-50);color:var(--navy-700);">
+      <i class="fas fa-shield-halved"></i>
+    </div>
     <div>
-      <div class="rs-val">{{ role_stats.hr_admin|default:0 }}</div>
+      <div class="rs-val" id="stat-hr_admin">{{ role_stats.hr_admin|default:0 }}</div>
       <div class="rs-label">HR Admin</div>
     </div>
   </div>
   <div class="rs-card">
-    <div class="rs-icon" style="background:var(--teal-50);color:var(--teal-700);"><i class="fas fa-keyboard"></i></div>
+    <div class="rs-icon" style="background:var(--teal-50);color:var(--teal-700);">
+      <i class="fas fa-keyboard"></i>
+    </div>
     <div>
-      <div class="rs-val">{{ role_stats.hr_staff|default:0 }}</div>
+      <div class="rs-val" id="stat-hr_staff">{{ role_stats.hr_staff|default:0 }}</div>
       <div class="rs-label">HR Staff</div>
     </div>
   </div>
   <div class="rs-card">
-    <div class="rs-icon" style="background:var(--gray-100);color:var(--gray-500);"><i class="fas fa-eye"></i></div>
+    <div class="rs-icon" style="background:var(--gray-100);color:var(--gray-500);">
+      <i class="fas fa-eye"></i>
+    </div>
     <div>
-      <div class="rs-val">{{ role_stats.viewer|default:0 }}</div>
+      <div class="rs-val" id="stat-viewer">{{ role_stats.viewer|default:0 }}</div>
       <div class="rs-label">Viewer</div>
     </div>
   </div>
 </div>
 
-<!-- Toolbar -->
+ {% comment %} ── Toolbar ── {% endcomment %}
 <div class="toolbar">
   <div class="toolbar-left">
     <div class="search-wrap">
       <i class="fas fa-search"></i>
-      <input type="text" id="u-search" placeholder="Search name or username…" oninput="filterUsers()">
+      <input type="text" id="u-search"
+       placeholder="Search name or username…"
+       value="{{ search_q }}"
+       oninput="debounceServerSearch(this.value)">
     </div>
-    <select class="filter-select" id="u-role" onchange="filterUsers()">
-      <option value="">All Roles</option>
-      <option value="superadmin">Super Admin</option>
-      <option value="hr_admin">HR Admin</option>
-      <option value="hr_staff">HR Staff</option>
-      <option value="viewer">Viewer</option>
-    </select>
-    <select class="filter-select" id="u-status" onchange="filterUsers()">
-      <option value="">All Status</option>
-      <option value="active">Active</option>
-      <option value="inactive">Inactive</option>
-    </select>
+    <div class="filter-row">
+      <select class="filter-select" id="u-role" onchange="applyServerFilter()">
+        <option value="">All Roles</option>
+        {% if is_superadmin_actor %}
+          <option value="superadmin" {% if role_filter == 'superadmin' %}selected{% endif %}>Super Admin</option>
+        {% endif %}
+        <option value="hr_admin" {% if role_filter == 'hr_admin' %}selected{% endif %}>HR Admin</option>
+        <option value="hr_staff" {% if role_filter == 'hr_staff' %}selected{% endif %}>HR Staff</option>
+        <option value="viewer"   {% if role_filter == 'viewer'   %}selected{% endif %}>Viewer</option>
+      </select>
+      <select class="filter-select" id="u-status" onchange="applyServerFilter()">
+        <option value="">All Status</option>
+        <option value="active"   {% if status_filter == 'active'   %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+      </select>
+    </div>
   </div>
-  <span id="u-count" style="font-size:.76rem;color:var(--gray-400);">{{ users|length }} accounts</span>
+  <span id="u-count" style="font-size:.76rem;color:var(--gray-400);">
+    {% if page_obj.paginator.count != total_users %}
+      {{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}
+    {% else %}
+      {{ total_users }} account{{ total_users|pluralize }}
+    {% endif %}
+  </span>
 </div>
 
-<!-- Table -->
-<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;">
+ {% comment %} ── Bulk action bar (sticky, superadmin + hr_admin only) ── {% endcomment %}
+{% if can_bulk_action %}
+<div class="bulk-bar" id="bulk-bar" aria-hidden="true">
+  <div class="bulk-bar-left">
+    <span class="bulk-count-badge" id="bulk-count-badge">0</span>
+    <span class="bulk-count-label" id="bulk-count-label">user selected</span>
+  </div>
+  <div class="bulk-bar-right">
+    <select class="bulk-select" id="bulk-action-select">
+      <option value="">Choose action…</option>
+      <option value="activate">Activate Selected</option>
+      <option value="deactivate">Deactivate selected</option>
+      <option value="delete">Delete selected</option>
+    </select>
+    <button class="btn btn-sm bulk-apply-btn" id="bulk-apply-btn"
+            onclick="confirmBulkAction()" disabled>
+      Apply
+    </button>
+    <button class="bulk-clear-btn" onclick="clearSelection()" title="Clear selection">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+</div>
+{% endif %}
+
+ {% comment %} ── Table ── {% endcomment %}
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);
+            box-shadow:var(--shadow);overflow:hidden;">
   <div class="table-wrap">
     <table class="table-hris">
       <thead>
         <tr>
+          {% if can_bulk_action %}
+          <th class="col-check">
+            <label class="check-wrap" title="Select all visible">
+              <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)">
+              <span class="checkmark"></span>
+            </label>
+          </th>
+          {% endif %}
           <th>User</th>
           <th>Username</th>
           <th>Role</th>
@@ -92,81 +154,207 @@
       </thead>
       <tbody id="u-tbody">
         {% for u in users %}
-        <tr data-name="{{ u.get_full_name|lower }} {{ u.username|lower }}"
+        <tr id="user-row-{{ u.user_id }}"
+            data-name="{{ u.get_display_name|lower|default:u.username|lower }} {{ u.username|lower }}"
             data-role="{{ u.role|lower }}"
             data-status="{% if u.is_active %}active{% else %}inactive{% endif %}">
+
+         {% comment %} ── Checkbox (superadmin + hr_admin only, skip own row) ── {% endcomment %}
+          {% if can_bulk_action %}
+          <td class="col-check">
+            {% if u.user_id != current_user_id %}
+             {% comment %} Determine if this user is selectable based on actor role {% endcomment %}
+              {% if is_superadmin_actor %}
+                <label class="check-wrap">
+                  <input type="checkbox" class="row-check"
+                         data-user-id="{{ u.user_id }}"
+                         data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                         data-role="{{ u.role }}"
+                         onchange="onRowCheck(this)">
+                  <span class="checkmark"></span>
+                </label>
+              {% elif actor_role == 'hr_admin' and u.role in 'hr_staff,viewer' %}
+                <label class="check-wrap">
+                  <input type="checkbox" class="row-check"
+                         data-user-id="{{ u.user_id }}"
+                         data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                         data-role="{{ u.role }}"
+                         onchange="onRowCheck(this)">
+                  <span class="checkmark"></span>
+                </label>
+              {% else %}
+                <span class="col-check-placeholder"></span>
+              {% endif %}
+            {% else %}
+              <span class="col-check-placeholder" title="Cannot select your own account"></span>
+            {% endif %}
+          </td>
+          {% endif %}
+
+         {% comment %} ── User cell ── {% endcomment %}
           <td>
             <div class="user-cell">
               <div class="user-avatar">
-                {% if u and u.get_profile_picture_url %}
+                {% if u.get_profile_picture_url %}
                   <img src="{{ u.get_profile_picture_url }}" alt="Profile" class="user-avatar-img">
                 {% else %}
-                  <div class="user-avatar-initials">
-                    {{ u.get_initials }}
-                  </div>
+                  <div class="user-avatar-initials">{{ u.get_initials }}</div>
                 {% endif %}
               </div>
 
-              {% comment %} Info {% endcomment %}
               <div>
                 <div class="user-name">{{ u.get_display_name|default:u.username }}</div>
-                <div class="user-email">{{ u.email|default:"No email" }}</div>
+                {% if u.employee %}
+                  <div class="user-emp-name">
+                    <i class="fas fa-link" style="font-size:.6rem;opacity:.5;"></i>
+                    {{ u.employee.get_full_name }}
+                  </div>
+                {% endif %}
+                <div class="user-email">{{ u.personal_email|default:"No email" }}</div>
               </div>
             </div>
           </td>
+
           <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">
             {{ u.username }}
           </td>
+
           <td>
-            <span class="role-badge {{ u.role|lower }}">
-              {{ u.get_role_display }}
-            </span>
+            <span class="role-badge {{ u.role|lower }}">{{ u.get_role_display }}</span>
           </td>
+
           <td>
             <div style="display:flex;align-items:center;gap:7px;">
-              <span class="status-dot {% if u.is_active %}active{% else %}inactive{% endif %}"></span>
-              <span style="font-size:.82rem;">{% if u.is_active %}Active{% else %}Inactive{% endif %}</span>
+              <span class="status-dot {% if u.is_active %}active{% else %}inactive{% endif %}"
+                    id="status-dot-{{ u.user_id }}"></span>
+              <span id="status-text-{{ u.user_id }}" style="font-size:.82rem;">
+                {% if u.is_active %}Active{% else %}Inactive{% endif %}
+              </span>
             </div>
           </td>
+
           <td style="font-size:.8rem;color:var(--gray-500);">
             {{ u.last_login|date:"M d, Y g:i A"|default:"Never" }}
           </td>
+
           <td style="font-size:.8rem;color:var(--gray-500);">
-            {{ u.date_joined|date:"M d, Y" }}
+            {{ u.created_at|date:"M d, Y" }}
           </td>
+
+         {% comment %} ── Actions ── {% endcomment %}
           <td>
             <div class="row-actions">
-              <button class="row-btn reset" title="Reset password"
-                      onclick="openResetModal('{{ u.id }}','{{ u.get_full_name|escapejs }}')">
-                <i class="fas fa-key"></i>
-              </button>
-              <button class="row-btn edit" title="Edit user"
-                      onclick="openEditModal(
-                      '{{ u.id }}',
-                      '{{ u.first_name|escapejs }}',
-                      '{{ u.last_name|escapejs }}',
-                      '{{ u.email|escapejs }}',
-                      '{{ u.role }}',
-                      '{% if u.is_active %}1{% else %}0{% endif %}')">
-                <i class="fas fa-pen"></i>
-              </button>
-              <form method="post" action="" style="display:inline;"
-                    onsubmit="return confirm('Toggle active status for {{ u.get_full_name }}?')">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="toggle_active">
-                <input type="hidden" name="user_id" value="{{ u.id }}">
-                <button type="submit" class="row-btn toggle"
-                        title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %}">
-                  <i class="fas fa-{% if u.is_active %}ban{% else %}check{% endif %}"></i>
+
+             {% comment %} Reset password: superadmin + hr_admin, not self {% endcomment %}
+              {% if can_reset_password and u.user_id != current_user_id %}
+                <button class="row-btn reset" title="Reset password"
+                        onclick="openResetModal('{{ u.user_id }}','{{ u.get_display_name|default:u.username|escapejs }}')">
+                  <i class="fas fa-key"></i>
                 </button>
-              </form>
+              {% else %}
+                <span class="row-btn-placeholder"></span>
+              {% endif %}
+
+             {% comment %} Edit {% endcomment %}
+              {% if u.role == 'superadmin' %}
+                {% if is_superadmin_actor %}
+                  <button class="row-btn edit" title="Edit user"
+                          onclick="openEditModal(
+                            '{{ u.user_id }}',
+                            '{{ u.username|escapejs }}',
+                            '{{ u.personal_email|escapejs }}',
+                            '{{ u.role }}',
+                            '{% if u.is_active %}1{% else %}0{% endif %}',
+                            '{% if u.employee %}{{ u.employee.employee_id }}{% else %}{% endif %}',
+                            '{% if u.employee %}{{ u.employee.get_full_name|escapejs }}{% else %}{% endif %}',
+                            '{% if u.employee %}{{ u.employee.first_name|escapejs }}{% else %}{% endif %}',
+                            '{% if u.employee %}{{ u.employee.last_name|escapejs }}{% else %}{% endif %}',
+                            '{% if u.employee %}{{ u.employee.position.position_title|default:"—"|escapejs }}{% else %}{% endif %}',
+                            '{% if u.employee %}{{ u.employee.get_initials }}{% else %}{% endif %}'
+                          )">
+                    <i class="fas fa-pen"></i>
+                  </button>
+                {% else %}
+                  <span class="row-btn-placeholder"></span>
+                {% endif %}
+              {% else %}
+                {% if is_superadmin_actor or actor_role == 'hr_admin' or actor_role == 'hr_staff' %}
+                  {% if actor_role == 'hr_staff' and u.role == 'hr_admin' %}
+                    <span class="row-btn-placeholder"></span>
+                  {% else %}
+                    <button class="row-btn edit" title="Edit user"
+                            onclick="openEditModal(
+                              '{{ u.user_id }}',
+                              '{{ u.username|escapejs }}',
+                              '{{ u.personal_email|escapejs }}',
+                              '{{ u.role }}',
+                              '{% if u.is_active %}1{% else %}0{% endif %}',
+                              '{% if u.employee %}{{ u.employee.employee_id }}{% else %}{% endif %}',
+                              '{% if u.employee %}{{ u.employee.get_full_name|escapejs }}{% else %}{% endif %}',
+                              '{% if u.employee %}{{ u.employee.first_name|escapejs }}{% else %}{% endif %}',
+                              '{% if u.employee %}{{ u.employee.last_name|escapejs }}{% else %}{% endif %}',
+                              '{% if u.employee %}{{ u.employee.position.position_title|default:"—"|escapejs }}{% else %}{% endif %}',
+                              '{% if u.employee %}{{ u.employee.get_initials }}{% else %}{% endif %}'
+                            )">
+                      <i class="fas fa-pen"></i>
+                    </button>
+                  {% endif %}
+                {% else %}
+                  <span class="row-btn-placeholder"></span>
+                {% endif %}
+              {% endif %}
+
+             {% comment %} Toggle active {% endcomment %}
+              {% if u.user_id == current_user_id %}
+                <span class="row-btn-placeholder"></span>
+              {% elif u.role == 'superadmin' and not is_superadmin_actor %}
+                <span class="row-btn-placeholder"></span>
+              {% elif actor_role == 'hr_staff' and u.role == 'hr_admin' %}
+                <span class="row-btn-placeholder"></span>
+              {% else %}
+                <button class="row-btn toggle {% if u.is_active %}deactivate{% else %}activate{% endif %}"
+                        id="toggle-btn-{{ u.user_id }}"
+                        title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %} {{ u.username }}"
+                        data-user-id="{{ u.user_id }}"
+                        data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                        data-is-active="{% if u.is_active %}1{% else %}0{% endif %}"
+                        onclick="confirmToggle(this)">
+                  <i class="fas fa-{% if u.is_active %}ban{% else %}check{% endif %}"
+                     id="toggle-icon-{{ u.user_id }}"></i>
+                </button>
+              {% endif %}
+
+            {% comment %} Delete: superadmin deletes anyone except self; {% endcomment %}
+            {% comment %} hr_admin deletes hr_staff + viewer only {% endcomment %}
+              {% if u.user_id == current_user_id %}
+                <span class="row-btn-placeholder"></span>
+              {% elif is_superadmin_actor %}
+                <button class="row-btn delete" title="Delete user"
+                        data-user-id="{{ u.user_id }}"
+                        data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                        onclick="confirmDelete(this)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              {% elif actor_role == 'hr_admin' and u.role == 'hr_staff' or actor_role == 'hr_admin' and u.role == 'viewer' %}
+                <button class="row-btn delete" title="Delete user"
+                        data-user-id="{{ u.user_id }}"
+                        data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                        onclick="confirmDelete(this)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              {% else %}
+                <span class="row-btn-placeholder"></span>
+              {% endif %}
+
             </div>
           </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="7" style="text-align:center;padding:52px;color:var(--gray-400);">
-            <i class="fas fa-users" style="font-size:2rem;display:block;opacity:.2;margin-bottom:10px;"></i>
+          <td colspan="{% if can_bulk_action %}8{% else %}7{% endif %}"
+              style="text-align:center;padding:52px;color:var(--gray-400);">
+            <i class="fas fa-users"
+               style="font-size:2rem;display:block;opacity:.2;margin-bottom:10px;"></i>
             No users found.
           </td>
         </tr>
@@ -175,36 +363,37 @@
     </table>
   </div>
 
-  {% if users.has_other_pages %}
+ {% comment %} ── Pagination ── {% endcomment %}
+  {% if page_obj.has_other_pages %}
   <div class="pagination">
     <div class="page-info">
-      Showing {{ users.start_index }}–{{ users.end_index }} of {{ users.paginator.count }}
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }}
+      of {{ page_obj.paginator.count }}
     </div>
     <div class="page-btns">
-      {% if users.has_previous %}
-      <a href="?page={{ users.previous_page_number }}" class="page-btn">
-        <i class="fas fa-chevron-left"></i>
-      </a>
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&role={{ role_filter }}&status={{ status_filter }}&q={{ search_q }}"
+         class="page-btn"><i class="fas fa-chevron-left"></i></a>
       {% endif %}
-      {% for num in users.paginator.page_range %}
-        {% if users.number == num %}
-        <span class="page-btn active">{{ num }}</span>
-        {% elif num > users.number|add:"-3" and num < users.number|add:"3" %}
-        <a href="?page={{ num }}" class="page-btn">{{ num }}</a>
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+          <span class="page-btn active">{{ num }}</span>
+        {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+          <a href="?page={{ num }}&role={{ role_filter }}&status={{ status_filter }}&q={{ search_q }}"
+             class="page-btn">{{ num }}</a>
         {% endif %}
       {% endfor %}
-      {% if users.has_next %}
-      <a href="?page={{ users.next_page_number }}" class="page-btn">
-        <i class="fas fa-chevron-right"></i>
-      </a>
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&role={{ role_filter }}&status={{ status_filter }}&q={{ search_q }}"
+         class="page-btn"><i class="fas fa-chevron-right"></i></a>
       {% endif %}
     </div>
   </div>
   {% endif %}
 </div>
 
-
-<!-- ADD USER MODAL -->
+ {% comment %} ══ ADD USER MODAL ══ {% endcomment %}
+{% if can_add_user %}
 <div class="modal-overlay" id="add-modal">
   <div class="modal-box">
     <div class="m-header">
@@ -215,16 +404,55 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="add_user">
       <div class="m-body">
-        <div class="m-grid-2">
-          <div class="m-group">
-            <label class="m-label">First Name <span class="req">*</span></label>
-            <input type="text" name="first_name" class="m-input" required>
+        <div class="m-group">
+          <label class="m-label">Link to Employee <span style="color:var(--gray-400);font-weight:400;">(optional)</span></label>
+          <div class="emp-search-wrap">
+            <i class="fas fa-search emp-search-icon"></i>
+            <input type="text" id="add-emp-search" class="m-input"
+                   placeholder="Search by name or ID number…"
+                   autocomplete="off"
+                   oninput="searchEmployeesAdd(this.value)">
           </div>
-          <div class="m-group">
-            <label class="m-label">Last Name <span class="req">*</span></label>
-            <input type="text" name="last_name" class="m-input" required>
+          <div class="emp-search-results" id="add-emp-results" style="display:none;"></div>
+          <input type="hidden" name="employee_id" id="add-emp-id">
+
+          {% comment %} Linked employee card — hidden until selected {% endcomment %}
+          <div class="emp-linked-card" id="add-emp-linked-card" style="display:none; margin-top:8px;">
+            <div class="emp-linked-info">
+              <div class="emp-linked-av" id="add-emp-av">??</div>
+              <div>
+                <div class="emp-linked-name" id="add-emp-name"></div>
+                <div class="emp-linked-meta" id="add-emp-meta"></div>
+              </div>
+            </div>
+            <button type="button" class="emp-unlink-btn" onclick="clearAddEmployee()">
+              <i class="fas fa-unlink"></i> Unlink
+            </button>
+          </div>
+
+          <p class="m-hint">
+            <i class="fas fa-circle-info"></i>
+            Link to show the employee's real name. Leave blank for IT-only accounts.
+          </p>
+        </div>
+
+        {% comment %} Auto-name fields — hidden until employee is linked {% endcomment %}
+        <div id="add-name-fields" style="display:none;">
+          <div class="m-grid-2">
+            
+            <div class="m-group">
+              <label class="m-label">First Name</label>
+              <input type="text" name="first_name" id="add-fname" class="m-input" style="background:var(--gray-50);color:var(--gray-600);" readonly>
+            </div>
+
+            <div class="m-group">
+              <label class="m-label">Last Name</label>
+              <input type="text" name="last_name" id="add-lname" class="m-input" style="background:var(--gray-50);color:var(--gray-600);" readonly>
+            </div>
+
           </div>
         </div>
+
         <div class="m-group">
           <label class="m-label">Email Address <span class="req">*</span></label>
           <input type="email" name="email" class="m-input" required>
@@ -238,27 +466,27 @@
           <label class="m-label">Role / Permission Level <span class="req">*</span></label>
           <select name="admin_role" class="m-select" required>
             <option value="">Select role…</option>
-            <option value="superadmin">Super Admin — Full access</option>
-            <option value="hr_admin">HR Admin — Can compute payroll, manage employees</option>
-            <option value="hr_staff">HR Staff — Can add/edit DTR and travel orders</option>
-            <option value="viewer">Viewer — Read-only access</option>
+            {% for role_val, role_label in add_role_choices %}
+              <option value="{{ role_val }}">{{ role_label }}</option>
+            {% endfor %}
           </select>
+          {% if not is_superadmin_actor %}
+          <p class="m-hint"><i class="fas fa-circle-info"></i> Super Admin accounts can only be created by a Super Admin.</p>
+          {% endif %}
         </div>
         <div class="m-grid-2">
           <div class="m-group">
             <label class="m-label">Password <span class="req">*</span></label>
             <div class="pw-wrap">
-              <input type="password" name="password1" id="add-pw1" class="m-input"
-                     required autocomplete="new-password">
-              <span class="pw-eye" onclick="togglePw2('add-pw1',this)"><i class="fas fa-eye"></i></span>
+              <input type="password" name="password1" id="add-pw1" class="m-input" required autocomplete="new-password">
+              <span class="pw-eye" onclick="togglePw('add-pw1',this)"><i class="fas fa-eye"></i></span>
             </div>
           </div>
           <div class="m-group">
             <label class="m-label">Confirm Password <span class="req">*</span></label>
             <div class="pw-wrap">
-              <input type="password" name="password2" id="add-pw2" class="m-input"
-                     required autocomplete="new-password">
-              <span class="pw-eye" onclick="togglePw2('add-pw2',this)"><i class="fas fa-eye"></i></span>
+              <input type="password" name="password2" id="add-pw2" class="m-input" required autocomplete="new-password">
+              <span class="pw-eye" onclick="togglePw('add-pw2',this)"><i class="fas fa-eye"></i></span>
             </div>
           </div>
         </div>
@@ -269,50 +497,99 @@
       </div>
       <div class="m-footer">
         <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('add-modal')">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm">
-          <i class="fas fa-user-plus"></i> Create User
-        </button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-user-plus"></i> Create User</button>
       </div>
     </form>
   </div>
 </div>
+{% endif %}
 
-
-<!-- EDIT USER MODAL -->
+ {% comment %} ══ EDIT USER MODAL ══ {% endcomment %}
 <div class="modal-overlay" id="edit-modal">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width:520px;">
     <div class="m-header">
       <div class="m-title"><i class="fas fa-pen" style="color:var(--navy-700);"></i> Edit User</div>
       <button class="m-close" onclick="closeModal('edit-modal')"><i class="fas fa-times"></i></button>
     </div>
     <form method="post" action="">
       {% csrf_token %}
-      <input type="hidden" name="action" value="edit_user">
-      <input type="hidden" name="user_id" id="edit-uid">
+      <input type="hidden" name="action"           value="edit_user">
+      <input type="hidden" name="user_id"          id="edit-uid">
+      <input type="hidden" name="employee_id"      id="edit-emp-id">
+      <input type="hidden" name="unlink_employee"  id="edit-unlink-flag" value="0">
+
       <div class="m-body">
-        <div class="m-grid-2">
-          <div class="m-group">
-            <label class="m-label">First Name <span class="req">*</span></label>
-            <input type="text" name="first_name" id="edit-fname" class="m-input" required>
-          </div>
-          <div class="m-group">
-            <label class="m-label">Last Name <span class="req">*</span></label>
-            <input type="text" name="last_name" id="edit-lname" class="m-input" required>
+
+        {# ── Employee link section ── #}
+        <div class="m-group" id="edit-emp-linked-wrap" style="display:none;">
+          <label class="m-label">Linked Employee</label>
+          <div class="emp-linked-card" id="edit-emp-linked-card">
+            <div class="emp-linked-info">
+              <div class="emp-linked-av" id="edit-emp-av">??</div>
+              <div>
+                <div class="emp-linked-name" id="edit-emp-name">—</div>
+                <div class="emp-linked-meta" id="edit-emp-meta">—</div>
+              </div>
+            </div>
+            <button type="button" class="emp-unlink-btn" onclick="unlinkEmployee()">
+              <i class="fas fa-unlink"></i> Unlink
+            </button>
           </div>
         </div>
+
+        <div class="m-group" id="edit-emp-search-wrap">
+          <label class="m-label">Link to Employee <span style="color:var(--gray-400);font-weight:400;">(optional)</span></label>
+          <div class="emp-search-wrap">
+            <i class="fas fa-search emp-search-icon"></i>
+            <input type="text" id="edit-emp-search" class="m-input"
+                   placeholder="Search by name or ID number…"
+                   autocomplete="off"
+                   oninput="searchEmployeesEdit(this.value)">
+          </div>
+          <div class="emp-search-results" id="edit-emp-results" style="display:none;"></div>
+          <p class="m-hint">
+            <i class="fas fa-circle-info"></i>
+            Linking shows the employee's real name in the system.
+          </p>
+        </div>
+
+        {# Auto-filled name fields — shown when employee is linked #}
+        <div id="edit-name-fields" style="display:none;">
+          <div class="m-grid-2">
+            <div class="m-group">
+              <label class="m-label">First Name</label>
+              <input type="text" name="first_name" id="edit-fname" class="m-input"
+                     style="background:var(--gray-50);color:var(--gray-600);" readonly>
+            </div>
+            <div class="m-group">
+              <label class="m-label">Last Name</label>
+              <input type="text" name="last_name" id="edit-lname" class="m-input"
+                     style="background:var(--gray-50);color:var(--gray-600);" readonly>
+            </div>
+          </div>
+        </div>
+
+        {# ── Username (editable for superadmin + hr_admin) ── #}
+        <div class="m-group">
+          <label class="m-label">Username <span class="req">*</span></label>
+          <input type="text" name="username" id="edit-username" class="m-input"
+                 required autocomplete="off">
+          <p class="m-hint">Changing the username will require the user to log in with the new one.</p>
+        </div>
+
+        {# ── Email ── #}
         <div class="m-group">
           <label class="m-label">Email Address <span class="req">*</span></label>
           <input type="email" name="email" id="edit-email" class="m-input" required>
         </div>
+
+        {# ── Role ── #}
         <div class="m-group">
           <label class="m-label">Role / Permission Level <span class="req">*</span></label>
-          <select name="admin_role" id="edit-role" class="m-select" required>
-            <option value="superadmin">Super Admin</option>
-            <option value="hr_admin">HR Admin</option>
-            <option value="hr_staff">HR Staff</option>
-            <option value="viewer">Viewer</option>
-          </select>
+          <select name="admin_role" id="edit-role" class="m-select" required></select>
         </div>
+
+        {# ── Status ── #}
         <div class="m-group">
           <label class="m-label">Status</label>
           <select name="is_active" id="edit-active" class="m-select">
@@ -320,6 +597,7 @@
             <option value="0">Inactive</option>
           </select>
         </div>
+
       </div>
       <div class="m-footer">
         <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('edit-modal')">Cancel</button>
@@ -331,8 +609,8 @@
   </div>
 </div>
 
-
-<!-- RESET PASSWORD MODAL -->
+ {% comment %} ══ RESET PASSWORD MODAL ══ {% endcomment %}
+{% if can_reset_password %}
 <div class="modal-overlay" id="reset-modal">
   <div class="modal-box" style="max-width:420px;">
     <div class="m-header">
@@ -350,9 +628,8 @@
         <div class="m-group">
           <label class="m-label">New Password <span class="req">*</span></label>
           <div class="pw-wrap">
-            <input type="password" name="new_password" id="reset-pw" class="m-input"
-                   required autocomplete="new-password">
-            <span class="pw-eye" onclick="togglePw2('reset-pw',this)"><i class="fas fa-eye"></i></span>
+            <input type="password" name="new_password" id="reset-pw" class="m-input" required autocomplete="new-password">
+            <span class="pw-eye" onclick="togglePw('reset-pw',this)"><i class="fas fa-eye"></i></span>
           </div>
           <span class="m-hint">Minimum 8 characters. User must change on next login.</span>
         </div>
@@ -370,8 +647,39 @@
     </form>
   </div>
 </div>
-{% endblock %}
+{% endif %}
 
+{% comment %} ══ SHARED TOAST CONFIRMATION OVERLAY ══ {% endcomment %}
+{% comment %} Used for: toggle active/inactive, single delete, bulk action {% endcomment %}
+<div id="toast-confirm-overlay" class="toast-overlay" aria-hidden="true">
+  <div class="toast-card" role="dialog" aria-modal="true"
+       aria-labelledby="toast-title" aria-describedby="toast-desc">
+    <div class="toast-icon-wrap" id="toast-icon-wrap">
+      <i class="fas fa-ban" id="toast-icon"></i>
+    </div>
+    <div class="toast-body">
+      <p class="toast-title" id="toast-title">Confirm Action</p>
+      <p class="toast-desc"  id="toast-desc">Are you sure?</p>
+     {% comment %} Bulk skip details — hidden unless bulk action {% endcomment %}
+      <div id="toast-skip-list" class="toast-skip-list" style="display:none;"></div>
+    </div>
+    <div class="toast-actions">
+      <button class="toast-btn toast-cancel" onclick="dismissToast()">Cancel</button>
+      <button class="toast-btn toast-confirm" id="toast-confirm-btn" onclick="executeToastAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+ {% comment %} Pass context to JS {% endcomment %}
+<script>
+  const ACTOR_ROLE       = "{{ actor_role }}";
+  const CAN_BULK_ACTION  = {{ can_bulk_action|yesno:"true,false" }};
+  const TOGGLE_BASE_URL = "/users/";
+  const BULK_ACTION_URL  = "{% url 'accounts:bulk_action' %}";
+  const DELETE_FORM_ACTION = "{% url 'accounts:user_list' %}";
+  const EMPLOYEE_SEARCH_URL = "{% url 'accounts:employee_search' %}";
+  const CSRF_TOKEN       = "{{ csrf_token }}";
+</script>
+{% endblock %}
 
 {% block js %}
 <script src="{% static 'js/user_list.js' %}"></script>

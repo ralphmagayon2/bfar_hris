@@ -1,5 +1,5 @@
 # apps/list/views.py
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponseForbidden
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -7,6 +7,14 @@ from django.db.models import Count, Q
 from datetime import timedelta
 from .models import AuditLog
 from django.contrib import messages
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+from apps.accounts.decorators import (
+    login_required, admin_required, role_required
+)
 
 def _get_session_user(request):
     """Get the logged-in SystemUser from session."""
@@ -19,7 +27,8 @@ def _get_session_user(request):
         return SystemUser.objects.select_related('employee').get(ph=user_id)
     except SystemUser.DoesNotExist:
         return None
-    
+
+@admin_required
 def audit_list(request):
     """
     Read-only audit log viewer.
@@ -34,7 +43,6 @@ def audit_list(request):
 
     # Not logged in
     if not user:
-        from django.shortcuts import redirect
         messages.warning(request, "You don't have permssion on this page.")
         return redirect('accounts:login')
 

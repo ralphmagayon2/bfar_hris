@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Deleted Accounts — BFAR HRIS{% endblock %}
+{% block page_title %}Deleted Accounts{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/user_list.css' %}">
+  <link rel="stylesheet" href="{% static 'css/deleted_users.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Deleted Accounts</h1>
+    <p class="page-sub">
+      Soft-deleted system accounts — {{ total_deleted }} record{{ total_deleted|pluralize }}
+    </p>
+  </div>
+  <a href="{% url 'accounts:user_list' %}" class="btn btn-ghost">
+    <i class="fas fa-arrow-left"></i> Back to Users
+  </a>
+</div>
+
+{% comment %} Role Stats {% endcomment %}
+<div class="role-stats" style="margin-bottom:18px;">
+  <div class="rs-card">
+    <div class="rs-icon" style="background:#FCE4EC;color:#C62828;">
+      <i class="fas fa-trash-can"></i>
+    </div>
+    <div>
+      <div class="rs-val">{{ total_deleted }}</div>
+      <div class="rs-label">Total Deleted</div>
+    </div>
+  </div>
+  <div class="rs-card">
+    <div class="rs-icon" style="background:var(--navy-50);color:var(--navy-700);">
+      <i class="fas fa-user-shield"></i>
+    </div>
+    <div>
+      <div class="rs-val">{{ deleted_by_role.superadmin|default:0 }}</div>
+      <div class="rs-label">Super Admin</div>
+    </div>
+  </div>
+  <div class="rs-card">
+    <div class="rs-icon" style="background:var(--teal-50);color:var(--teal-700);">
+      <i class="fas fa-users"></i>
+    </div>
+    <div>
+      <div class="rs-val">{{ deleted_by_role.hr_staff|default:0 }}</div>
+      <div class="rs-label">HR Staff</div>
+    </div>
+  </div>
+  <div class="rs-card">
+    <div class="rs-icon" style="background:var(--gray-100);color:var(--gray-500);">
+      <i class="fas fa-eye"></i>
+    </div>
+    <div>
+      <div class="rs-val">{{ deleted_by_role.viewer|default:0 }}</div>
+      <div class="rs-label">Viewer</div>
+    </div>
+  </div>
+</div>
+
+{# ── Info banner ── #}
+<div class="del-info-banner">
+  <i class="fas fa-circle-info"></i>
+  <span>
+    These accounts are hidden from the system but kept for audit purposes.
+    Restoring an account will reactivate it immediately.
+  </span>
+</div>
+
+{# ── Search toolbar ── #}
+<div class="toolbar" style="margin-bottom:14px;">
+  <div class="toolbar-left">
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" id="del-search"
+             placeholder="Search name or username…"
+             value="{{ search_q }}"
+             oninput="filterDeleted()">
+    </div>
+  </div>
+  <span id="del-count" style="font-size:.76rem;color:var(--gray-400);">
+    {{ users|length }} record{{ users|length|pluralize }}
+  </span>
+</div>
+
+ {% comment %} ADD immediately after (still before the table):  {% endcomment %}
+{% if is_superadmin_actor or actor_role == 'hr_admin' %}
+<div class="bulk-bar" id="del-bulk-bar" aria-hidden="true">
+  <div class="bulk-bar-left">
+    <span class="bulk-count-badge" id="del-bulk-count-badge">0</span>
+    <span class="bulk-count-label" id="del-bulk-count-label">user selected</span>
+  </div>
+  <div class="bulk-bar-right">
+    <select class="bulk-select" id="del-bulk-action-select">
+      <option value="">Choose action…</option>
+      <option value="restore">Restore selected</option>
+      <option value="permanent_delete">Permanently delete selected</option>
+    </select>
+    <button class="btn btn-sm bulk-apply-btn" id="del-bulk-apply-btn"
+            onclick="confirmDelBulkAction()" disabled>
+      Apply
+    </button>
+    <button class="bulk-clear-btn" onclick="clearDelSelection()" title="Clear selection">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+</div>
+{% endif %}
+
+{% comment %} ── Table ── {% endcomment %}
+<div class="del-table-wrap">
+  <div class="table-wrap">
+    <table class="table-hris">
+      <thead>
+        <tr>
+        {% if is_superadmin_actor or actor_role == 'hr_admin' %}
+          <th class="col-check">
+            <label class="check-wrap" title="Select all">
+                <input type="checkbox" id="del-select-all" onchange="delToggleSelectAll(this)">
+                <span class="checkmark"></span>
+            </label>
+          </th>
+        {% endif %}
+          <th>User</th>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Linked Employee</th>
+          <th>Created</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="del-tbody">
+        {% for u in users %}
+        <tr id="del-row-{{ u.user_id }}"
+            data-name="{{ u.get_display_name|lower|default:u.username|lower }} {{ u.username|lower }}">
+
+         {% if is_superadmin_actor or actor_role == 'hr_admin' %}
+         <td class="col-check">
+         <label class="check-wrap">
+            <input type="checkbox" class="del-row-check"
+                data-user-id="{{ u.user_id }}"
+                data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                onchange="onDelRowCheck(this)">
+            <span class="checkmark"></span>
+         </label>
+         </td>
+         {% endif %}
+
+          {# User cell #}
+          <td>
+            <div class="user-cell">
+              <div class="user-avatar del-avatar">
+                <div class="user-avatar-initials" style="opacity:.5;">
+                  {{ u.get_initials }}
+                </div>
+              </div>
+              <div>
+                <div class="user-name" style="color:var(--gray-400);">
+                  {{ u.get_display_name|default:u.username }}
+                </div>
+                <div class="user-email">{{ u.personal_email|default:"No email" }}</div>
+              </div>
+            </div>
+          </td>
+
+          <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-400);">
+            {{ u.username }}
+          </td>
+
+          <td>
+            <span class="role-badge {{ u.role|lower }}" style="opacity:.6;">
+              {{ u.get_role_display }}
+            </span>
+          </td>
+
+          <td style="font-size:.8rem;color:var(--gray-500);">
+            {% if u.employee %}
+              <div style="display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-link" style="font-size:.7rem;color:var(--gray-300);"></i>
+                <span>{{ u.employee.get_full_name }}</span>
+              </div>
+              <div style="font-size:.72rem;color:var(--gray-400);margin-top:1px;">
+                {{ u.employee.position.position_title|default:"—" }}
+              </div>
+            {% else %}
+              <span style="color:var(--gray-300);font-style:italic;">Not linked</span>
+            {% endif %}
+          </td>
+
+          <td style="font-size:.8rem;color:var(--gray-500);">
+            {{ u.created_at|date:"M d, Y" }}
+          </td>
+
+          <td>
+            <div class="row-actions">
+              <button class="row-btn restore-btn"
+                      title="Restore this account"
+                      data-user-id="{{ u.user_id }}"
+                      data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                      onclick="confirmRestore(this)">
+                <i class="fas fa-rotate-left"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{% if is_superadmin_actor or actor_role == 'hr_admin' %}7{% else %}6{% endif %}" style="text-align:center;padding:52px;color:var(--gray-400);">
+            <i class="fas fa-trash-can"
+               style="font-size:2rem;display:block;opacity:.15;margin-bottom:10px;"></i>
+            No deleted accounts found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# Pagination #}
+  {% if page_obj.has_other_pages %}
+  <div class="pagination">
+    <div class="page-info">
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }}
+      of {{ page_obj.paginator.count }}
+    </div>
+    <div class="page-btns">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&q={{ search_q }}" class="page-btn">
+        <i class="fas fa-chevron-left"></i>
+      </a>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+          <span class="page-btn active">{{ num }}</span>
+        {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+          <a href="?page={{ num }}&q={{ search_q }}" class="page-btn">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&q={{ search_q }}" class="page-btn">
+        <i class="fas fa-chevron-right"></i>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+
+{# ══ RESTORE TOAST CONFIRMATION ══ #}
+<div id="restore-toast-overlay" class="toast-overlay" aria-hidden="true">
+  <div class="toast-card" role="dialog" aria-modal="true">
+    <div class="toast-icon-wrap success">
+      <i class="fas fa-rotate-left"></i>
+    </div>
+    <div class="toast-body">
+      <p class="toast-title" id="restore-toast-title">Restore Account?</p>
+      <p class="toast-desc" id="restore-toast-desc">
+        This account will be reactivated and can log in again.
+      </p>
+    </div>
+    <div class="toast-actions">
+      <button class="toast-btn toast-cancel" onclick="dismissRestoreToast()">Cancel</button>
+      <button class="toast-btn toast-confirm success" id="restore-confirm-btn"
+              onclick="executeRestore()">
+        Restore
+      </button>
+    </div>
+  </div>
+</div>
+
+{% comment %} BULK + PERMANENTLY DELETE TOAST {% endcomment %}
+<div id="del-bulk-toast-overlay" class="toast-overlay" aria-hidden="true">
+  <div class="toast-card" role="dialog" aria-modal="true">
+    <div class="toast-icon-wrap" id="del-bulk-icon-wrap">
+      <i class="fas fa-rotate-left" id="del-bulk-icon"></i>
+    </div>
+    <div class="toast-body">
+      <p class="toast-title" id="del-bulk-title">Confirm Action</p>
+      <p class="toast-desc"  id="del-bulk-desc">Are you sure?</p>
+      <div id="del-bulk-warning" style="display:none;
+           background:#FFF3E0;border:1px solid #FFE0B2;border-radius:7px;
+           padding:8px 12px;font-size:.76rem;color:#E65100;margin-top:8px;
+           line-height:1.5;">
+        <i class="fas fa-triangle-exclamation" style="margin-right:5px;"></i>
+        This is <strong>permanent</strong> and cannot be undone.
+        All data for these accounts will be removed forever.
+      </div>
+    </div>
+    <div class="toast-actions">
+      <button class="toast-btn toast-cancel" onclick="dismissDelBulkToast()">Cancel</button>
+      <button class="toast-btn toast-confirm" id="del-bulk-confirm-btn"
+              onclick="executeDelBulk()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const RESTORE_BASE_URL = "/users/";
+  const BULK_RESTORE_URL = "{% url 'accounts:bulk_restore' %}";
+  const BULK_PERMANENT_DEL_URL = "{% url 'accounts:bulk_permanent_delete' %}";
+  const CSRF_TOKEN = "{{ csrf_token }}";
+  const ACTOR_ROLE = "{{ actor_role }}";
+  const IS_SUPERADMIN = {{ is_superadmin_actor|yesno:"true,false" }};
+</script>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/deleted_users.js' %}"></script>
+{% endblock %}

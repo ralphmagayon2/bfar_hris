@@ -130,6 +130,20 @@ def _clear_session(request) -> None:
     for key in ('_auth_user_id', '_auth_user_role', '_auth_user_name', 'auth_is_admin'):
         request.session.pop(key, None)
 
+# ----- HELPER FUNCTION -----
+
+def _set_flash(request, message, level='success'):
+    """
+    Store a message to be shown after the next page reload.
+    Works for both AJAX and regular POST responses.
+    """
+    if level == 'success':
+        messages.success(request, message)
+    elif level == 'error':
+        messages.error(request, message)
+    elif level == 'warning':
+        messages.warning(request, message)
+
 
 # ----- EMPLOYEE LOGIN / ----- path: accounts/login/
 
@@ -992,18 +1006,116 @@ def create_system_user(request):
  
     return render(request, 'accounts/create_system_user.html', ctx)
 
+# ------ USER LIST /accounts/users ------
+# ─── Roles that can reach the user management page
+_PAGE_ROLES = ('superadmin', 'hr_admin', 'hr_staff')
+ 
+# ─── Roles that hr_admin / hr_staff are allowed to manage
+_MANAGEABLE_BY_NON_SA = ('hr_admin', 'hr_staff', 'viewer')
+ 
+# ─── Roles that hr_admin can create
+_HR_ADMIN_CREATABLE = ('hr_admin', 'hr_staff', 'viewer')
 
-# USER LIST /accounts/users
+# ─── Roles that hr_admin can DELETE (stricter than edit)
+_DELETABLE_BY_HR_ADMIN = ('hr_staff', 'viewer')
 
+# ─── Roles that hr_staff specifically can manage
+_MANAGEABLE_BY_HR_STAFF = ('hr_staff', 'viewer')
+ 
+ 
+# PRIVATE HELPER — permission guard for a target user
+ 
+def _check_target_permission(actor: SystemUser, target: SystemUser, action='modify') -> tuple[bool, str]:
+    """
+    Returns (allowed: bool, error_message: str).
+ 
+    Rules:
+      - No one can modify themselves (self-protection).
+      - Only superadmin can modify another superadmin.
+      - hr_admin / hr_staff can modify hr_admin / hr_staff / viewer only.
+    """
+    if actor.user_id == target.user_id:
+        return False, "You cannot modify your own account here."
+ 
+    if target.role == 'superadmin' and actor.role != 'superadmin':
+        return False, "You do not have permission to modify a Super Admin account."
+ 
+    if actor.role in ('hr_admin', 'hr_staff') and target.role not in _MANAGEABLE_BY_NON_SA:
+        return False, "You do not have permission to modify this account."
+    
+    # hr_staff cannot modify hr_admin
+    if actor.role == 'hr_staff' and target.role == 'hr_admin':
+        return False, "HR Staff cannot modify an HR Admin account."
+
+    # Delete-specific rules
+    if action == 'delete':
+        if actor.role == 'hr_staff':
+            return False, "HR Staff cannot delete accounts."
+        if actor.role == 'hr_admin' and target.role not in _DELETABLE_BY_HR_ADMIN:
+            return False, f"HR Admin cannot delete a {target.get_role_display()} account."
+ 
+    return True, ""
+ 
+ 
+# USER LIST  /accounts/users/
+#
+# GET  → render the list (superadmin + hr_admin + hr_staff)
+# POST → handle add_user / edit_user / reset_password / toggle_active
+#        (inline form actions — each action re-checks permissions)
+ 
 @login_required
-@role_required('superadmin')
-@require_GET
+@role_required(*_PAGE_ROLES)
+@require_http_methods(['GET', 'POST'])
 def user_list(request):
+ 
+    # ── POST dispatcher
+    if request.method == 'POST':
+        action = request.POST.get('action', '').strip()
+ 
+        if action == 'add_user':
+            return _action_add_user(request)
+ 
+        if action == 'edit_user':
+            return _action_edit_user(request)
+ 
+        if action == 'reset_password':
+            return _action_reset_password(request)
+ 
+        if action == 'toggle_active':
+            return _action_toggle_active(request)
+
+        if action == 'delete_user':
+            return _action_delete_user(request)
+ 
+        messages.error(request, 'Unknown action.')
+        return redirect('accounts:user_list')
+ 
+    # ── GET — build queryset
+    actor: SystemUser = request.current_user
+
+    # Pick up any pending bulk message from previous AJAX action
+    _bulk_msg   = request.session.pop('_bulk_message', None)
+    _bulk_level = request.session.pop('_bulk_level', 'success')
+    if _bulk_msg:
+        if _bulk_level == 'success':
+            messages.success(request, _bulk_msg)
+        elif _bulk_level == 'warning':
+            messages.warning(request, _bulk_msg)
+        elif _bulk_level == 'error':
+            messages.error(request, _bulk_msg)
+
     qs = (
         SystemUser.objects
-        .select_related('employee__division','employee__position')
+        .filter(is_deleted=False)
+        .select_related('employee__division', 'employee__position')
         .order_by('role', 'username')
     )
+ 
+    # hr_admin and hr_staff can only *see* non-superadmin accounts
+    if actor.role == 'hr_admin':
+        qs = qs.filter(role__in=_MANAGEABLE_BY_NON_SA)
+    elif actor.role == 'hr_staff':
+        qs = qs.filter(role__in=_MANAGEABLE_BY_HR_STAFF)
  
     role_filter   = request.GET.get('role', '').strip()
     status_filter = request.GET.get('status', '').strip()
@@ -1011,80 +1123,979 @@ def user_list(request):
  
     if role_filter:
         qs = qs.filter(role=role_filter)
-
+ 
     if status_filter == 'active':
         qs = qs.filter(is_active=True)
     elif status_filter == 'inactive':
         qs = qs.filter(is_active=False)
-
-    if search_q:
-        qs = qs.filter(
-            username__icontains=search_q
-        ) | qs.filter(
-            employee__last_name_icontains=search_q
-        ) | qs.filter(
-            employee__first_name_icontains=search_q
-        )
-
-    # ROLE Statistics (for dashboard cards)
-    role_stats = {
-        'superadmin': SystemUser.objects.filter(role='superadmin').count(),
-        'hr_admin': SystemUser.objects.filter(role='hr_admin').count(),
-        'hr_staff': SystemUser.objects.filter(role='hr_staff').count(),
-        'viewer': SystemUser.objects.filter(role='viewer').count(),
-    }
  
-    total_users   = SystemUser.objects.count()
-    active_users  = SystemUser.objects.filter(is_active=True).count()
-    inactive_users = SystemUser.objects.filter(is_active=False).count()
-
-    # PAGINATION
-    paginator     = Paginator(qs, 25)
-    page_number   = request.GET.get('page')
-    page_obj      = paginator.get_page(page_number)
+    if search_q:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(username__icontains=search_q) |
+            Q(employee__last_name__icontains=search_q) |
+            Q(employee__first_name__icontains=search_q)
+        )
+ 
+    # Role statistics — superadmin sees all, others see their subset
+    if actor.role == 'superadmin':
+        active_qs = SystemUser.objects.filter(is_deleted=False)
+        role_stats = {
+            'superadmin': active_qs.filter(role='superadmin').count(),
+            'hr_admin':   active_qs.filter(role='hr_admin').count(),
+            'hr_staff':   active_qs.filter(role='hr_staff').count(),
+            'viewer':     active_qs.filter(role='viewer').count(),
+        }
+        total_users    = active_qs.count()
+        active_users   = active_qs.filter(is_active=True).count()
+        inactive_users = active_qs.filter(is_active=False).count()
+    else:
+        manageable = SystemUser.objects.filter(
+            role__in=_MANAGEABLE_BY_NON_SA, is_deleted=False
+        )
+        role_stats = {
+            'hr_admin': manageable.filter(role='hr_admin').count(),
+            'hr_staff': manageable.filter(role='hr_staff').count(),
+            'viewer':   manageable.filter(role='viewer').count(),
+        }
+        total_users    = manageable.count()
+        active_users   = manageable.filter(is_active=True).count()
+        inactive_users = manageable.filter(is_active=False).count()
+ 
+    # Pagination — 25 per page
+    paginator   = Paginator(qs, 25)
+    page_number = request.GET.get('page')
+    page_obj    = paginator.get_page(page_number)
+ 
+    # Build role choices available for the "Add User" modal (role-gated)
+    if actor.role == 'superadmin':
+        add_role_choices = SystemUser.ROLE_CHOICES          # all 4 roles
+    elif actor.role == 'hr_admin':
+        add_role_choices = [
+            r for r in SystemUser.ROLE_CHOICES
+            if r[0] in _HR_ADMIN_CREATABLE
+        ]
+    else:
+        add_role_choices = []   # hr_staff cannot add users
  
     context = {
-        'page_obj': page_obj,
-        'users': page_obj.object_list,
-
-        'role_filter': role_filter,
-        'status_filter': status_filter,
-        'search_q': search_q,
-
-        'total_users': total_users,
-        'active_users': active_users,
+        'users':          page_obj.object_list,   # current page items
+        'page_obj':       page_obj,               # paginator object for template
+ 
+        'role_filter':    role_filter,
+        'status_filter':  status_filter,
+        'search_q':       search_q,
+ 
+        'total_users':    total_users,
+        'active_users':   active_users,
         'inactive_users': inactive_users,
+ 
+        'role_stats':     role_stats,
+        'role_choices':   SystemUser.ROLE_CHOICES,
+ 
+        # Permission flags used by the template to show/hide UI elements
+        'can_add_user':         actor.role in ('superadmin', 'hr_admin'),
+        'can_reset_password':   actor.role in ('superadmin', 'hr_admin'),
+        'can_bulk_action':     actor.role in ('superadmin', 'hr_admin'),
+        'is_superadmin_actor':  actor.role == 'superadmin',
+        'actor_role':           actor.role,
 
-        'role_stats': role_stats,
-        'role_choices': SystemUser.ROLE_CHOICES,
+        'current_user_id':  actor.user_id,
+ 
+        # Role choices for the Add User modal (filtered by actor role)
+        'add_role_choices': add_role_choices,
     }
-
+ 
     return render(request, 'accounts/user_list.html', context)
-
-
-# TOGGLE USER ACTIVE  /accounts/users/<id>/toggle/   [superadmin, POST, AJAX]
-
+ 
+# AJAX TOGGLE  /accounts/users/<id>/toggle/   POST → JSON
+#
+# Called by the JS toast-confirm widget (not a page reload).
+# Returns JSON so the JS can update the row in-place.
+ 
 @login_required
-@role_required('superadmin')
+@role_required(*_PAGE_ROLES)
 @require_POST
 def toggle_user_active(request, user_id: int):
-    if request.current_user.user_id == user_id:
-        return JsonResponse({'error': 'You cannot deactivate your own account.'}, status=400)
+    actor: SystemUser = request.current_user
  
-    user = get_object_or_404(SystemUser, user_id=user_id)
-    user.is_active = not user.is_active
-    user.save(update_fields=['is_active'])
+    # hr_staff can deactivate; superadmin and hr_admin also can
+    # (all three roles are in _PAGE_ROLES, so they reach here)
  
-    action = 'activated' if user.is_active else 'deactivated'
-    logger.info('[accounts] User %s %s by superadmin user_id=%s',
-                user.username, action, request.current_user.user_id)
+    target = get_object_or_404(SystemUser, user_id=user_id)
  
-    return JsonResponse({'is_active': user.is_active, 'message': f'User {action}.'})
+    allowed, err = _check_target_permission(actor, target)
+    if not allowed:
+        return JsonResponse({'ok': False, 'error': err}, status=403)
+ 
+    target.is_active = not target.is_active
+    target.save(update_fields=['is_active'])
+ 
+    action_word = 'activated' if target.is_active else 'deactivated'
+ 
+    # Audit log (non-fatal)
+    try:
+        from apps.audit.models import create_audit_log
+        create_audit_log(
+            table_affected='system_users',
+            record_id=target.user_id,
+            action='update',
+            performed_by=actor,
+            new_value={'is_active': target.is_active},
+            ip_address=get_client_ip(request),
+        )
+    except Exception as exc:
+        logger.error('[accounts] toggle audit log failed: %s', exc)
+ 
+    logger.info(
+        '[accounts] User %s %s by %s (user_id=%s)',
+        target.username, action_word, actor.username, actor.user_id,
+    )
+ 
+    msg = f'✓ User "{target.username}" has been {action_word}.'
+    request.session['_bulk_message'] = msg
+    request.session['_bulk_level']   = 'success'
+
+    return JsonResponse({
+        'ok':        True,
+        'is_active': target.is_active,
+        'message':   f'User "{target.username}" has been {action_word}.',
+    })
+ 
+# PRIVATE ACTION HANDLERS  (called from user_list POST dispatcher)
+ 
+def _action_add_user(request):
+    """
+    Only superadmin and hr_admin can add users.
+    hr_admin cannot create superadmin accounts.
+    """
+    actor: SystemUser = request.current_user
+ 
+    if actor.role not in ('superadmin', 'hr_admin'):
+        messages.error(request, 'You do not have permission to add users.')
+        return redirect('accounts:user_list')
+ 
+    p = request.POST
+    # first_name = clean_input(p.get('first_name', ''), 100)
+    # last_name  = clean_input(p.get('last_name', ''),  100)
+    email      = p.get('email', '').strip().lower()
+    username   = clean_input(p.get('username', ''), 50)
+    role       = p.get('admin_role', '').strip()
+    password1  = p.get('password1', '')
+    password2  = p.get('password2', '')
+ 
+    errors = []
+ 
+    if not email or not is_valid_email(email):
+        errors.append('A valid email address is required.')
+    elif SystemUser.objects.filter(personal_email__iexact=email).exists():
+        errors.append('That email is already registered.')
+ 
+    if not username:
+        errors.append('Username is required.')
+    elif len(username) < 3:
+        errors.append('Username must be at least 3 characters.')
+    elif SystemUser.objects.filter(username=username).exists():
+        errors.append(f'Username "{username}" is already taken.')
+ 
+    # Role gate — hr_admin cannot create superadmin
+    valid_roles = dict(SystemUser.ROLE_CHOICES)
+    if not role or role not in valid_roles:
+        errors.append('Please select a valid role.')
+    elif actor.role == 'hr_admin' and role not in _HR_ADMIN_CREATABLE:
+        errors.append('You do not have permission to create an account with that role.')
+ 
+    pw_errors = validate_password_strength(password1)
+    errors.extend(pw_errors)
+    if password1 and password2 and password1 != password2:
+        errors.append('Passwords do not match.')
+ 
+    if errors:
+        for e in errors:
+            messages.error(request, e)
+        return redirect('accounts:user_list')
+ 
+    try:
+        with transaction.atomic():
+            linked_employee = None
+            emp_id_input = p.get('employee_id', '').strip()
+
+            if emp_id_input:
+                try:
+                    from apps.employees.models import Employee
+                    linked_employee = Employee.objects.get(employee_id=int(emp_id_input))
+                    if hasattr(linked_employee, 'system_user'):
+                        errors.append(f'{linked_employee.get_full_name()} is already linked to another account.')
+                except Exception:
+                    errors.append('Select employee record not found.')
+
+            if errors:
+                for e in errors:
+                    messages.error(request, e)
+                return redirect('accounts:user_list')
+            
+            user = SystemUser(
+                username = username,
+                role = role,
+                personal_email = email,
+                employee = linked_employee,
+                is_active = True,
+            )
+            user.set_password(password1)
+            user.save()
+    except IntegrityError as exc:
+        logger.error('[accounts] _action_add_user IntegrityError: %s', exc)
+        messages.error(request, 'A database conflict occurred. Username or email may already be taken.')
+        return redirect('accounts:user_list')
+ 
+    # Audit log (non-fatal)
+    try:
+        from apps.audit.models import create_audit_log
+        create_audit_log(
+            table_affected='system_users',
+            record_id=user.user_id,
+            action='create',
+            performed_by=actor,
+            new_value={
+                'username':  username,
+                'role':      role,
+                'email':     email,
+            },
+            ip_address=get_client_ip(request),
+        )
+    except Exception as exc:
+        logger.error('[accounts] _action_add_user audit log failed: %s', exc)
+ 
+    logger.info(
+        '[accounts] User created: %s (%s) by %s (user_id=%s)',
+        username, role, actor.username, actor.user_id,
+    )
+    messages.success(request, f'User "{username}" ({valid_roles[role]}) created successfully.')
+    return redirect('accounts:user_list')
+ 
+ 
+def _action_edit_user(request):
+    """
+    Edit a system user's email, role, active status, and optionally
+    link/unlink to an employee record.
+ 
+    superadmin  → can edit anyone
+    hr_admin    → can edit hr_admin / hr_staff / viewer only
+    hr_staff    → can edit hr_staff / viewer only
+    """
+    actor = request.current_user
+ 
+    if actor.role not in ('superadmin', 'hr_admin', 'hr_staff'):
+        messages.error(request, 'You do not have permission to edit users.')
+        return redirect('accounts:user_list')
+ 
+    p         = request.POST
+    target_id = p.get('user_id', '').strip()
+    email     = p.get('email', '').strip().lower()
+    role      = p.get('admin_role', '').strip()
+    is_active = p.get('is_active', '1') == '1'
+    link_emp  = p.get('link_employee', '').strip()   # employee_id or '' to unlink
+ 
+    if not target_id:
+        messages.error(request, 'Invalid request.')
+        return redirect('accounts:user_list')
+ 
+    target = get_object_or_404(SystemUser, user_id=target_id, is_deleted=False)
+ 
+    allowed, err = _check_target_permission(actor, target)
+    if not allowed:
+        messages.error(request, err)
+        return redirect('accounts:user_list')
+ 
+    errors = []
+ 
+    # Email validation
+    if not email or not is_valid_email(email):
+        errors.append('A valid email address is required.')
+    elif (
+        SystemUser.objects
+        .filter(personal_email__iexact=email)
+        .exclude(user_id=target.user_id)
+        .exists()
+    ):
+        errors.append('That email is already registered to another account.')
+ 
+    # Role gate
+    valid_roles = dict(SystemUser.ROLE_CHOICES)
+    if not role or role not in valid_roles:
+        errors.append('Please select a valid role.')
+    elif actor.role in ('hr_admin', 'hr_staff') and role not in _MANAGEABLE_BY_NON_SA:
+        errors.append('You cannot assign that role.')
+    elif actor.role in ('hr_admin', 'hr_staff') and target.role == 'superadmin':
+        errors.append('You cannot change a Super Admin account.')
+ 
+    # Employee link resolution
+    linked_employee = None
+    unlink = p.get('unlink_employee', '') == '1'
+ 
+    if not unlink and link_emp:
+        try:
+            from apps.employees.models import Employee
+            linked_employee = Employee.objects.get(employee_id=int(link_emp))
+            # Allow re-linking to the same employee; block linking to someone else's account
+            existing = SystemUser.objects.filter(
+                employee=linked_employee
+            ).exclude(user_id=target.user_id).first()
+            if existing:
+                errors.append(
+                    f'{linked_employee.get_full_name()} is already linked to another account ({existing.username}).'
+                )
+        except Exception:
+            errors.append('Selected employee record not found.')
+ 
+    if errors:
+        for e in errors:
+            messages.error(request, e)
+        return redirect('accounts:user_list')
+ 
+    new_username = clean_input(p.get('username', ''), 50)
+    if new_username and new_username != target.username:
+        if SystemUser.objects.filter(username=new_username).exclude(user_id=target.user_id).exists():
+            messages.error(request, f'Username "{new_username}" is already taken.')
+            return redirect('accounts:user_list')
+        target.username = new_username
+        
+    # Apply changes
+    target.personal_email = email
+    target.role           = role
+    target.is_active      = is_active
+ 
+    if unlink:
+        target.employee = None
+    elif linked_employee:
+        target.employee = linked_employee
+ 
+    target.save(update_fields=['username', 'personal_email', 'role', 'is_active', 'employee'])
+ 
+    # Audit log (non-fatal)
+    try:
+        from apps.audit.models import create_audit_log
+        create_audit_log(
+            table_affected='system_users',
+            record_id=target.user_id,
+            action='update',
+            performed_by=actor,
+            new_value={
+                'email':       email,
+                'role':        role,
+                'is_active':   is_active,
+                'employee_id': linked_employee.employee_id if linked_employee else (None if unlink else 'unchanged'),
+            },
+            ip_address=get_client_ip(request),
+        )
+    except Exception as exc:
+        logger.error('[accounts] _action_edit_user audit log failed: %s', exc)
+ 
+    logger.info('[accounts] User edited: %s by %s', target.username, actor.username)
+    messages.success(request, f'User "{target.username}" updated successfully.')
+    return redirect('accounts:user_list')
+ 
+def _action_reset_password(request):
+    """
+    Only superadmin can reset passwords.
+    Cannot reset their own password here (use Change Password instead).
+    """
+    actor: SystemUser = request.current_user
+ 
+    if actor.role not in ('superadmin', 'hr_admin'):
+        messages.error(request, 'Only Super Admins can reset passwords.')
+        return redirect('accounts:user_list')
+ 
+    target_id    = request.POST.get('user_id', '').strip()
+    new_password = request.POST.get('new_password', '')
+ 
+    if not target_id:
+        messages.error(request, 'Invalid request.')
+        return redirect('accounts:user_list')
+ 
+    target = get_object_or_404(SystemUser, user_id=target_id)
+ 
+    allowed, err = _check_target_permission(actor, target)
+    if not allowed:
+        messages.error(request, err)
+        return redirect('accounts:user_list')
+ 
+    errors = validate_password_strength(new_password)
+    if errors:
+        for e in errors:
+            messages.error(request, e)
+        return redirect('accounts:user_list')
+ 
+    try:
+        with transaction.atomic():
+            target.set_password(new_password)
+            target.save(update_fields=['password_hash'])
+    except Exception as exc:
+        logger.error('[accounts] _action_reset_password save error: %s', exc)
+        messages.error(request, 'A system error occurred while resetting the password.')
+        return redirect('accounts:user_list')
+ 
+    # Audit log (non-fatal)
+    try:
+        from apps.audit.models import create_audit_log
+        create_audit_log(
+            table_affected='system_users',
+            record_id=target.user_id,
+            action='update',
+            performed_by=actor,
+            new_value={'password_reset': True},
+            ip_address=get_client_ip(request),
+        )
+    except Exception as exc:
+        logger.error('[accounts] _action_reset_password audit log failed: %s', exc)
+ 
+    logger.info(
+        '[accounts] Password reset for %s by superadmin %s (user_id=%s)',
+        target.username, actor.username, actor.user_id,
+    )
+    messages.success(request, f'Password for "{target.username}" has been reset.')
+    return redirect('accounts:user_list')
+ 
+ 
+def _action_toggle_active(request):
+    """
+    Form-based fallback toggle (non-AJAX).
+    The JS toast path uses the AJAX endpoint above; this handles no-JS fallback.
+    """
+    actor: SystemUser = request.current_user
+    target_id = request.POST.get('user_id', '').strip()
+ 
+    if not target_id:
+        messages.error(request, 'Invalid request.')
+        return redirect('accounts:user_list')
+ 
+    target = get_object_or_404(SystemUser, user_id=target_id)
+ 
+    allowed, err = _check_target_permission(actor, target)
+    if not allowed:
+        messages.error(request, err)
+        return redirect('accounts:user_list')
+ 
+    target.is_active = not target.is_active
+    target.save(update_fields=['is_active'])
+ 
+    action_word = 'activated' if target.is_active else 'deactivated'
+    messages.success(request, f'User "{target.username}" has been {action_word}.')
+    return redirect('accounts:user_list')
+
+def _action_delete_user(request):
+    """
+    Soft-delete a single user.
+    superadmin  → can delete any non-self (including other superadmins)
+    hr_admin    → can delete hr_staff and viewer only
+    hr_staff    → cannot delete
+    """
+    from apps.accounts.models import SystemUser
+    actor = request.current_user
+
+    if actor.role not in ('superadmin', 'hr_admin'):
+        messages.error(request, 'You do not have permission to delete users.')
+        return redirect('accounts:user_list')
+    
+    target_id = request.POST.get('user_id', '').strip()
+    if not target_id:
+        messages.error(request, 'Invalid request.')
+        return redirect('accounts:user_list')
+    
+    target = get_object_or_404(SystemUser, user_id=target_id, is_deleted=False)
+
+    allowed, err = _check_target_permission(actor, target, action='delete')
+    if not allowed:
+        messages.error(request, err)
+        return redirect('accounts:user_list')
+    
+    try:
+        with transaction.atomic():
+            target.is_deleted = True
+            target.is_active = False
+            target.save(update_fields=['is_deleted', 'is_active'])
+    except Exception as exc:
+        logger.error('[accounts] _action_delete_user save error: %s', exc)
+        messages.error(request, 'A system error occured while deleting the user.')
+        return redirect('accounts:user_list')
+
+    # Audit log (non-fatal)
+    try:
+        from apps.audit.models import create_audit_log
+        create_audit_log(
+            table_affected='system_users',
+            record_id=target.user_id,
+            action='delete',
+            performed_by=actor,
+            new_value={'is_deleted': True, 'username': target.username},
+            ip_address=get_client_ip(request),
+        )
+    except Exception as exc:
+        logger.error('[accounts] action delete user audit log failed %s', exc)
+
+    logger.info(
+        '[accounts] User soft-deleted: %s by %s (user_id=%s)',
+        target.user_id, actor.username, actor.user_id,
+    )
+    messages.success(request, f'User "{target.username}" has been deleted.')
+    return redirect('accounts:user_list')
+    
+
+from django.views.decorators.http import require_POST as _require_POST
+
+@login_required
+@role_required('superadmin', 'hr_admin')   # hr_staff and viewer excluded
+@_require_POST
+def bulk_action(request):
+    """
+    AJAX endpoint for bulk deactivate / bulk delete.
+ 
+    POST body (JSON):
+        { "action": "deactivate" | "delete", "user_ids": [1, 2, 3] }
+ 
+    Response JSON:
+        {
+          "ok": true,
+          "actioned": 2,       # how many were successfully processed
+          "skipped": 1,        # skipped (already inactive, permission denied, etc.)
+          "skip_details": ["username1 — already inactive"],
+          "message": "2 user(s) deactivated. 1 skipped."
+        }
+ 
+    Permission rules (same as single actions):
+        superadmin  → bulk deactivate/delete anyone except self
+        hr_admin    → bulk deactivate: hr_admin/hr_staff/viewer
+                      bulk delete:     hr_staff/viewer only
+    """
+    import json
+    from apps.accounts.models import SystemUser
+ 
+    actor = request.current_user
+ 
+    try:
+        body        = json.loads(request.body)
+        action      = body.get('action', '').strip()
+        user_ids    = body.get('user_ids', [])
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({'ok': False, 'error': 'Invalid request body.'}, status=400)
+ 
+    if action not in ('activate', 'deactivate', 'delete'):
+        return JsonResponse({'ok': False, 'error': 'Invalid action.'}, status=400)
+ 
+    if not isinstance(user_ids, list) or not user_ids:
+        return JsonResponse({'ok': False, 'error': 'No users selected.'}, status=400)
+ 
+    if len(user_ids) > 50:
+        return JsonResponse({'ok': False, 'error': 'Maximum 50 users per bulk action.'}, status=400)
+ 
+    # Sanitise IDs — integers only
+    try:
+        user_ids = [int(uid) for uid in user_ids]
+    except (ValueError, TypeError):
+        return JsonResponse({'ok': False, 'error': 'Invalid user ID format.'}, status=400)
+ 
+    targets = SystemUser.objects.filter(user_id__in=user_ids, is_deleted=False)
+ 
+    actioned      = 0
+    skipped       = 0
+    skip_details  = []
+ 
+    for target in targets:
+        # Permission check
+        perm_action = 'delete' if action == 'delete' else 'modify'
+        allowed, err = _check_target_permission(actor, target, action=perm_action)
+        if not allowed:
+            skipped += 1
+            skip_details.append(f'{target.username} — {err}')
+            continue
+        
+        if action == 'activate':
+            if target.is_active:
+                skipped += 1
+                skip_details.append(f'{target.username} — already active')
+                continue
+            target.is_active = True
+            target.save(update_fields=['is_active'])
+            actioned += 1
+
+            try:
+                from apps.audit.models import create_audit_log
+                create_audit_log(
+                    table_affected='system_users',
+                    record_id=target.user_id,
+                    action='update',
+                    performed_by=actor,
+                    new_value={'is_active': True, 'bulk': True},
+                    ip_address=get_client_ip(request),
+                )
+            except Exception as exc:
+                logger.error('[accounts] bulk activate audit failed: %s', exc)
+
+        elif action == 'deactivate':
+            if not target.is_active:
+                skipped += 1
+                skip_details.append(f'{target.username} — already inactive')
+                continue
+            target.is_active = False
+            target.save(update_fields=['is_active'])
+            actioned += 1
+ 
+            # Audit
+            try:
+                from apps.audit.models import create_audit_log
+                create_audit_log(
+                    table_affected='system_users',
+                    record_id=target.user_id,
+                    action='update',
+                    performed_by=actor,
+                    new_value={'is_active': False, 'bulk': True},
+                    ip_address=get_client_ip(request),
+                )
+            except Exception as exc:
+                logger.error('[accounts] bulk deactivate audit failed: %s', exc)
+ 
+        elif action == 'delete':
+            target.is_deleted = True
+            target.is_active  = False
+            target.save(update_fields=['is_deleted', 'is_active'])
+            actioned += 1
+ 
+            # Audit
+            try:
+                from apps.audit.models import create_audit_log
+                create_audit_log(
+                    table_affected='system_users',
+                    record_id=target.user_id,
+                    action='delete',
+                    performed_by=actor,
+                    new_value={'is_deleted': True, 'bulk': True, 'username': target.username},
+                    ip_address=get_client_ip(request),
+                )
+            except Exception as exc:
+                logger.error('[accounts] bulk delete audit failed: %s', exc)
+ 
+    verb_map    = {'activate': 'activated', 'deactivate': 'deactivated', 'delete': 'deleted'}
+    verb = verb_map.get(action, action)
+    message = f'{actioned} user(s) {verb}.'
+    if skipped:
+        message += f' {skipped} skipped.'
+ 
+    logger.info(
+        '[accounts] Bulk %s: actioned=%s skipped=%s by %s (user_id=%s)',
+        action, actioned, skipped, actor.username, actor.user_id,
+    )
+ 
+    # Build a richer message
+    if action == 'activate':
+        success_msg = f'✓ {actioned} user(s) activated successfully.'
+        if skipped:
+            success_msg += f' {skipped} skipped (already active or no permission).'
+    elif action == 'deactivate':
+        success_msg = f'✓ {actioned} user(s) deactivated successfully.'
+        if skipped:
+            success_msg += f' {skipped} skipped (already inactive or no permission).'
+    elif action == 'delete':
+        success_msg = f'✓ {actioned} user(s) moved to deleted accounts.'
+        if skipped:
+            success_msg += f' {skipped} skipped (no permission).'
+
+    # Store in session so it appears after page reload
+    request.session['_bulk_message'] = success_msg
+    request.session['_bulk_level']   = 'success' if actioned > 0 else 'warning'
+
+    return JsonResponse({
+        'ok':           True,
+        'actioned':     actioned,
+        'skipped':      skipped,
+        'skip_details': skip_details,
+        'message':      message,
+        'action':       action,
+    })
+
+
+# Kaka update lang
+# Shows soft-deleted accounts. Superadmin only.
+
+@login_required
+@role_required('superadmin', 'hr_admin')
+@require_http_methods(['GET'])
+def deleted_users(request):
+    """
+    List of soft-deleted system users.
+    Superadmin only — allows reviewing and restoring deleted accounts.
+    """
+    actor = request.current_user
+
+    _bulk_msg   = request.session.pop('_bulk_message', None)
+    _bulk_level = request.session.pop('_bulk_level', 'success')
+    if _bulk_msg:
+        if _bulk_level == 'success':
+            messages.success(request, _bulk_msg)
+        elif _bulk_level == 'warning':
+            messages.warning(request, _bulk_msg)
+        elif _bulk_level == 'error':
+            messages.error(request, _bulk_msg)
+ 
+    qs = (
+        SystemUser.objects
+        .filter(is_deleted=True)
+        .select_related('employee__division', 'employee__position')
+        .order_by('-created_at')
+    )
+ 
+    search_q = request.GET.get('q', '').strip()
+    if search_q:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(username__icontains=search_q) |
+            Q(employee__last_name__icontains=search_q) |
+            Q(employee__first_name__icontains=search_q)
+        )
+ 
+    paginator   = Paginator(qs, 25)
+    page_number = request.GET.get('page')
+    page_obj    = paginator.get_page(page_number)
+ 
+    deleted_qs = SystemUser.objects.filter(is_deleted=True)
+    context = {
+        'users':          page_obj.object_list,
+        'page_obj':       page_obj,
+        'search_q':       search_q,
+        'total_deleted':  deleted_qs.count(),
+        'deleted_by_role': {
+            'superadmin': deleted_qs.filter(role='superadmin').count(),
+            'hr_admin': deleted_qs.filter(role='hr_admin').count(),
+            'hr_staff': deleted_qs.filter(role='hr_staff').count(),
+            'viewer': deleted_qs.filter(role='viewer').count(),
+        },
+        'actor_role':     actor.role,
+        'is_superadmin_actor': actor.role == 'superadmin',
+    }
+ 
+    return render(request, 'accounts/deleted_users.html', context)
+
+# NEW VIEW: restore_user   /users/<id>/restore/   POST → JSON
+# Superadmin and HR Admin only. Restores a soft-deleted user.
+
+@login_required
+@role_required('superadmin', 'hr_admin')
+@require_POST
+def restore_user(request, user_id: int):
+    """
+    Restore a soft-deleted user. Sets is_deleted=False, is_active=True.
+    Returns JSON for AJAX update.
+    """
+    actor = request.current_user
+ 
+    target = get_object_or_404(SystemUser, user_id=user_id, is_deleted=True)
+ 
+    try:
+        with transaction.atomic():
+            target.is_deleted = False
+            target.is_active  = True
+            target.save(update_fields=['is_deleted', 'is_active'])
+    except Exception as exc:
+        logger.error('[accounts] restore_user save error: %s', exc)
+        return JsonResponse({'ok': False, 'error': 'A system error occurred.'}, status=500)
+ 
+    # Audit log (non-fatal)
+    try:
+        from apps.audit.models import create_audit_log
+        create_audit_log(
+            table_affected='system_users',
+            record_id=target.user_id,
+            action='update',
+            performed_by=actor,
+            new_value={'is_deleted': False, 'is_active': True, 'restored': True},
+            ip_address=get_client_ip(request),
+        )
+    except Exception as exc:
+        logger.error('[accounts] restore_user audit log failed: %s', exc)
+ 
+    logger.info(
+        '[accounts] User restored: %s by %s (user_id=%s)',
+        target.username, actor.username, actor.user_id,
+    )
+ 
+    return JsonResponse({
+        'ok':      True,
+        'message': f'User "{target.username}" has been restored and reactivated.',
+    })
+
+# BULK ACTIONS
+@login_required
+@role_required('superadmin', 'hr_admin')
+@require_POST
+def bulk_restore(request):
+    """Bulk restore soft-deleted users."""
+    import json
+    actor = request.current_user
+
+    try:
+        body     = json.loads(request.body)
+        user_ids = [int(uid) for uid in body.get('user_ids', [])]
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
+
+    if not user_ids or len(user_ids) > 50:
+        return JsonResponse({'ok': False, 'error': 'Invalid selection.'}, status=400)
+
+    targets      = SystemUser.objects.filter(user_id__in=user_ids, is_deleted=True)
+    actioned_ids = []
+
+    for target in targets:
+        target.is_deleted = False
+        target.is_active  = True
+        target.save(update_fields=['is_deleted', 'is_active'])
+        actioned_ids.append(target.user_id)
+
+        try:
+            from apps.audit.models import create_audit_log
+            create_audit_log(
+                table_affected='system_users',
+                record_id=target.user_id,
+                action='update',
+                performed_by=actor,
+                new_value={'is_deleted': False, 'restored': True, 'bulk': True},
+                ip_address=get_client_ip(request),
+            )
+        except Exception as exc:
+            logger.error('[accounts] bulk_restore audit failed: %s', exc)
+
+    logger.info('[accounts] Bulk restore: %s users by %s', len(actioned_ids), actor.username)
+
+    restore_msg = f'✓ {len(actioned_ids)} user(s) restored and reactivated.'
+    request.session['_bulk_message'] = restore_msg
+    request.session['_bulk_level']   = 'success'
+
+    return JsonResponse({
+        'ok':          True,
+        'actioned_ids': actioned_ids,
+        'message':     f'{len(actioned_ids)} user(s) restored successfully.',
+    })
+
+
+@login_required
+@role_required('superadmin', 'hr_admin')
+@require_POST
+def bulk_permanent_delete(request):
+    """Permanently delete soft-deleted users from the database."""
+    import json
+    actor = request.current_user
+
+    try:
+        body     = json.loads(request.body)
+        user_ids = [int(uid) for uid in body.get('user_ids', [])]
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Invalid request.'}, status=400)
+
+    if not user_ids or len(user_ids) > 50:
+        return JsonResponse({'ok': False, 'error': 'Invalid selection.'}, status=400)
+
+    targets      = SystemUser.objects.filter(user_id__in=user_ids, is_deleted=True)
+    actioned_ids = []
+
+    for target in targets:
+        uid      = target.user_id
+        username = target.username
+        target.delete()
+        actioned_ids.append(uid)
+
+        try:
+            from apps.audit.models import create_audit_log
+            create_audit_log(
+                table_affected='system_users',
+                record_id=uid,
+                action='delete',
+                performed_by=actor,
+                new_value={'permanent_delete': True, 'username': username, 'bulk': True},
+                ip_address=get_client_ip(request),
+            )
+        except Exception as exc:
+            logger.error('[accounts] bulk_permanent_delete audit failed: %s', exc)
+
+    logger.info('[accounts] Bulk permanent delete: %s users by %s', len(actioned_ids), actor.username)
+
+    del_msg = f'✓ {len(actioned_ids)} user(s) permanently deleted from the database.'
+    request.session['_bulk_message'] = del_msg
+    request.session['_bulk_level']   = 'success'
+
+    return JsonResponse({
+        'ok':           True,
+        'actioned_ids': actioned_ids,
+        'message':      f'{len(actioned_ids)} user(s) permanently deleted.',
+    })
+
+# NEW AJAX ENDPOINT: employee_search   /api/employee-search/
+# Used by the Edit modal's employee link autocomplete.
+# Returns active employees not yet linked to any account.
+@login_required
+@role_required('superadmin', 'hr_admin', 'hr_staff')
+@require_GET
+def employee_search(request):
+    """
+    Search employees for the edit modal link-to-employee autocomplete.
+ 
+    GET params:
+        q        — search string (name or ID number)
+        exclude  — user_id to exclude their current linked employee from
+                   "already linked" check (so editing doesn't block itself)
+ 
+    Returns:
+        { results: [{employee_id, full_name, id_number, position, already_linked}] }
+    """
+    q          = request.GET.get('q', '').strip()
+    exclude_uid = request.GET.get('exclude', '').strip()
+ 
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+ 
+    try:
+        from apps.employees.models import Employee
+        from django.db.models import Q
+ 
+        qs = Employee.objects.select_related('position').filter(
+            is_active=True
+        ).filter(
+            Q(last_name__icontains=q) |
+            Q(first_name__icontains=q) |
+            Q(id_number__icontains=q)
+        )[:20]
+ 
+        # Get the current user's linked employee so we don't mark it "already linked"
+        current_emp_id = None
+        if exclude_uid:
+            try:
+                cu = SystemUser.objects.get(user_id=int(exclude_uid))
+                if cu.employee:
+                    current_emp_id = cu.employee.employee_id
+            except Exception:
+                pass
+ 
+        results = []
+        for emp in qs:
+            already_linked = False
+            if hasattr(emp, 'system_user') and emp.employee_id != current_emp_id:
+                already_linked = True
+            results.append({
+                'employee_id':   emp.employee_id,
+                'full_name':     emp.get_full_name(),
+                'first_name':    emp.first_name,
+                'last_name':     emp.last_name,
+                'id_number':     emp.id_number,
+                'position':      emp.position.position_title if emp.position else '—',
+                'already_linked': already_linked,
+            })
+ 
+        return JsonResponse({'results': results})
+ 
+    except Exception as exc:
+        logger.error('[accounts] employee_search error: %s', exc)
+        return JsonResponse({'results': [], 'error': str(exc)})
 
 
 # EMPLOYEE LOOKUP API  /accounts/api/employee-lookup/   [admin+, AJAX GET]
 # Used by the create forms to auto-fill name/position from an ID number.
-
 @login_required
 @admin_required
 @require_GET

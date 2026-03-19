@@ -8,7 +8,7 @@ app_name = 'accounts'
 urlpatterns = [
 
     # Employee Login and Signup and Logout
-    path('login/',                          views.employee_login,       name='login'),
+    path('login/', views.employee_login, name='login'),
     path('signup/', views.signup, name='signup'),
     path('logout/', views.logout, name='logout'),
 
@@ -28,6 +28,15 @@ urlpatterns = [
     path('employees/create/', views.create_employee, name='create_employee'),
     path('users/', views.user_list, name='user_list'),
     path('users/create/', views.create_system_user, name='create_system_user'),
+    # Bulk Action
+    path('users/bulk-action/', views.bulk_action, name='bulk_action'),
+    path('users/deleted/', views.deleted_users, name='deleted_users'),
+    path('users/<int:user_id>/restore/', views.restore_user, name='restore_user'),
+    path('api/employee-search/', views.employee_search, name='employee_search'),
+    # Bulk Action in Delete Users Page
+    path('users/bulk-restore/',          views.bulk_restore,          name='bulk_restore'),
+    path('users/bulk-permanent-delete/', views.bulk_permanent_delete, name='bulk_permanent_delete'),
+    # This is toggle for the System User List page 
     path('users/<int:user_id>/toggle/', views.toggle_user_active, name='toggle_user_active'),
     
     # AJAX (authenticated)
