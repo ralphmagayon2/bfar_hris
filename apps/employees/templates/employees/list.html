@@ -27,48 +27,53 @@
   </div>
 </div>
 
-<!-- Type filter chips -->
-<div class="type-chips">
-  <div class="type-chip active-chip" onclick="chipFilter('', this)" id="chip-all">
-    <span class="emp-type permanent" style="background:var(--navy-50);color:var(--navy-700);">All</span>
-    <span class="chip-count">{{ total_all }}</span>
+<form method="GET" id="filter-form">
+  
+  <input type="hidden" name="type" id="type-input" value="{{ current_type }}">
+
+  <div class="type-chips">
+    <div class="type-chip {% if not current_type %}active-chip{% endif %}" onclick="submitChip('')" id="chip-all">
+      <span class="emp-type permanent" style="background:var(--navy-50);color:var(--navy-700);">All</span>
+      <span class="chip-count">{{ total_all }}</span>
+    </div>
+    {% for stat in type_stats %}
+    <div class="type-chip {% if current_type == stat.employment_type|lower %}active-chip{% endif %}" 
+         onclick="submitChip('{{ stat.employment_type|lower }}')">
+      <span class="emp-type {{ stat.employment_type|lower }}">{{ stat.employment_type }}</span>
+      <span class="chip-count">{{ stat.count }}</span>
+    </div>
+    {% endfor %}
   </div>
-  {% for stat in type_stats %}
-  <div class="type-chip" onclick="chipFilter('{{ stat.employment_type|lower }}', this)">
-    <span class="emp-type {{ stat.employment_type|lower }}">{{ stat.employment_type }}</span>
-    <span class="chip-count">{{ stat.count }}</span>
-  </div>
-  {% endfor %}
-</div>
 
 <!-- Toolbar -->
 <div class="toolbar">
-  <div class="toolbar-left">
-    <div class="search-wrap">
-      <i class="fas fa-search"></i>
-      <input type="text" id="emp-search" placeholder="Search name or employee ID…" oninput="filterTable()">
-    </div>
+    <div class="toolbar-left">
+      <div class="search-wrap">
+        <i class="fas fa-search"></i>
+        <input type="text" name="search" id="emp-search" placeholder="Search name or ID (Press Enter)…" value="{{ current_search }}">
+      </div>
 
-    {% comment %} Wrapper {% endcomment %}
-    <div class="filter-row">
-      <select class="filter-select" id="div-filter" onchange="filterTable()">
-        <option value="">All Divisions</option>
-        {% for div in divisions %}
-        <option value="{{ div.id }}">{{ div.name }}</option>
-        {% endfor %}
-      </select>
-      <select class="filter-select" id="status-filter" onchange="filterTable()">
-        <option value="">All Status</option>
-        <option value="active">Active</option>
-        <option value="inactive">Inactive</option>
-      </select>
+      <div class="filter-row">
+        <select class="filter-select" name="division" id="div-filter" onchange="this.form.submit()">
+          <option value="">All Divisions</option>
+          {% for div in divisions %}
+          <option value="{{ div.division_id }}" {% if current_div == div.division_id|stringformat:"s" %}selected{% endif %}>
+            {{ div.division_code }}
+          </option>
+          {% endfor %}
+        </select>
+        <select class="filter-select" name="status" id="status-filter" onchange="this.form.submit()">
+          <option value="">All Status</option>
+          <option value="active" {% if current_status == 'active' %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactive</option>
+        </select>
+      </div>
     </div>
-    
+    <div class="toolbar-right">
+      <span id="emp-count" style="font-size:.78rem;color:var(--gray-400);">{{ employees.paginator.count }} total matched</span>
+    </div>
   </div>
-  <div class="toolbar-right">
-    <span id="emp-count" style="font-size:.78rem;color:var(--gray-400);">{{ employees|length }} shown</span>
-  </div>
-</div>
+</form>
 
 <!-- Table -->
 <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);box-shadow:var(--shadow);overflow:hidden;">
@@ -111,11 +116,11 @@
           <td style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">
             {{ emp.employee_id|default:"—" }}
           </td>
-          <td style="font-size:.82rem;">{{ emp.position.title|default:"—" }}</td>
+          <td style="font-size:.82rem;">{{ emp.position.position_title|default:"—" }}</td>
           <td>
-            <div style="font-size:.82rem;font-weight:500;">{{ emp.division.name|default:"—" }}</div>
+            <div style="font-size:.82rem;font-weight:500;">{{ emp.division.division_name|default:"—" }}</div>
             {% if emp.unit %}
-            <div style="font-size:.7rem;color:var(--gray-400);">{{ emp.unit.name }}</div>
+            <div style="font-size:.7rem;color:var(--gray-400);">{{ emp.unit.unit_name }}</div>
             {% endif %}
           </td>
           <td>
@@ -124,7 +129,7 @@
             </span>
           </td>
           <td style="font-family:var(--font-mono);font-size:.82rem;">
-            ₱{{ emp.monthly_salary|floatformat:2 }}
+            ₱{{ emp.montly_salary|floatformat:2 }}
           </td>
           <td>
             <span class="status-badge {% if emp.is_active %}badge-present{% else %}badge-absent{% endif %}">
@@ -133,13 +138,13 @@
           </td>
           <td>
             <div class="row-actions">
-              <a href="{% url 'dtr:detail' emp.id %}" class="row-btn dtr" title="View DTR">
+              <a href="{% url 'dtr:detail' emp.employee_id %}" class="row-btn dtr" title="View DTR">
                 <i class="fas fa-clock"></i>
               </a>
-              <a href="{% url 'employees:edit' emp.id %}" class="row-btn edit" title="Edit">
+              <a href="{% url 'employees:edit' emp.employee_id %}" class="row-btn edit" title="Edit">
                 <i class="fas fa-pen"></i>
               </a>
-              <a href="{% url 'employees:detail' emp.id %}" class="row-btn view" title="View Profile">
+              <a href="{% url 'employees:detail' emp.employee_id %}" class="row-btn view" title="View Profile">
                 <i class="fas fa-eye"></i>
               </a>
             </div>
@@ -160,32 +165,37 @@
     </table>
   </div>
 
-  {% if employees.has_other_pages %}
-  <div class="pagination">
-    <div class="page-info">
-      Showing {{ employees.start_index }}–{{ employees.end_index }} of {{ employees.paginator.count }}
-    </div>
-    <div class="page-btns">
-      {% if employees.has_previous %}
-      <a href="?page={{ employees.previous_page_number }}" class="page-btn">
-        <i class="fas fa-chevron-left"></i>
-      </a>
+{% if employees.has_other_pages %}
+<div class="pagination">
+  <div class="page-info">
+    Showing {{ employees.start_index }}–{{ employees.end_index }} of {{ employees.paginator.count }}
+  </div>
+  <div class="page-btns">
+    {% if employees.has_previous %}
+    <a href="?page={{ employees.previous_page_number }}{{ filter_string }}" class="page-btn">
+      <i class="fas fa-chevron-left"></i>
+    </a>
+    {% endif %}
+    
+    {% for num in employees.paginator.page_range %}
+      {% if employees.number == num %}
+      <span class="page-btn active">{{ num }}</span>
+      {% elif num > employees.number|add:"-3" and num < employees.number|add:"3" %}
+      <a href="?page={{ num }}{{ filter_string }}" class="page-btn">{{ num }}</a>
       {% endif %}
-      {% for num in employees.paginator.page_range %}
-        {% if employees.number == num %}
-        <span class="page-btn active">{{ num }}</span>
-        {% elif num > employees.number|add:"-3" and num < employees.number|add:"3" %}
-        <a href="?page={{ num }}" class="page-btn">{{ num }}</a>
-        {% endif %}
-      {% endfor %}
-      {% if employees.has_next %}
-      <a href="?page={{ employees.next_page_number }}" class="page-btn">
-        <i class="fas fa-chevron-right"></i>
-      </a>
-      {% endif %}
+    {% endfor %}
+    
+    {% if employees.has_next %}
+    <a href="?page={{ employees.next_page_number }}{{ filter_string }}" class="page-btn">
+      <i class="fas fa-chevron-right"></i>
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
     </div>
   </div>
-  {% endif %}
+
 </div>
 {% endblock %}
 
