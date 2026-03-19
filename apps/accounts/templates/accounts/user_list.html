@@ -173,7 +173,7 @@
                          onchange="onRowCheck(this)">
                   <span class="checkmark"></span>
                 </label>
-              {% elif actor_role == 'hr_admin' and u.role in 'hr_staff,viewer' %}
+              {% elif actor_role == 'hr_admin' and u.role != 'superadmin' and u.user_id != current_user_id %}
                 <label class="check-wrap">
                   <input type="checkbox" class="row-check"
                          data-user-id="{{ u.user_id }}"
@@ -335,7 +335,7 @@
                         onclick="confirmDelete(this)">
                   <i class="fas fa-trash"></i>
                 </button>
-              {% elif actor_role == 'hr_admin' and u.role == 'hr_staff' or actor_role == 'hr_admin' and u.role == 'viewer' %}
+              {% elif actor_role == 'hr_admin' and u.role in 'hr_staff,viewer' %}
                 <button class="row-btn delete" title="Delete user"
                         data-user-id="{{ u.user_id }}"
                         data-username="{{ u.get_display_name|default:u.username|escapejs }}"

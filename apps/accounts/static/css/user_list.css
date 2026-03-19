@@ -382,6 +382,25 @@
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 992px) {
+  .bulk-bar {
+    position: relative; /* unstick on smaller screens */
+    top: auto;
+    flex-direction: column;
+    flex-wrap: wrap;
+  }
+
+  .bulk-bar-right {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .bulk-select {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
 @media (max-width: 600px) {
   .bulk-bar { flex-direction: column; align-items: flex-start; }
   .bulk-bar-right { width: 100%; flex-wrap: wrap; }

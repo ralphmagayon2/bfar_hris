@@ -423,8 +423,7 @@ def admin_login(request):
 #   - Linked employee is chosen from a dropdown
 #   - Template is the full-page dark admin form, not the sidebar base.html page
 
-@login_required
-@role_required('superadmin')
+@role_required('superadmin', 'hr_admin')
 @require_http_methods(['GET', 'POST'])
 def admin_signup(request):
     """
@@ -2033,73 +2032,67 @@ def bulk_permanent_delete(request):
 @role_required('superadmin', 'hr_admin', 'hr_staff')
 @require_GET
 def employee_search(request):
-    """
-    Search employees for the edit modal link-to-employee autocomplete.
- 
-    GET params:
-        q        — search string (name or ID number)
-        exclude  — user_id to exclude their current linked employee from
-                   "already linked" check (so editing doesn't block itself)
- 
-    Returns:
-        { results: [{employee_id, full_name, id_number, position, already_linked}] }
-    """
-    q          = request.GET.get('q', '').strip()
+    q           = request.GET.get('q', '').strip()
     exclude_uid = request.GET.get('exclude', '').strip()
- 
+
     if len(q) < 2:
         return JsonResponse({'results': []})
- 
+
     try:
         from apps.employees.models import Employee
         from django.db.models import Q
- 
+
+        # Step 1 — search employees
         qs = Employee.objects.select_related('position').filter(
             is_active=True
         ).filter(
-            Q(last_name__icontains=q) |
+            Q(last_name__icontains=q)  |
             Q(first_name__icontains=q) |
             Q(id_number__icontains=q)
         )[:20]
- 
-        # Get the current user's linked employee so we don't mark it - "already linked"
+
+        # Step 2 — get the current user's linked employee_id so we
+        #           don't mark their own employee as "already linked"
         current_emp_id = None
         if exclude_uid:
             try:
                 cu = SystemUser.objects.get(user_id=int(exclude_uid))
-                if cu.employee:
-                    current_emp_id = cu.employee.employee_id
+                if cu.employee_id:
+                    current_emp_id = cu.employee_id
             except Exception:
                 pass
- 
-        results = []
-        # Get all employee IDs that already have a system_user linked
+
+        # Step 3 — get ALL employee IDs already linked to ANY system user
+        #           (pure Python set — no annotate, no ORM expression)
         linked_emp_ids = set(
             SystemUser.objects
             .filter(employee__isnull=False, is_deleted=False)
-            .values('employee_id', flat=True)
+            .values_list('employee_id', flat=True)
         )
 
+        # Step 4 — build results
+        results = []
         for emp in qs:
+            # An employee is "already linked" if some OTHER user owns them
             already_linked = (
-                emp.employee_id in linked_emp_ids and emp.employee_id != current_emp_id
+                emp.employee_id in linked_emp_ids
+                and emp.employee_id != current_emp_id
             )
             results.append({
-                'employee_id':   emp.employee_id,
-                'full_name':     emp.get_full_name(),
-                'first_name':    emp.first_name,
-                'last_name':     emp.last_name,
-                'id_number':     emp.id_number,
-                'position':      emp.position.position_title if emp.position else '—',
+                'employee_id':    emp.employee_id,
+                'full_name':      emp.get_full_name(),
+                'first_name':     emp.first_name,
+                'last_name':      emp.last_name,
+                'id_number':      emp.id_number,
+                'position':       emp.position.position_title if emp.position else '—',
                 'already_linked': already_linked,
             })
- 
+
         return JsonResponse({'results': results})
- 
+
     except Exception as exc:
         logger.error('[accounts] employee_search error: %s', exc)
         return JsonResponse({'results': [], 'error': str(exc)})
-
 
 # EMPLOYEE LOOKUP API  /accounts/api/employee-lookup/   [admin+, AJAX GET]
 # Used by the create forms to auto-fill name/position from an ID number.
@@ -2135,12 +2128,5 @@ def _record_failure(username: str, request) -> None:
         lock_account(username)
         logger.warning('[accounts] Account locked: %s (%s failures) from %s', username, count, get_client_ip(request))
 
-
-# def signup_view(request):
-#     return render(request, 'accounts/signup.html')
-
 def profile(request):
     return render(request, 'accounts/profile.html')
-
-# def admin_signup_view(request):
-#     return render(request, 'accounts/admin/admin_signup.html')
