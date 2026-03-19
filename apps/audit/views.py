@@ -1,61 +1,31 @@
-# apps/list/views.py
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponseForbidden
 from django.core.paginator import Paginator
 from django.utils import timezone
-from django.db.models import Count, Q
+from django.db.models import Q
 from datetime import timedelta
 from .models import AuditLog
 from django.contrib import messages
-
 import logging
 
 logger = logging.getLogger(__name__)
 
-from apps.accounts.decorators import (
-    login_required, admin_required, role_required
-)
+from apps.accounts.decorators import login_required, admin_required, role_required
 
-def _get_session_user(request):
-    """Get the logged-in SystemUser from session."""
-    from apps.accounts.models import SystemUser
-    user_id = request.session.get('user_id')
-    if not user_id:
-        return None
-    
-    try:
-        return SystemUser.objects.select_related('employee').get(ph=user_id)
-    except SystemUser.DoesNotExist:
-        return None
 
 @admin_required
 def audit_list(request):
     """
     Read-only audit log viewer.
-
-    Access:
-        superadmin -> full log, all users, export button visible
-        hr_admin   -> full log, users, export button visible
-        hr_staff   -> full log, all users, no export button
-        viewer     -> 403 forbidden — audit log is not a self-service feature
+    superadmin / hr_admin / hr_staff can view.
+    Only superadmin + hr_admin see the export button.
     """
-    user = _get_session_user(request)
+    actor = request.current_user
 
-    # Not logged in
-    if not user:
-        messages.warning(request, "You don't have permssion on this page.")
-        return redirect('accounts:login')
-
-    # Viewer has no business here
-    if user.role == 'viewer':
-        return HttpResponseForbidden(
-            "You do not have permission to view the audit log."
-        )
-    
     # Filters
-    action_filter = request.GET.get('action', '')
-    date_filter = request.GET.get('date', '')
-    search_query = request.GET.get('q', '')
+    action_filter = request.GET.get('action', '').strip()
+    date_filter   = request.GET.get('date',   '').strip()
+    search_query  = request.GET.get('q',      '').strip()
 
     logs = AuditLog.objects.select_related('performed_by').order_by('-performed_at')
 
@@ -68,13 +38,13 @@ def audit_list(request):
     if search_query:
         logs = logs.filter(
             Q(performed_by__username__icontains=search_query) |
-            Q(description__icontains=search_query) |
+            Q(description__icontains=search_query)            |
             Q(table_affected__icontains=search_query)
         )
 
     # Stats
-    now = timezone.now()
-    today = now.date()
+    now      = timezone.now()
+    today    = now.date()
     week_ago = now - timedelta(days=7)
 
     stats = {
@@ -83,52 +53,32 @@ def audit_list(request):
             performed_at__date=today
         ).values('performed_by').distinct().count(),
         'logins_7d': AuditLog.objects.filter(
-            performed_at__gte=week_ago,
-            action='login'
+            performed_at__gte=week_ago, action='login'
         ).count(),
         'deletes_7d': AuditLog.objects.filter(
-            performed_at__gte=week_ago,
-            action='delete'
+            performed_at__gte=week_ago, action='delete'
         ).count(),
     }
 
-    # Pagination
-    paginator = Paginator(logs, 50)
-    page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
+    paginator   = Paginator(logs, 50)
+    page_obj    = paginator.get_page(request.GET.get('page', 1))
 
     return render(request, 'audit/list.html', {
-        'logs': page_obj,
-        'stats': stats,
+        'logs':       page_obj,
+        'stats':      stats,
         'total_logs': paginator.count,
-        'system_user': user,
-
-        # Pass role flags - template uses these for conditional UI only
-        'can_export': user.role in ('superadmin', 'hr_admin')
+        'can_export': actor.role in ('superadmin', 'hr_admin'),
     })
 
-def audit_detail(request, log_id):
-    """
-    Single audit log entry — shows before/after JSONB diff.
-    Same access rules as audit_list.
-    """
-    user = _get_session_user(request)
 
-    if not user:
-        from django.shortcuts import redirect
-        return redirect('accounts:login')
-    
-    if user.role == 'viewer':
-        return HttpResponseForbidden()
-    
-    log = get_object_or_404(AuditLog, pk=log_id)
+@admin_required
+def audit_detail(request, log_id):
+    """Single audit log entry — shows before/after JSONB diff."""
+    actor = request.current_user
+    log   = get_object_or_404(AuditLog, pk=log_id)
 
     return render(request, 'audit/detail.html', {
-        'log': log,
-        'diff': log.get_diff(),
-        'system_user': user,
-        'can_export': user.role in ('superadmin', 'hr_admin'),
+        'log':        log,
+        'diff':       log.get_diff(),
+        'can_export': actor.role in ('superadmin', 'hr_admin'),
     })
-
-# def list(request):
-#     return render(request, 'audit/list.html')
