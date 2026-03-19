@@ -4,9 +4,38 @@ from django.shortcuts import render, redirect
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from apps.employees.models import Employee, Division
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
 
-def detail(request):
-    return render(request, 'employees/detail.html')
+# Update: Para lang makita ko yung format na dinesign ko
+def detail(request, pk):
+    employee = get_object_or_404(Employee, employee_id=pk)
+
+    # Government IDs — build list of (label, vlaue) pairs
+    gov_ids = [
+        ('TIN', getattr(employee, 'tin', None)),
+        ('GSIS Number', getattr(employee, 'gsis_number', None)),
+        ('PhilHealth Number', getattr(employee, 'philhealth_number', None)),
+        ('Pag-IBIG / HDMF', getattr(employee, 'pagibig_number', None)),
+        ('SSS Number', getattr(employee, 'sss_number', None)),
+        ('PhilSys / Nat. ID', getattr(employee, 'philsys_number', None)),
+    ]
+
+    # Only show rows that have a value - based on the data you provided
+    gov_ids = [(label, val) for label, val in gov_ids if val]
+
+    context = {
+        'employee': employee,
+        'gov_ids': gov_ids,
+
+        # Placeholders — replace with real queries when those apps are ready
+        'dtr_summary': {'present': 0, 'absent': 0, 'late_minutes': 0, 'undertime': 0},
+        'recent_dtr': [],
+        'leave_credits': {'vl_balance': 0, 'sl_balance': 0, 'vl_earned_ytd': 0, 'sl_earned_ytd': 0},
+        'recent_payroll': [],
+        'recent_travel': [],
+    }
+    return render(request, 'employees/detail.html', context)
 
 def add_form(request):
     return render(request, 'employees/form.html')
@@ -72,25 +101,30 @@ def employee_list(request):
 
     return render(request, 'employees/list.html', context)
 
-def edit_form(request):
-    return render(request, 'employees/form.html')
+# Same din dito
+def edit_form(request, pk):
+    from apps.employees.models import Division, Unit, PayrollGroup, Position, WorkSchedule
 
-from django.shortcuts import render, redirect
+    employee = get_object_or_404(Employee, employee_id=pk)
 
-def detail(request):
-    return render(request, 'employees/detail.html')
+    context = {
+        'employee': employee,
+        'divisions': Division.objects.order_by('division_code'),
+        'units': Unit.objects.select_related('division').order_by('unit_name'),
+        'payroll_groups': PayrollGroup.objects.order_by('group_name'),
+        'positions': Position.objects.order_by('employment_type', 'position_title'),
+        'work_schedules': WorkSchedule.objects.order_by('schedule_name'),
+    }
+    return render(request, 'employees/form.html', context)
 
-def add_form(request):
-    return render(request, 'employees/form.html')
+# def detail(request):
+#     return render(request, 'employees/detail.html')
 
-def list(request):
-    return render(request, 'employees/list.html')
+# def add_form(request):
+#     return render(request, 'employees/form.html')
 
-def edit_form(request):
-    return render(request, 'employees/form.html')
-
-from django.http import JsonResponse
-from apps.employees.models import Employee
+# def list(request):
+#     return render(request, 'employees/list.html')
 
 def employee_lookup(request):
     id_number = request.GET.get('id_number', '').strip()

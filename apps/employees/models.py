@@ -329,7 +329,7 @@ class Employee(PhilippinesTimeMixin, models.Model):
     )
 
     # ------ Salary -----
-    montly_salary = models.DecimalField(
+    monthly_salary = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         help_text="Basic monthly salary (HR inputs this)"

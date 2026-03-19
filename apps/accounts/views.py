@@ -1394,7 +1394,7 @@ def _action_edit_user(request):
     email     = p.get('email', '').strip().lower()
     role      = p.get('admin_role', '').strip()
     is_active = p.get('is_active', '1') == '1'
-    link_emp  = p.get('link_employee', '').strip()   # employee_id or '' to unlink
+    link_emp  = p.get('employee_id', '').strip()   # employee_id or '' to unlink
  
     if not target_id:
         messages.error(request, 'Invalid request.')
@@ -2062,7 +2062,7 @@ def employee_search(request):
             Q(id_number__icontains=q)
         )[:20]
  
-        # Get the current user's linked employee so we don't mark it "already linked"
+        # Get the current user's linked employee so we don't mark it - "already linked"
         current_emp_id = None
         if exclude_uid:
             try:
@@ -2073,10 +2073,17 @@ def employee_search(request):
                 pass
  
         results = []
+        # Get all employee IDs that already have a system_user linked
+        linked_emp_ids = set(
+            SystemUser.objects
+            .filter(employee__isnull=False, is_deleted=False)
+            .values('employee_id', flat=True)
+        )
+
         for emp in qs:
-            already_linked = False
-            if hasattr(emp, 'system_user') and emp.employee_id != current_emp_id:
-                already_linked = True
+            already_linked = (
+                emp.employee_id in linked_emp_ids and emp.employee_id != current_emp_id
+            )
             results.append({
                 'employee_id':   emp.employee_id,
                 'full_name':     emp.get_full_name(),

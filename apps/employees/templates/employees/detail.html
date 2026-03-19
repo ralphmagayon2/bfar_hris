@@ -176,16 +176,16 @@
     </div>
 
     <div class="hero-actions">
-      <a href="{% url 'employees:edit' employee.id %}" class="btn btn-outline btn-sm"
+      <a href="{% url 'employees:edit' employee.employee_id %}" class="btn btn-outline btn-sm"
          style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;">
         <i class="fas fa-pen"></i> Edit
       </a>
-      <a href="{% url 'dtr:detail' employee.id %}" class="btn btn-outline btn-sm"
+      <a href="{% url 'dtr:detail' employee.employee_id %}" class="btn btn-outline btn-sm"
          style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;">
         <i class="fas fa-clock"></i> DTR
       </a>
       {% if employee.employment_type == 'permanent' %}
-      <a href="{% url 'leaves:elr' employee.id %}" class="btn btn-outline btn-sm"
+      <a href="{% url 'leaves:elr' employee.employee_id %}" class="btn btn-outline btn-sm"
          style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);color:#fff;">
         <i class="fas fa-umbrella-beach"></i> Leave
       </a>
@@ -363,7 +363,7 @@
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:.82rem;font-weight:700;color:var(--navy-900);">Recent DTR Records</div>
-          <a href="{% url 'dtr:detail' employee.id %}" class="btn btn-ghost btn-sm">
+          <a href="{% url 'dtr:detail' employee.employee_id %}" class="btn btn-ghost btn-sm">
             View Full DTR <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
           </a>
         </div>
@@ -426,7 +426,7 @@
       <div class="tab-panel" id="panel-leave" style="padding:18px 20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
           <div style="font-size:.88rem;font-weight:700;color:var(--navy-900);">Leave Credit Balances</div>
-          <a href="{% url 'leaves:elr' employee.id %}" class="btn btn-ghost btn-sm">
+          <a href="{% url 'leaves:elr' employee.employee_id %}" class="btn btn-ghost btn-sm">
             Full ELR <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
           </a>
         </div>
@@ -463,7 +463,7 @@
           Leave credits accrue at <strong>1.25 VL + 1.25 SL</strong> per month.
           Absences deduct from leave balance first, then from salary.
         </div>
-        <a href="{% url 'leaves:print_elr' employee.id %}" class="btn btn-outline btn-sm" style="margin-top:12px;" target="_blank">
+        <a href="{% url 'leaves:print_elr' employee.employee_id %}" class="btn btn-outline btn-sm" style="margin-top:12px;" target="_blank">
           <i class="fas fa-print"></i> Print ELR
         </a>
       </div>
@@ -524,7 +524,7 @@
       <div class="tab-panel" id="panel-travel" style="padding:18px 20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
           <div style="font-size:.88rem;font-weight:700;color:var(--navy-900);">Travel Orders / Tickets</div>
-          <a href="{% url 'travel_orders:form' %}?emp={{ employee.id }}" class="btn btn-primary btn-sm">
+          <a href="{% url 'travel_orders:create' %}?emp={{ employee.employee_id }}" class="btn btn-primary btn-sm">
             <i class="fas fa-plus"></i> New TO/TT
           </a>
         </div>
