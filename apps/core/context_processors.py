@@ -32,6 +32,7 @@ def inject_current_user(request):
             'user_can_approve': False,
             'user_can_encode': False,
             'user_is_superadmin': False,
+            'user_role': '',
         }
     
     return {
@@ -39,4 +40,5 @@ def inject_current_user(request):
         'user_can_approve': user.can_approve(),
         'user_can_encode': user.can_encode(),
         'user_is_superadmin': user.is_superadmin(),
+        'user_role': user.role,
     }

@@ -113,6 +113,13 @@ class AuditLog(models.Model):
         )
     )
 
+    # Description (required for what user does)
+    description = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Human-readable summary of what was done. Auto-generated or manually set."
+    )
+
     # ── PH Time Helpers ───────────────────────────────────────────────────────
     def _to_ph(self, dt):
         if dt:
@@ -184,6 +191,7 @@ def create_audit_log(
     new_value: dict = None,
     ip_address: str = None,
     reason: str = None,
+    description: str = None,
 ) -> AuditLog:
     """
     Convenience function to create an AuditLog entry.
@@ -206,6 +214,23 @@ def create_audit_log(
             reason=form.cleaned_data.get('reason'),
         )
     """
+    if not description:
+        action_map = {
+            'create': f'Created record #{record_id} in {table_affected}',
+            'update': f'Updated record #{record_id} in {table_affected}',
+            'delete': f'Deleted record #{record_id} in {table_affected}',
+            'approve': f'Approved record #{record_id} in {table_affected}',
+            'print': f'Printed record #{record_id} in {table_affected}',
+        }
+        description = action_map.get(action, f'{action} on {table_affected}')
+
+        # Enrich with new_value details if available
+        if new_value:
+            for key in ('username', 'full_name', 'id_number', 'role'):
+                if key in new_value:
+                    description += f'— {key}: {new_value[key]}'
+                    break
+
     return AuditLog.objects.create(
         table_affected=table_affected,
         record_id=record_id,
@@ -215,6 +240,7 @@ def create_audit_log(
         new_value=new_value,
         ip_address=ip_address,
         reason=reason,
+        description=description,
     )
 
 # SESSION / AUTH ACTIVITY LOG

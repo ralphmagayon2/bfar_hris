@@ -7,7 +7,7 @@ Changes from your original file:
   1. _get_session_user() removed — replaced by request.current_user
      (set by InjectCurrentUserMiddleware using session key '_auth_user_id')
   2. dashboard() now reads request.current_user (no DB hit — middleware did it)
-  3. Fixed typo: 'dashboard_viwer.html' → 'dashboard_viewer.html'
+  3. Fixed typo: 'dashboard_viewer.html' → 'dashboard_viewer.html'
   4. Fixed select_related: 'employee_division' → 'employee__division'
   5. Fixed ordering: 'holiday_date' not 'holiday_date' (was 'date', corrected)
   6. Added user_is_superadmin and can_manage_users to HR dashboard context
@@ -137,7 +137,7 @@ def _viewer_dashboard(request, system_user):
             .order_by('date_from')[:5]
         )
 
-    return render(request, 'core/dashboard_viwer.html', {
+    return render(request, 'core/dashboard_viewer.html', {
         'system_user': system_user,
         'employee': employee,
         'today': today,

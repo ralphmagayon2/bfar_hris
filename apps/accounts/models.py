@@ -99,6 +99,12 @@ class SystemUser(models.Model):
     # ── Status ────────────────────────────────────────────────────────────────
     is_active = models.BooleanField(default=True, help_text="Account active status")
 
+    # Delete
+    is_deleted = models.BooleanField(
+        default=False,
+        help_text="Soft delete flag — deleted accounts are hidden but kept for audit trail"
+    )
+
     # ── Login Tracking ────────────────────────────────────────────────────────
     last_login = models.DateTimeField(null=True, blank=True, help_text="Last successful login timestamp")
 
@@ -169,6 +175,27 @@ class SystemUser(models.Model):
         return self.role == 'superadmin'
 
     # ── Display Helpers ───────────────────────────────────────────────────────
+    def get_full_name(self) -> str:
+        """
+        Returns the user's full name.
+
+        Priority:
+            1. Linked Employee full name
+            2. Username fallback (for IT admins without employee record)
+        """
+        if self.employee:
+            try:
+                return self.employee.get_full_name()
+            except AttributeError:
+                # fallback if employee models has no helper
+                first = getattr(self.employee, 'first_name', '') or ''
+                last = getattr(self.employee, 'last_name', '') or ''
+                full = f"{first} {last}".strip()
+                if full:
+                    return full
+        
+        return self.username
+    
     def get_display_name(self):
         """
         If linked to an employee record, show their full name.

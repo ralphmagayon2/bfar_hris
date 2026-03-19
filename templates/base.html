@@ -1,330 +1,341 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}BFAR HRIS{% endblock %}</title>
+  {% load static %}
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}BFAR HRIS{% endblock %}</title>
 
-  {% comment %} FAVICON: Uncomment once you have bfar_logo.png in static/img/ {% endcomment %}
-  <link rel="icon" href="{% static 'img/HRIS.png' %}" type="image/png" />
+    {% comment %} FAVICON: Uncomment once you have bfar_logo.png in static/img/ {% endcomment %}
+    <link rel="icon" href="{% static 'img/HRIS.png' %}" type="image/png" />
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
 
-  <!-- Base styles -->
-  <link rel="stylesheet" href="{% static 'css/base.css' %}" />
+    <!-- Base styles -->
+    <link rel="stylesheet" href="{% static 'css/base.css' %}" />
 
-  {% comment %} Style of Messages {% endcomment %}
-  <link rel="stylesheet" href="{% static 'css/messages.css' %}">
+    {% comment %} Style of Messages {% endcomment %}
+    <link rel="stylesheet" href="{% static 'css/messages.css' %}">
 
-  {% block css %}{% endblock %}
-</head>
+    {% block css %}{% endblock %}
 
-<body>
-  {% comment %} Messages for different templates/html file {% endcomment %}
-  {% include 'includes/messages.html' %}
+    {% block cache_control %}
+    
+    {% endblock cache_control %}
+  </head>
 
-  <div class="layout" id="layout">
+  <body>
+    {% comment %} Messages for different templates/html file {% endcomment %}
+    {% include 'includes/messages.html' %}
 
-    <!-- ══════════════════════════════════════
-         SIDEBAR
-    ══════════════════════════════════════ -->
-    <aside class="sidebar" id="sidebar">
+    <div class="layout" id="layout">
 
-      <!-- Mobile close button (only visible on mobile) -->
-      <button class="sidebar-close-btn" id="sidebar-close">
-        <i class="fas fa-times"></i>
-      </button>
+      <!-- ══════════════════════════════════════
+          SIDEBAR
+      ══════════════════════════════════════ -->
+      <aside class="sidebar" id="sidebar">
 
-      <!-- Brand / Logo -->
-      <div class="sidebar-brand">
-        {% comment %} LOGO: Uncomment once you have bfar_logo.png in static/img/ {% endcomment %}
-        {% comment %} <img src="{% static 'img/bfar_logo.png' %}" alt="BFAR HRIS" class="brand-img" /> {% endcomment %}
-        <div class="brand-icon-fallback">
-          <i class="fas fa-fish"></i>
+        <!-- Mobile close button (only visible on mobile) -->
+        <button class="sidebar-close-btn" id="sidebar-close">
+          <i class="fas fa-times"></i>
+        </button>
+
+        <!-- Brand / Logo -->
+        <div class="sidebar-brand">
+          {% comment %} LOGO: Uncomment once you have bfar_logo.png in static/img/ {% endcomment %}
+          {% comment %} <img src="{% static 'img/bfar_logo.png' %}" alt="BFAR HRIS" class="brand-img" /> {% endcomment %}
+          <div class="brand-icon-fallback">
+            <i class="fas fa-fish"></i>
+          </div>
+          <div class="sidebar-brand-text">
+            <span class="brand-title">BFAR HRIS</span>
+            <span class="brand-sub">Region III</span>
+          </div>
         </div>
-        <div class="sidebar-brand-text">
-          <span class="brand-title">BFAR HRIS</span>
-          <span class="brand-sub">Region III</span>
+
+        {% comment %} Biometric status: HR roles only - viewer has no reason to see device status {% endcomment %}
+        <!-- Biometric device status -->
+        <div class="biometric-status" id="biometric-status">
+          <span class="bio-dot" id="bio-dot"></span>
+          <span class="bio-info">
+            <span id="bio-label">Biometric</span>
+            <span class="bio-val" id="bio-value">Offline</span>
+          </span>
         </div>
-      </div>
 
-      {% comment %} Biometric status: HR roles only - viewer has no reason to see device status {% endcomment %}
-      <!-- Biometric device status -->
-      <div class="biometric-status" id="biometric-status">
-        <span class="bio-dot" id="bio-dot"></span>
-        <span class="bio-info">
-          <span id="bio-label">Biometric</span>
-          <span class="bio-val" id="bio-value">Offline</span>
-        </span>
-      </div>
+        <!-- ── Navigation (AISched IT style with section labels) ── -->
+        <nav class="sidebar-nav">
+          <ul>
 
-      <!-- ── Navigation (AISched IT style with section labels) ── -->
-      <nav class="sidebar-nav">
-        <ul>
+            <!-- MAIN -->
+            <li class="nav-section-label"><span>Main</span></li>
 
-          <!-- MAIN -->
-          <li class="nav-section-label"><span>Main</span></li>
+            <li class="{% if request.resolver_match.url_name == 'dashboard' %}nav-active{% endif %}">
+              <a href="{% url 'core:dashboard' %}" data-tooltip="Dashboard">
+                <i class="fas fa-gauge-high"></i>
+                <span>Dashboard</span>
+              </a>
+            </li>
 
-          <li class="{% if request.resolver_match.url_name == 'dashboard' %}nav-active{% endif %}">
-            <a href="{% url 'core:dashboard' %}" data-tooltip="Dashboard">
-              <i class="fas fa-gauge-high"></i>
-              <span>Dashboard</span>
-            </a>
-          </li>
+            <!-- PEOPLE -->
+            <li class="nav-section-label"><span>People</span></li>
 
-          <!-- PEOPLE -->
-          <li class="nav-section-label"><span>People</span></li>
+            <li class="{% if 'employees' in request.resolver_match.namespace %}nav-active{% endif %}">
+              <a href="{% url 'employees:list' %}" data-tooltip="Employees">
+                <i class="fas fa-users"></i>
+                <span>Employees</span>
+              </a>
+            </li>
 
-          <li class="{% if 'employees' in request.resolver_match.namespace %}nav-active{% endif %}">
-            <a href="{% url 'employees:list' %}" data-tooltip="Employees">
-              <i class="fas fa-users"></i>
-              <span>Employees</span>
-            </a>
-          </li>
+            <li class="{% if 'biometrics' in request.resolver_match.namespace %}nav-active{% endif %}">
+              <a href="{% url 'biometrics:devices' %}" data-tooltip="Biometrics">
+                <i class="fas fa-fingerprint"></i>
+                <span>Biometrics</span>
+                <span class="nav-live-badge" id="live-badge">LIVE</span>
+              </a>
+            </li>
 
-          <li class="{% if 'biometrics' in request.resolver_match.namespace %}nav-active{% endif %}">
-            <a href="{% url 'biometrics:devices' %}" data-tooltip="Biometrics">
-              <i class="fas fa-fingerprint"></i>
-              <span>Biometrics</span>
-              <span class="nav-live-badge" id="live-badge">LIVE</span>
-            </a>
-          </li>
+            <!-- ATTENDANCE -->
+            <li class="nav-section-label"><span>Attendance</span></li>
 
-          <!-- ATTENDANCE -->
-          <li class="nav-section-label"><span>Attendance</span></li>
+            <li class="{% if 'dtr' in request.resolver_match.namespace %}nav-active{% endif %}">
+              <a href="{% url 'dtr:list' %}" data-tooltip="Daily Time Record">
+                <i class="fas fa-clock"></i>
+                <span>Daily Time Record</span>
+              </a>
+            </li>
 
-          <li class="{% if 'dtr' in request.resolver_match.namespace %}nav-active{% endif %}">
-            <a href="{% url 'dtr:list' %}" data-tooltip="Daily Time Record">
+            <li class="{% if 'travel_orders' in request.resolver_match.namespace %}nav-active{% endif %}">
+              <a href="{% url 'travel_orders:list' %}" data-tooltip="Travel Orders">
+                <i class="fas fa-route"></i>
+                <span>Travel Orders</span>
+              </a>
+            </li>
+
+            <li class="{% if 'holidays' in request.resolver_match.namespace %}nav-active{% endif %}">
+              <a href="{% url 'holidays:list' %}" data-tooltip="Holidays">
+                <i class="fas fa-calendar-days"></i>
+                <span>Holidays</span>
+              </a>
+            </li>
+
+            <!-- HR MANAGEMENT -->
+            <li class="nav-section-label"><span>HR Management</span></li>
+
+            <li class="{% if 'leaves' in request.resolver_match.namespace %}nav-active{% endif %}">
+              <a href="{% url 'leaves:list' %}" data-tooltip="Leave Records">
+                <i class="fas fa-umbrella-beach"></i>
+                <span>Leave Records</span>
+              </a>
+            </li>
+
+            <li class="{% if 'payroll' in request.resolver_match.namespace %}nav-active{% endif %}">
+              <a href="{% url 'payroll:periods' %}" data-tooltip="Payroll">
+                <i class="fas fa-peso-sign"></i>
+                <span>Payroll</span>
+              </a>
+            </li>
+
+            <!-- SYSTEM -->
+            <li class="nav-section-label"><span>System</span></li>
+
+            <li class="{% if 'audit' in request.resolver_match.namespace %}nav-active{% endif %}">
+              <a href="{% url 'audit:list' %}" data-tooltip="Audit Trail">
+                <i class="fas fa-shield-halved"></i>
+                <span>Audit Trail</span>
+              </a>
+            </li>
+
+            {% if user_is_superadmin or user_role == 'hr_admin' or user_role == 'hr_staff'  %}
+            <li class="{% if request.resolver_match.url_name == 'user_list' %}nav-active{% endif %}">
+              <a href="{% url 'accounts:user_list' %}" data-tooltip="System Users">
+                <i class="fas fa-user-gear"></i>
+                <span>System Users</span>
+              </a>
+            </li>
+            
+            <li class="{% if request.resolver_match.url_name == 'deleted_users' %}nav-active{% endif %}">
+              <a href="{% url 'accounts:deleted_users' %}" data-tooltip="System Users">
+                <i class="fas fa-trash-can"></i>
+                <span>Deleted Users</span>
+              </a>
+            </li>
+            {% endif %}
+
+          </ul>
+        </nav>
+
+        <!-- Sidebar footer -->
+        <div class="sidebar-footer">
+          <a href="{% url 'accounts:profile' %}" class="sidebar-footer-link" data-tooltip="My Profile">
+            <i class="fas fa-circle-user"></i>
+            <span>My Profile</span>
+          </a>
+          <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;width:100%;">
+            {% csrf_token %}
+            <button type="submit"
+                    class="sidebar-footer-link sidebar-logout"
+                    style="background:none;border:none;width:100%;cursor:pointer;
+                          font-family:inherit;text-align:left;"
+                    data-tooltip="Sign Out">
+              <i class="fas fa-right-from-bracket"></i>
+              <span>Sign Out</span>
+            </button>
+          </form>
+        </div>
+
+      </aside>
+
+      <!-- Overlay (dark backdrop on mobile) -->
+      <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+      <!-- ══════════════════════════════════════
+          MAIN WRAP
+      ══════════════════════════════════════ -->
+      <div class="main-wrap" id="main-wrap">
+
+        <!-- TOP NAVBAR -->
+        <header class="topbar">
+
+          <div class="topbar-left">
+            <!-- Hamburger — works on ALL screen sizes -->
+            <button class="topbar-toggle" id="sidebar-toggle">
+              <i class="fas fa-bars"></i>
+            </button>
+            <!-- Breadcrumb -->
+            <div class="breadcrumb-wrap">
+              <span class="breadcrumb-agency">BFAR Region III</span>
+              <i class="fas fa-chevron-right bc-sep"></i>
+              <span class="breadcrumb-page">{% block page_title %}Dashboard{% endblock %}</span>
+            </div>
+          </div>
+
+          <div class="topbar-right">
+
+            <!-- Live clock -->
+            <div class="topbar-clock">
               <i class="fas fa-clock"></i>
-              <span>Daily Time Record</span>
-            </a>
-          </li>
+              <span id="live-clock">--:-- --</span>
+            </div>
 
-          <li class="{% if 'travel_orders' in request.resolver_match.namespace %}nav-active{% endif %}">
-            <a href="{% url 'travel_orders:list' %}" data-tooltip="Travel Orders">
-              <i class="fas fa-route"></i>
-              <span>Travel Orders</span>
-            </a>
-          </li>
+            <!-- Notifications -->
+            <div class="topbar-notif" id="notif-trigger">
+              <i class="fas fa-bell"></i>
+              {% if total_notifications_count > 0 %}
+                <span class="notif-dot">{{ total_notifications_count }}</span>
+              {% endif %}
 
-          <li class="{% if 'holidays' in request.resolver_match.namespace %}nav-active{% endif %}">
-            <a href="{% url 'holidays:list' %}" data-tooltip="Holidays">
-              <i class="fas fa-calendar-days"></i>
-              <span>Holidays</span>
-            </a>
-          </li>
-
-          <!-- HR MANAGEMENT -->
-          <li class="nav-section-label"><span>HR Management</span></li>
-
-          <li class="{% if 'leaves' in request.resolver_match.namespace %}nav-active{% endif %}">
-            <a href="{% url 'leaves:list' %}" data-tooltip="Leave Records">
-              <i class="fas fa-umbrella-beach"></i>
-              <span>Leave Records</span>
-            </a>
-          </li>
-
-          <li class="{% if 'payroll' in request.resolver_match.namespace %}nav-active{% endif %}">
-            <a href="{% url 'payroll:periods' %}" data-tooltip="Payroll">
-              <i class="fas fa-peso-sign"></i>
-              <span>Payroll</span>
-            </a>
-          </li>
-
-          <!-- SYSTEM -->
-          <li class="nav-section-label"><span>System</span></li>
-
-          <li class="{% if 'audit' in request.resolver_match.namespace %}nav-active{% endif %}">
-            <a href="{% url 'audit:list' %}" data-tooltip="Audit Trail">
-              <i class="fas fa-shield-halved"></i>
-              <span>Audit Trail</span>
-            </a>
-          </li>
-
-          {% if user_is_superadmin %}
-          <li class="{% if request.resolver_match.url_name == 'user_list' %}nav-active{% endif %}">
-            <a href="{% url 'accounts:user_list' %}" data-tooltip="System Users">
-              <i class="fas fa-user-gear"></i>
-              <span>System Users</span>
-            </a>
-          </li>
-          {% endif %}
-
-        </ul>
-      </nav>
-
-      <!-- Sidebar footer -->
-      <div class="sidebar-footer">
-        <a href="#" class="sidebar-footer-link" data-tooltip="My Profile">
-          <i class="fas fa-circle-user"></i>
-          <span>My Profile</span>
-        </a>
-        <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;width:100%;">
-          {% csrf_token %}
-          <button type="submit"
-                  class="sidebar-footer-link sidebar-logout"
-                  style="background:none;border:none;width:100%;cursor:pointer;
-                         font-family:inherit;text-align:left;"
-                  data-tooltip="Sign Out">
-            <i class="fas fa-right-from-bracket"></i>
-            <span>Sign Out</span>
-          </button>
-        </form>
-      </div>
-
-    </aside>
-
-    <!-- Overlay (dark backdrop on mobile) -->
-    <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-    <!-- ══════════════════════════════════════
-         MAIN WRAP
-    ══════════════════════════════════════ -->
-    <div class="main-wrap" id="main-wrap">
-
-      <!-- TOP NAVBAR -->
-      <header class="topbar">
-
-        <div class="topbar-left">
-          <!-- Hamburger — works on ALL screen sizes -->
-          <button class="topbar-toggle" id="sidebar-toggle">
-            <i class="fas fa-bars"></i>
-          </button>
-          <!-- Breadcrumb -->
-          <div class="breadcrumb-wrap">
-            <span class="breadcrumb-agency">BFAR Region III</span>
-            <i class="fas fa-chevron-right bc-sep"></i>
-            <span class="breadcrumb-page">{% block page_title %}Dashboard{% endblock %}</span>
-          </div>
-        </div>
-
-        <div class="topbar-right">
-
-          <!-- Live clock -->
-          <div class="topbar-clock">
-            <i class="fas fa-clock"></i>
-            <span id="live-clock">--:-- --</span>
-          </div>
-
-          <!-- Notifications -->
-          <div class="topbar-notif" id="notif-trigger">
-            <i class="fas fa-bell"></i>
-            {% if total_notifications_count > 0 %}
-              <span class="notif-dot">{{ total_notifications_count }}</span>
-            {% endif %}
-
-            <div class="notif-dropdown" id="notif-dropdown">
-              <div class="notif-header">
-                <span>Notifications</span>
-                {% if total_notifications_count > 0 %}
-                  <span class="notif-count-chip">{{ total_notifications_count }} new</span>
-                {% endif %}
-              </div>
-              <div class="notif-list">
-                {% if recent_announcements %}
-                  {% for ann in recent_announcements|slice:"5" %}
-                  {% if not ann.is_viewed_by_user %}
-                  <div class="notif-item">
-                    <div class="notif-icon-wrap priority-{{ ann.priority }}">
-                      <i class="fas fa-bullhorn"></i>
-                    </div>
-                    <div class="notif-body">
-                      <p class="notif-title">{{ ann.title|truncatechars:40 }}</p>
-                      <p class="notif-preview">{{ ann.content|truncatechars:60 }}</p>
-                      <p class="notif-time">{{ ann.created_at|timesince }} ago</p>
-                    </div>
-                  </div>
+              <div class="notif-dropdown" id="notif-dropdown">
+                <div class="notif-header">
+                  <span>Notifications</span>
+                  {% if total_notifications_count > 0 %}
+                    <span class="notif-count-chip">{{ total_notifications_count }} new</span>
                   {% endif %}
-                  {% endfor %}
-                {% else %}
-                  <div class="notif-empty">
-                    <i class="fas fa-check-circle"></i>
-                    <p>All caught up!</p>
-                  </div>
-                {% endif %}
-              </div>
-              <div class="notif-footer">
-                <a href="#">View all notifications</a>
-              </div>
-            </div>
-          </div>
-
-          <!-- User menu -->
-          <div class="topbar-user" id="user-trigger">
-            {% if current_user and current_user.get_profile_picture_url %}
-              <img src="{{ current_user.get_profile_picture_url }}" 
-                class="user-avatar"
-                alt="Profile"
-                onerror="this.style.display='none';this.nextElementSiblings.style.display='flex'">
-              <div class="user-avatar-initials" style="display:none;">
-                {{ current_user.get_initials }}
-              </div>
-            {% else %}
-              <div class="user-avatar-initials" style="background: {% if current_user.role == 'superadmin' %}#F59E0B {% elif current_user.role == 'hr_admin' %}#1565C0 {% elif current_user.role == 'hr_staff' %}#00838F {% else %}#8E24AA{% endif %};">
-                {{ current_user.get_initials }}
-              </div>
-            {% endif %}
-            <div class="user-info">
-              <span class="user-name">{{ current_user.get_display_name|default:"User" }}</span>
-              <span class="user-role">{{ current_user.get_role_display }}</span>
-            </div>
-            <i class="fas fa-chevron-down user-caret" id="user-caret"></i>
-
-            <!-- User dropdown -->
-            <div class="user-dropdown" id="user-dropdown">
-              <div class="user-dropdown-header">
-                {% if current_user and current_user.get_profile_picture_url %}
-                  <img src="{{ current_user.get_profile_picture_url }}" class="dropdown-avatar" alt="Profile" />
-                {% else %}
-                  <div class="dropdown-avatar-initials"
-                       style="background:{% if current_user.role == 'superadmin' %}#F59E0B{% elif current_user.role == 'hr_admin' %}#1565C0{% elif current_user.role == 'hr_staff' %}#00838F{% else %}#8E24AA{% endif %};">
-                    {{ current_user.get_initials }}
-                  </div>
-                {% endif %}
-                <div>
-                  <p class="dropdown-name">{{ current_user.get_display_name|default:"User" }}</p>
-                  <p class="dropdown-role">{{ current_user.get_role_display }}</p>
+                </div>
+                <div class="notif-list">
+                  {% if recent_announcements %}
+                    {% for ann in recent_announcements|slice:"5" %}
+                    {% if not ann.is_viewed_by_user %}
+                    <div class="notif-item">
+                      <div class="notif-icon-wrap priority-{{ ann.priority }}">
+                        <i class="fas fa-bullhorn"></i>
+                      </div>
+                      <div class="notif-body">
+                        <p class="notif-title">{{ ann.title|truncatechars:40 }}</p>
+                        <p class="notif-preview">{{ ann.content|truncatechars:60 }}</p>
+                        <p class="notif-time">{{ ann.created_at|timesince }} ago</p>
+                      </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                  {% else %}
+                    <div class="notif-empty">
+                      <i class="fas fa-check-circle"></i>
+                      <p>All caught up!</p>
+                    </div>
+                  {% endif %}
+                </div>
+                <div class="notif-footer">
+                  <a href="#">View all notifications</a>
                 </div>
               </div>
-              <div class="user-dropdown-divider"></div>
-              <a href="#" class="user-dropdown-item">
-                <i class="fas fa-circle-user"></i> My Profile
-              </a>
-              <a href="#" class="user-dropdown-item">
-                <i class="fas fa-lock"></i> Change Password
-              </a>
-              <div class="user-dropdown-divider"></div>
-              <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;">
-                {% csrf_token %}
-                <button type="submit"
-                        class="user-dropdown-item danger"
-                        style="background:none;border:none;width:100%;cursor:pointer;
-                               font-family:inherit;text-align:left;">
-                  <i class="fas fa-right-from-bracket"></i> Sign Out
-                </button>
-              </form>
             </div>
+
+            <!-- User menu -->
+            <div class="topbar-user" id="user-trigger">
+              {% if current_user and current_user.get_profile_picture_url %}
+                <img src="{{ current_user.get_profile_picture_url }}" 
+                  class="user-avatar"
+                  alt="Profile"
+                  onerror="this.style.display='none';this.nextElementSiblings.style.display='flex'">
+                <div class="user-avatar-initials" style="display:none;">
+                  {{ current_user.get_initials }}
+                </div>
+              {% else %}
+                <div class="user-avatar-initials" style="background: {% if current_user.role == 'superadmin' %}#F59E0B {% elif current_user.role == 'hr_admin' %}#1565C0 {% elif current_user.role == 'hr_staff' %}#00838F {% else %}#8E24AA{% endif %};">
+                  {{ current_user.get_initials }}
+                </div>
+              {% endif %}
+              <div class="user-info">
+                <span class="user-name">{{ current_user.get_full_name|default:"User" }}</span>
+                <span class="user-role">{{ current_user.get_role_display }}</span>
+              </div>
+              <i class="fas fa-chevron-down user-caret" id="user-caret"></i>
+
+              <!-- User dropdown -->
+              <div class="user-dropdown" id="user-dropdown">
+                <div class="user-dropdown-header">
+                  {% if current_user and current_user.get_profile_picture_url %}
+                    <img src="{{ current_user.get_profile_picture_url }}" class="dropdown-avatar" alt="Profile" />
+                  {% else %}
+                    <div class="dropdown-avatar-initials"
+                        style="background:{% if current_user.role == 'superadmin' %}#F59E0B{% elif current_user.role == 'hr_admin' %}#1565C0{% elif current_user.role == 'hr_staff' %}#00838F{% else %}#8E24AA{% endif %};">
+                      {{ current_user.get_initials }}
+                    </div>
+                  {% endif %}
+                  <div>
+                    <p class="dropdown-name">{{ current_user.get_display_name|default:"User" }}</p>
+                    <p class="dropdown-role">{{ current_user.get_role_display }}</p>
+                  </div>
+                </div>
+                <div class="user-dropdown-divider"></div>
+                <a href="{% url 'accounts:profile' %}" class="user-dropdown-item">
+                  <i class="fas fa-circle-user"></i> My Profile
+                </a>
+                <a href="#" class="user-dropdown-item">
+                  <i class="fas fa-lock"></i> Change Password
+                </a>
+                <div class="user-dropdown-divider"></div>
+                <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="user-dropdown-item danger"
+                          style="background:none;border:none;width:100%;cursor:pointer;
+                                font-family:inherit;text-align:left;">
+                    <i class="fas fa-right-from-bracket"></i> Sign Out
+                  </button>
+                </form>
+              </div>
+            </div>
+
           </div>
+        </header>
 
-        </div>
-      </header>
+        <!-- Page content -->
+        <main class="page-content">
+          {% block content %}{% endblock %}
+        </main>
 
-      <!-- Page content -->
-      <main class="page-content">
-        {% block content %}{% endblock %}
-      </main>
+      </div><!-- /main-wrap -->
+    </div><!-- /layout -->
 
-    </div><!-- /main-wrap -->
-  </div><!-- /layout -->
-
-  <script src="{% static 'js/base.js' %}"></script>
-  {% block js %}{% endblock %}
-</body>
-</html>
+    <script src="{% static 'js/base.js' %}"></script>
+    {% block js %}{% endblock %}
+  </body>
+  </html>
