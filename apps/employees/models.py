@@ -395,6 +395,30 @@ class Employee(PhilippinesTimeMixin, models.Model):
     
     def is_jo(self):
         return self.employment_type == 'JO'
+    
+    # OneToOne lookup of employee
+    @property
+    def has_account(self) -> bool:
+        """
+        Returns True if this employee has a linked SystemUser account.
+        Uses the reverse OneToOne accessor 'system_user' from SystemUser.employee FK.
+        """
+        try:
+            return self.system_user is not None and not self.system_user.is_deleted
+        except Exception:
+            return False
+
+    @property
+    def linked_account(self):
+        """
+        Returns the linked SystemUser or None.
+        Safe — never raises AttributeError.
+        """
+        try:
+            su = self.system_user
+            return su if su and not su.is_deleted else None
+        except Exception:
+            return None
 
     # ------ PH Time Helpers ------
     def get_created_at_ph(self):

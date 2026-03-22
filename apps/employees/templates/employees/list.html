@@ -67,6 +67,16 @@
           <option value="active" {% if current_status == 'active' %}selected{% endif %}>Active</option>
           <option value="inactive" {% if current_status == 'inactive' %}selected{% endif %}>Inactive</option>
         </select>
+        {% comment %} Added new to filter employee if has account {% endcomment %}
+        <select class="filter-select" name="account" id="account-filter" onchange="this.form.submit()">
+          <option value="">All Accounts</option>
+          <option value="has_account" {% if current_account == 'has_account' %}selected{% endif %}>
+            Has Account
+          </option>
+          <option value="no_account"  {% if current_account == 'no_account'  %}selected{% endif %}>
+            No Account
+          </option>
+        </select>
       </div>
     </div>
     <div class="toolbar-right">
@@ -88,6 +98,7 @@
           <th>Type</th>
           <th>Monthly Salary</th>
           <th>Status</th>
+          <th>Account</th>
           <th style="text-align:right;">Actions</th>
         </tr>
       </thead>
@@ -109,7 +120,7 @@
               </div>
               <div>
                 <div class="emp-name-text">{{ emp.get_full_name }}</div>
-                <div class="emp-id-text">{{ emp.employee_id|default:"—" }}</div>
+                <div class="emp-id-text">{{ emp.id_number|default:"—" }}</div>
               </div>
             </div>
           </td>
@@ -137,6 +148,23 @@
             </span>
           </td>
           <td>
+            {% if emp.has_account %}
+              <span style="display:inline-flex;align-items:center;gap:5px;
+                          padding:2px 9px;border-radius:999px;font-size:.67rem;font-weight:700;
+                          background:var(--success-light);color:var(--success);">
+                <i class="fas fa-circle-check" style="font-size:.6rem;"></i>
+                {{ emp.linked_account.username }}
+              </span>
+            {% else %}
+              <span style="display:inline-flex;align-items:center;gap:5px;
+                          padding:2px 9px;border-radius:999px;font-size:.67rem;font-weight:700;
+                          background:var(--gray-100);color:var(--gray-400);">
+                <i class="fas fa-circle-minus" style="font-size:.6rem;"></i>
+                No account
+              </span>
+            {% endif %}
+          </td>
+          <td>
             <div class="row-actions">
               <a href="{% url 'dtr:detail' emp.employee_id %}" class="row-btn dtr" title="View DTR">
                 <i class="fas fa-clock"></i>
@@ -152,7 +180,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="8" style="text-align:center;padding:52px;color:var(--gray-400);">
+          <td colspan="9" style="text-align:center;padding:52px;color:var(--gray-400);">
             <i class="fas fa-users" style="font-size:2rem;display:block;opacity:.25;margin-bottom:10px;"></i>
             No employees found.
             <a href="{% url 'employees:form' %}" style="color:var(--navy-700);font-weight:600;">

@@ -43,7 +43,7 @@ def add_form(request):
 # CHANGED THE FUNCTION NAME HERE
 def employee_list(request):
     # 1. optimized queryset with select_related to reduce DB kasi grabi if every row needs to access related fields in the template, mas efficient to fetch all related data in one query
-    base_qs = Employee.objects.select_related('position', 'division', 'unit').all() 
+    base_qs = Employee.objects.select_related('position', 'division', 'unit', 'system_user').all() # added system_user so has_account doesn't hit the DB per row
     
     # 2. Get the totals BEFORE applying filters
     total_all = base_qs.count()
@@ -57,6 +57,7 @@ def employee_list(request):
     emp_type = request.GET.get('type', '').strip()
     div_id = request.GET.get('division', '').strip()
     status_filter = request.GET.get('status', '').strip()
+    account_filter = request.GET.get('account', '').strip()
 
     # 4. Apply Filters to the Queryset
     if search_query:
@@ -73,6 +74,19 @@ def employee_list(request):
         base_qs = base_qs.filter(is_active=True)
     elif status_filter == 'inactive':
         base_qs = base_qs.filter(is_active=False)
+
+    # Account Filter    
+    if account_filter == 'has_account':
+        base_qs = base_qs.filter(
+            system_user__isnull=False,
+            system_user__is_deleted=False
+        )
+    elif account_filter == 'no_account':
+        base_qs = base_qs.filter(
+            Q(system_user__isnull=True) |
+            Q(system_user__is_deleted=True)
+        )
+
     # 5. Pagination
     paginator = Paginator(base_qs, 25)
     page_number = request.GET.get('page')
@@ -96,6 +110,7 @@ def employee_list(request):
         'current_type': emp_type,
         'current_div': div_id,
         'current_status': status_filter,
+        'current_account': account_filter, # NEW: for account filter if user has employee connect and create account
         'filter_string': filter_string, # NEW: For pagination links
     }
 
@@ -125,24 +140,6 @@ def edit_form(request, pk):
 
 # def list(request):
 #     return render(request, 'employees/list.html')
-
-def employee_lookup(request):
-    id_number = request.GET.get('id_number', '').strip()
-    try:
-        emp = Employee.objects.select_related('position', 'division').get(id_number=id_number)
-        return JsonResponse({
-            'found':       True,
-            'employee_pk': emp.employee_id,
-            'full_name':   emp.get_full_name(),
-            'initials':    emp.get_initials(),
-            'position':    emp.position.position_title if emp.position else '—',
-            'division':    emp.division.division_name if emp.division else '—',
-        })
-    except Employee.DoesNotExist:
-        return JsonResponse({'found': False, 'message': 'Employee ID not found.'})
-    
-from django.http import JsonResponse
-# from apps.employees.models import Employee  <-- You can remove this duplicate import now
 
 def employee_lookup(request):
     id_number = request.GET.get('id_number', '').strip()
