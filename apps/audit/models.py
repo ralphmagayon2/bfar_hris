@@ -214,6 +214,8 @@ def create_audit_log(
             reason=form.cleaned_data.get('reason'),
         )
     """
+
+    # Auto-generate description if not provided
     if not description:
         action_map = {
             'create': f'Created record #{record_id} in {table_affected}',
@@ -231,7 +233,8 @@ def create_audit_log(
                     description += f'— {key}: {new_value[key]}'
                     break
 
-    return AuditLog.objects.create(
+    # Save to database FIRST
+    log = AuditLog.objects.create(
         table_affected=table_affected,
         record_id=record_id,
         action=action,
@@ -242,6 +245,17 @@ def create_audit_log(
         reason=reason,
         description=description,
     )
+
+    # THEN bust the cache so the next audit list page shows fresh stats
+    try:
+        from django.core.cache import cache
+        cache.delete('audit:stats')
+        cache.delete('audit:total_count')
+    except Exception:
+        pass # cache failure is non-fatal — never block the main action
+
+    return log
+
 
 # SESSION / AUTH ACTIVITY LOG
 # Tracks login, logout, and auth events for all SystemUser roles.
@@ -255,7 +269,6 @@ class SystemUserActivityLog(models.Model):
         ('logout', 'Logged Out'),
         ('login_failed', 'Failed Login Attemp'),
         ('password_changed', 'Password Changed'),
-        ('account_locked', 'Account Locked'),
         ('account_locked', 'Account Locked'),
     ]
 
@@ -371,5 +384,5 @@ def create_activity_log(
         action=action,
         description=description,
         ip_address=ip_address,
-        user_agent=user_agent,
+        # user_agent=user_agent,
     )

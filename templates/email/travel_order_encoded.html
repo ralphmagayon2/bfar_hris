@@ -1,5 +1,7 @@
-{# templates/emails/travel_order_encoded.html #}
-{#
+{% extends "email/base_email.html" %}
+
+{% comment %} templates/emails/travel_order_encoded.html  {% endcomment %}
+{% comment %} 
    Sent when HR encodes a Travel Order or Trip Ticket for an employee.
 
    Context variables (from travel_orders/tasks.py send_travel_order_encoded_email):
@@ -13,9 +15,8 @@
      duration_days  — integer
      with_overtime  — boolean
      ot_hours       — integer or None
-     encoded_by     — name of HR staff
-#}
-{% extends "emails/base_email.html" %}
+     encoded_by     — name of HR staff 
+{% endcomment %}
 
 {% block subject %}{{ ticket_type_label }} Encoded &mdash; {{ to_code }}{% endblock %}
 

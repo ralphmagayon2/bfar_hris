@@ -1,0 +1,185 @@
+{% load static %}
+
+<style>
+/* ── Drawer partial — scoped styles, won't clash with page ── */
+.dp-grid-2   { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
+.dp-box      { background:rgb(240, 244, 248); border-radius:8px; padding:12px 14px; }
+.dp-box-lbl  { font-size:.64rem; text-transform:uppercase; letter-spacing:.5px;
+               color:var(--gray-400); margin-bottom:4px; }
+.dp-box-val  { font-size:.84rem; font-weight:500; color:var(--navy-900); }
+.dp-mono     { font-family:var(--font-mono); font-size:.8rem; }
+
+.dp-action-badge {
+  display:inline-flex; align-items:center; padding:3px 10px;
+  border-radius:999px; font-size:.68rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:.4px;
+}
+.dp-action-badge.create  { background:#E8F5E9; color:#1B5E20; }
+.dp-action-badge.update  { background:var(--navy-50); color:var(--navy-700); }
+.dp-action-badge.delete  { background:#FCE4EC; color:#C62828; }
+.dp-action-badge.approve { background:var(--teal-50); color:var(--teal-700); }
+.dp-action-badge.print   { background:var(--amber-50); color:var(--amber-700); }
+
+.dp-desc {
+  background:var(--navy-25); border-radius:8px;
+  padding:12px 14px; margin-bottom:14px;
+  font-size:.83rem; color:var(--navy-900); line-height:1.5;
+}
+.dp-reason {
+  background:#FFF3E0; border:1px solid #FFE0B2; border-radius:8px;
+  padding:12px 14px; margin-bottom:14px;
+  font-size:.83rem; color:#E65100; line-height:1.5;
+}
+.dp-section-label {
+  font-size:.68rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.6px; color:var(--gray-400); margin-bottom:8px;
+}
+.dp-diff-field {
+  border:1px solid var(--gray-100); border-radius:8px;
+  overflow:hidden; margin-bottom:8px;
+}
+.dp-diff-key {
+  background:var(--gray-50); padding:6px 12px;
+  font-weight:700; font-size:.78rem; font-family:var(--font-mono);
+  color:var(--navy-900); border-bottom:1px solid var(--gray-100);
+}
+.dp-diff-cols { display:grid; grid-template-columns:1fr 1fr; }
+.dp-diff-before {
+  padding:8px 12px; background:#FFF5F5; color:var(--danger);
+  border-right:1px solid var(--gray-100); font-size:.8rem;
+}
+.dp-diff-after  {
+  padding:8px 12px; background:#F5FFF5;
+  color:var(--success); font-size:.8rem;
+}
+.dp-diff-sub {
+  font-size:.62rem; text-transform:uppercase; letter-spacing:.4px;
+  margin-bottom:3px; opacity:.55;
+}
+.dp-raw-toggle {
+  width:100%; text-align:left; padding:8px 0;
+  font-size:.78rem; font-weight:600; color:var(--gray-500);
+  background:none; border:none; cursor:pointer;
+  border-top:1px solid var(--gray-100); margin-top:4px;
+  display:flex; align-items:center; gap:6px;
+}
+.dp-raw-toggle:hover { color:var(--navy-700); }
+.dp-raw-toggle i { font-size:.7rem; transition:transform .2s; }
+.dp-raw-toggle.open i { transform:rotate(90deg); }
+.dp-raw-body {
+  display:none; margin-top:8px;
+}
+.dp-raw-body.open { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.dp-raw-lbl { font-size:.64rem; text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+.dp-raw-lbl.old { color:var(--danger); }
+.dp-raw-lbl.new { color:var(--success); }
+.dp-pre {
+  background:var(--gray-50); border-radius:6px; padding:10px;
+  font-family:var(--font-mono); font-size:.72rem;
+  overflow-x:auto; margin:0; white-space:pre-wrap;
+  word-break:break-all; border:1px solid var(--gray-100);
+  max-height:200px; overflow-y:auto;
+}
+.dp-ip {
+  font-size:.74rem; color:var(--gray-400);
+  margin-top:12px; padding-top:10px;
+  border-top:1px solid var(--gray-100);
+}
+</style>
+
+{# ── Meta grid ── #}
+<div class="dp-grid-2">
+  <div class="dp-box">
+    <div class="dp-box-lbl">Action</div>
+    <span class="dp-action-badge {{ log.action }}">{{ log.get_action_display }}</span>
+  </div>
+  <div class="dp-box">
+    <div class="dp-box-lbl">Table / Record</div>
+    <div class="dp-box-val dp-mono">{{ log.table_affected }} #{{ log.record_id }}</div>
+  </div>
+  <div class="dp-box">
+    <div class="dp-box-lbl">Performed By</div>
+    <div class="dp-box-val">
+      {{ log.performed_by.username }}
+      <span style="font-size:.7rem;color:var(--gray-400);font-weight:400;">
+        ({{ log.performed_by.get_role_display }})
+      </span>
+    </div>
+  </div>
+  <div class="dp-box">
+    <div class="dp-box-lbl">Timestamp</div>
+    <div class="dp-box-val dp-mono">
+      {{ log.get_ph_date_short }}
+      <span style="color:var(--gray-400);font-size:.76rem;"> {{ log.get_ph_time_only }}</span>
+    </div>
+  </div>
+</div>
+
+{# ── Description ── #}
+{% if log.description %}
+<div class="dp-desc">
+  <div class="dp-box-lbl" style="margin-bottom:5px;">Description</div>
+  {{ log.description }}
+</div>
+{% endif %}
+
+{# ── Correction reason ── #}
+{% if log.reason %}
+<div class="dp-reason">
+  <div class="dp-box-lbl" style="margin-bottom:5px;opacity:.6;">
+    <i class="fas fa-edit" style="margin-right:4px;"></i> Correction Reason
+  </div>
+  {{ log.reason }}
+</div>
+{% endif %}
+
+{# ── Diff ── #}
+{% if diff %}
+<div class="dp-section-label">Changed Fields</div>
+{% for field, change in diff.items %}
+<div class="dp-diff-field">
+  <div class="dp-diff-key">{{ field }}</div>
+  <div class="dp-diff-cols">
+    <div class="dp-diff-before">
+      <div class="dp-diff-sub">Before</div>
+      {{ change.before|default:"—" }}
+    </div>
+    <div class="dp-diff-after">
+      <div class="dp-diff-sub">After</div>
+      {{ change.after|default:"—" }}
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{# ── Raw JSON (collapsible) ── #}
+{% if log.old_value or log.new_value %}
+{% comment %} <button class="dp-raw-toggle" onclick="this.classList.toggle('open');
+        document.getElementById('dp-raw-{{ log.log_id }}').classList.toggle('open')">
+  <i class="fas fa-chevron-right"></i>
+  Raw JSON snapshots
+</button> {% endcomment %}
+<div class="dp-raw-body" id="dp-raw-{{ log.log_id }}">
+  {% if log.old_value %}
+  <div>
+    <div class="dp-raw-lbl old">Old Value</div>
+    <pre class="dp-pre">{{ log.old_value|pprint }}</pre>
+  </div>
+  {% endif %}
+  {% if log.new_value %}
+  <div>
+    <div class="dp-raw-lbl new">New Value</div>
+    <pre class="dp-pre">{{ log.new_value|pprint }}</pre>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── IP address ── #}
+{% if log.ip_address %}
+<div class="dp-ip">
+  <i class="fas fa-desktop" style="margin-right:5px;"></i>
+  IP: <span class="dp-mono">{{ log.ip_address }}</span>
+</div>
+{% endif %}

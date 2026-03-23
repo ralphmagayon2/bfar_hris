@@ -106,6 +106,9 @@ from apps.accounts.utils import (
     clean_input, is_valid_email
 )
 
+# AUDIT LOG from apps/audit/models.py
+from apps.audit.models import create_activity_log, create_audit_log
+
 # DECORATORS from apps/accounts/decorators.py
 from apps.accounts.decorators import (
     login_required, admin_required, role_required
@@ -204,6 +207,15 @@ def employee_login(request):
             request.session.set_expiry(30 * 24 * 60 * 60)
 
         logger.info('[accounts] Employee login: %s from %s', username, get_client_ip(request))
+        try:
+            create_activity_log(
+                action='login',
+                user=user,
+                description=f'{user.get_display_name()} signed via employee portal.',
+                ip_address=get_client_ip(request),
+            )
+        except Exception as exc:
+            logger.error('[accounts] activity log failed on employee_login: %s', exc)
         return redirect('core:dashboard')
 
     return render(request, 'accounts/login.html')
@@ -295,6 +307,7 @@ def signup(request):
         )
  
         # Return to signup page with success flag — the JS will show pane 3
+        messages.success(request, 'Account sign up successfully!')
         return render(request, 'accounts/signup.html', {'signup_success': True})
  
     return render(request, 'accounts/signup.html')
@@ -407,6 +420,15 @@ def admin_login(request):
             request.session.set_expiry(8 * 60 * 60)
  
         logger.info('[accounts] Admin login: %s (%s) from %s', username, user.role, get_client_ip(request))
+        try:
+            create_activity_log(
+                action='login',
+                user=user,
+                description=f'{user.get_display_name()} ({user.role}) signed in via admin portal.',
+                ip_address=get_client_ip(request),
+            )
+        except Exception as exc:
+            logger.error('[accounts] activity log failed on admin_login: %s', exc)
         return redirect('core:dashboard')
  
     return render(request, 'accounts/admin/admin_login.html')
@@ -423,6 +445,7 @@ def admin_login(request):
 #   - Linked employee is chosen from a dropdown
 #   - Template is the full-page dark admin form, not the sidebar base.html page
 
+@login_required
 @role_required('superadmin', 'hr_admin')
 @require_http_methods(['GET', 'POST'])
 def admin_signup(request):
@@ -528,7 +551,6 @@ def admin_signup(request):
  
         # ── Audit log ─────────────────────────────────────────────────────────
         try:
-            from apps.audit.models import create_audit_log
             create_audit_log(
                 table_affected='system_users',
                 record_id=user.user_id,
@@ -560,18 +582,73 @@ def admin_signup(request):
 
 @require_POST
 def logout(request):
+    """
+    Employee logout
+    Only clears session if the logged-in user is a viewer role.
+    If an admin is somehow on this URL, redirect them to admin portal.
+    """
     user_id = request.session.get('_auth_user_id')
-    role = request.session.get('_auth_user_role', 'viewer')
+    role    = request.session.get('_auth_user_role', '')
+
+    # Guard: if an admin hits this URL, send them to admin logout instead
+    if role in ('superadmin', 'hr_admin', 'hr_staff'):
+        return redirect('accounts:admin_login')
     
-    if user_id:
-        logger.info('[accounts] Logout: user_id=%s', user_id)
+    # Only clear session for viewer/employee accounts
+    if user_id and role == 'viewer':
+        logger.info('[accounts] Employee logout: user_id=%s', user_id)
+        try:
+            try:
+                user_obj = SystemUser.objects.get(user_id=user_id)
+            except SystemUser.DoesNotExist:
+                user_obj = None
+            create_activity_log(
+                action='logout',
+                user=user_obj,
+                description=f'{user_obj.get_display_name() if user_obj else "Unknown User"} signed out from employee portal.',
+                ip_address=get_client_ip(request),
+            )
+        except Exception as exc:
+            logger.error('[accounts] activity log failed on logout: %s', exc)
+    
     _clear_session(request)
     request.session.flush()
-    messages.success(request, 'You have signed out.')
-    
-    if role in ADMIN_ROLES:
-        return redirect('accounts:admin_login')
+    messages.success(request, 'Sign out successfully!')
     return redirect('accounts:login')
+
+@require_POST
+def admin_logout(request):
+    """Admin logout — redirects to admin login."""
+    user_id = request.session.get('_auth_user_id')
+    role    = request.session.get('_auth_user_role', '')
+
+    # Prevent employee accounts from hitting admin logout
+    if role == 'viewer':
+        _clear_session(request)
+        request.session.flush()
+        return redirect('accounts:login')
+
+    if user_id:
+        logger.info('[accounts] Admin logout: user_id=%s role=%s', user_id, role)
+        try:
+            from apps.audit.models import create_activity_log
+            try:
+                user_obj = SystemUser.objects.get(user_id=user_id)
+            except SystemUser.DoesNotExist:
+                user_obj = None
+            create_activity_log(
+                action='logout',
+                user=user_obj,
+                description=f'{user_obj.get_full_name() if user_obj else "Unknown User"} ({role}) signed out from admin portal.',
+                ip_address=get_client_ip(request),
+            )
+        except Exception as exc:
+            logger.error('[accounts] activity log failed on admin_logout: %s', exc)
+
+    _clear_session(request)
+    request.session.flush()
+    messages.success(request, 'Signed out successfully!')
+    return redirect('accounts:admin_login')   # always goes to admin login
 
 
 # ----- FORGOT PASSWORD ------
@@ -738,6 +815,15 @@ def reset_password(request, token: str):
  
         messages.success(request, 'Password updated successfully. Please sign in.')
         logger.info('[accounts] Password reset completed: user_id=%s', user.user_id)
+        try:
+            create_activity_log(
+                action='password_changed',
+                user=user,
+                description=f'{user.get_display_name()} changed their password via reset link.',
+                ip_address=get_client_ip(request),
+            )
+        except Exception as exc:
+            logger.error('[accounts] activity log failed on reset_password: %s', exc)
         return redirect('accounts:admin_login' if user.role != 'viewer' else 'accounts:login')
  
     return render(request, 'accounts/reset_password.html', {'token': token, 'username': user.username})
@@ -863,7 +949,6 @@ def create_employee(request):
  
         # ── Audit log ─────────────────────────────────────────────────────────
         try:
-            from apps.audit.models import create_audit_log
             create_audit_log(
                 table_affected='employees',
                 record_id=employee.employee_id,
@@ -978,7 +1063,6 @@ def create_system_user(request):
  
         # ── Audit log ─────────────────────────────────────────────────────────
         try:
-            from apps.audit.models import create_audit_log
             create_audit_log(
                 table_affected='system_users',
                 record_id=user.user_id,
@@ -1234,7 +1318,6 @@ def toggle_user_active(request, user_id: int):
  
     # Audit log (non-fatal)
     try:
-        from apps.audit.models import create_audit_log
         create_audit_log(
             table_affected='system_users',
             record_id=target.user_id,
@@ -1242,6 +1325,7 @@ def toggle_user_active(request, user_id: int):
             performed_by=actor,
             new_value={'is_active': target.is_active},
             ip_address=get_client_ip(request),
+            description=f'{actor.username} {action_word} account "{target.username}".',
         )
     except Exception as exc:
         logger.error('[accounts] toggle audit log failed: %s', exc)
@@ -1251,7 +1335,7 @@ def toggle_user_active(request, user_id: int):
         target.username, action_word, actor.username, actor.user_id,
     )
  
-    msg = f'✓ User "{target.username}" has been {action_word}.'
+    msg = f'User "{target.username}" has been {action_word}.'
     request.session['_bulk_message'] = msg
     request.session['_bulk_level']   = 'success'
 
@@ -1349,7 +1433,6 @@ def _action_add_user(request):
  
     # Audit log (non-fatal)
     try:
-        from apps.audit.models import create_audit_log
         create_audit_log(
             table_affected='system_users',
             record_id=user.user_id,
@@ -1361,6 +1444,7 @@ def _action_add_user(request):
                 'email':     email,
             },
             ip_address=get_client_ip(request),
+            description=f'{actor.username} created a new {valid_roles[role]} account for "{username}".',
         )
     except Exception as exc:
         logger.error('[accounts] _action_add_user audit log failed: %s', exc)
@@ -1473,7 +1557,6 @@ def _action_edit_user(request):
  
     # Audit log (non-fatal)
     try:
-        from apps.audit.models import create_audit_log
         create_audit_log(
             table_affected='system_users',
             record_id=target.user_id,
@@ -1486,6 +1569,7 @@ def _action_edit_user(request):
                 'employee_id': linked_employee.employee_id if linked_employee else (None if unlink else 'unchanged'),
             },
             ip_address=get_client_ip(request),
+            description=f'{actor.username} updated account "{target.username}" — {role}, active: {is_active}.'
         )
     except Exception as exc:
         logger.error('[accounts] _action_edit_user audit log failed: %s', exc)
@@ -1496,7 +1580,7 @@ def _action_edit_user(request):
  
 def _action_reset_password(request):
     """
-    Only superadmin can reset passwords.
+    Only superadmin and HR Admin can reset passwords.
     Cannot reset their own password here (use Change Password instead).
     """
     actor: SystemUser = request.current_user
@@ -1536,7 +1620,6 @@ def _action_reset_password(request):
  
     # Audit log (non-fatal)
     try:
-        from apps.audit.models import create_audit_log
         create_audit_log(
             table_affected='system_users',
             record_id=target.user_id,
@@ -1544,6 +1627,7 @@ def _action_reset_password(request):
             performed_by=actor,
             new_value={'password_reset': True},
             ip_address=get_client_ip(request),
+            description=f'{actor.username} reset password for account "{target.username}".',
         )
     except Exception as exc:
         logger.error('[accounts] _action_reset_password audit log failed: %s', exc)
@@ -1552,6 +1636,16 @@ def _action_reset_password(request):
         '[accounts] Password reset for %s by superadmin %s (user_id=%s)',
         target.username, actor.username, actor.user_id,
     )
+
+    try:
+        create_activity_log(
+            action='password_changed',
+            user=target,
+            description=f'Password for "{target.get_display_name()}" was reset by {actor.username} ({actor.role}).',
+            ip_address=get_client_ip(request),
+        )
+    except Exception as exc:
+        logger.error('[accounts] activity log failed on _action_reset_password: %s', exc)
     messages.success(request, f'Password for "{target.username}" has been reset.')
     return redirect('accounts:user_list')
  
@@ -1589,7 +1683,6 @@ def _action_delete_user(request):
     hr_admin    → can delete hr_staff and viewer only
     hr_staff    → cannot delete
     """
-    from apps.accounts.models import SystemUser
     actor = request.current_user
 
     if actor.role not in ('superadmin', 'hr_admin'):
@@ -1620,7 +1713,6 @@ def _action_delete_user(request):
 
     # Audit log (non-fatal)
     try:
-        from apps.audit.models import create_audit_log
         create_audit_log(
             table_affected='system_users',
             record_id=target.user_id,
@@ -1628,6 +1720,7 @@ def _action_delete_user(request):
             performed_by=actor,
             new_value={'is_deleted': True, 'username': target.username},
             ip_address=get_client_ip(request),
+            description=f'{actor.username} soft-deleted account "{target.username}" ({target.role}).',
         )
     except Exception as exc:
         logger.error('[accounts] action delete user audit log failed %s', exc)
@@ -1644,7 +1737,7 @@ from django.views.decorators.http import require_POST as _require_POST
 
 @login_required
 @role_required('superadmin', 'hr_admin')   # hr_staff and viewer excluded
-@_require_POST
+@require_POST
 def bulk_action(request):
     """
     AJAX endpoint for bulk deactivate / bulk delete.
@@ -1667,7 +1760,6 @@ def bulk_action(request):
                       bulk delete:     hr_staff/viewer only
     """
     import json
-    from apps.accounts.models import SystemUser
  
     actor = request.current_user
  
@@ -1718,7 +1810,6 @@ def bulk_action(request):
             actioned += 1
 
             try:
-                from apps.audit.models import create_audit_log
                 create_audit_log(
                     table_affected='system_users',
                     record_id=target.user_id,
@@ -1726,6 +1817,7 @@ def bulk_action(request):
                     performed_by=actor,
                     new_value={'is_active': True, 'bulk': True},
                     ip_address=get_client_ip(request),
+                    description=f'{actor.username} activated account "{target.username}".',
                 )
             except Exception as exc:
                 logger.error('[accounts] bulk activate audit failed: %s', exc)
@@ -1741,7 +1833,6 @@ def bulk_action(request):
  
             # Audit
             try:
-                from apps.audit.models import create_audit_log
                 create_audit_log(
                     table_affected='system_users',
                     record_id=target.user_id,
@@ -1749,6 +1840,7 @@ def bulk_action(request):
                     performed_by=actor,
                     new_value={'is_active': False, 'bulk': True},
                     ip_address=get_client_ip(request),
+                    description=f'{actor.username} deactivated account "{target.username}"',
                 )
             except Exception as exc:
                 logger.error('[accounts] bulk deactivate audit failed: %s', exc)
@@ -1761,7 +1853,6 @@ def bulk_action(request):
  
             # Audit
             try:
-                from apps.audit.models import create_audit_log
                 create_audit_log(
                     table_affected='system_users',
                     record_id=target.user_id,
@@ -1769,6 +1860,7 @@ def bulk_action(request):
                     performed_by=actor,
                     new_value={'is_deleted': True, 'bulk': True, 'username': target.username},
                     ip_address=get_client_ip(request),
+                    description=f'{actor.username} deleted account "{target.username}" (bulk).',
                 )
             except Exception as exc:
                 logger.error('[accounts] bulk delete audit failed: %s', exc)
@@ -1786,15 +1878,15 @@ def bulk_action(request):
  
     # Build a richer message
     if action == 'activate':
-        success_msg = f'✓ {actioned} user(s) activated successfully.'
+        success_msg = f'{actioned} user(s) activated successfully.'
         if skipped:
             success_msg += f' {skipped} skipped (already active or no permission).'
     elif action == 'deactivate':
-        success_msg = f'✓ {actioned} user(s) deactivated successfully.'
+        success_msg = f'{actioned} user(s) deactivated successfully.'
         if skipped:
             success_msg += f' {skipped} skipped (already inactive or no permission).'
     elif action == 'delete':
-        success_msg = f'✓ {actioned} user(s) moved to deleted accounts.'
+        success_msg = f'{actioned} user(s) moved to deleted accounts.'
         if skipped:
             success_msg += f' {skipped} skipped (no permission).'
 
@@ -1899,7 +1991,6 @@ def restore_user(request, user_id: int):
  
     # Audit log (non-fatal)
     try:
-        from apps.audit.models import create_audit_log
         create_audit_log(
             table_affected='system_users',
             record_id=target.user_id,
@@ -1949,7 +2040,6 @@ def bulk_restore(request):
         actioned_ids.append(target.user_id)
 
         try:
-            from apps.audit.models import create_audit_log
             create_audit_log(
                 table_affected='system_users',
                 record_id=target.user_id,
@@ -1957,13 +2047,14 @@ def bulk_restore(request):
                 performed_by=actor,
                 new_value={'is_deleted': False, 'restored': True, 'bulk': True},
                 ip_address=get_client_ip(request),
+                description=f'{actor.username} bulk-restored {len(actioned_ids)} account(s).',
             )
         except Exception as exc:
             logger.error('[accounts] bulk_restore audit failed: %s', exc)
 
     logger.info('[accounts] Bulk restore: %s users by %s', len(actioned_ids), actor.username)
 
-    restore_msg = f'✓ {len(actioned_ids)} user(s) restored and reactivated.'
+    restore_msg = f'{len(actioned_ids)} user(s) restored and reactivated.'
     request.session['_bulk_message'] = restore_msg
     request.session['_bulk_level']   = 'success'
 
@@ -2001,7 +2092,6 @@ def bulk_permanent_delete(request):
         actioned_ids.append(uid)
 
         try:
-            from apps.audit.models import create_audit_log
             create_audit_log(
                 table_affected='system_users',
                 record_id=uid,
@@ -2009,13 +2099,14 @@ def bulk_permanent_delete(request):
                 performed_by=actor,
                 new_value={'permanent_delete': True, 'username': username, 'bulk': True},
                 ip_address=get_client_ip(request),
+                description=f'{actor.username} permanently deleted {len(actioned_ids)} account(s) from the database.',
             )
         except Exception as exc:
             logger.error('[accounts] bulk_permanent_delete audit failed: %s', exc)
 
     logger.info('[accounts] Bulk permanent delete: %s users by %s', len(actioned_ids), actor.username)
 
-    del_msg = f'✓ {len(actioned_ids)} user(s) permanently deleted from the database.'
+    del_msg = f'{len(actioned_ids)} user(s) permanently deleted from the database.'
     request.session['_bulk_message'] = del_msg
     request.session['_bulk_level']   = 'success'
 
@@ -2124,9 +2215,33 @@ def employee_lookup(request):
 # ------ PRIVATE HELPERS -----
 def _record_failure(username: str, request) -> None:
     count = increment_attempts(username)
-    if count >= MAX_ATTEMPTS:
+    locked = count >= MAX_ATTEMPTS
+    if locked:
         lock_account(username)
         logger.warning('[accounts] Account locked: %s (%s failures) from %s', username, count, get_client_ip(request))
 
+    try:
+        # Try to find the user — may not exists on failed attempts 
+        try:
+            user_obj = SystemUser.objects.get(username=username)
+        except SystemUser.DoesNotExist:
+            user_obj = None
+        
+        create_activity_log(
+            action='account_locked' if locked else 'login_failed',
+            user=user_obj,
+            attempted_username=username if not user_obj else None,
+            description=f'Account "{username}" locked after {count} failed attempts.'
+                        if locked else
+                        f'Failed login attempt for "{username}" — {count} failure(s) so far.',
+            ip_address=get_client_ip(request),
+        )
+    except Exception as exc:
+        logger.error('[account] activity log failed on _record_failure: %s', exc)
+        
+
 def profile(request):
     return render(request, 'accounts/profile.html')
+
+def admin_profile(request):
+    return render(request, 'accounts/admin/profile.html')

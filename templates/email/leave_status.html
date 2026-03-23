@@ -1,7 +1,8 @@
-{# templates/emails/leave_status.html #}
-{#
-   Sent when a leave application is approved, denied, or cancelled.
+{% extends "email/base_email.html" %}
 
+ {% comment %} templates/emails/leave_status.html  {% endcomment %}
+{% comment %} 
+   Sent when a leave application is approved, denied, or cancelled.
    Context variables (from leaves/tasks.py send_leave_status_email):
      employee_name    — "DELA CRUZ, Juan M."
      leave_type       — e.g. "Vacation Leave"
@@ -12,9 +13,8 @@
      status           — 'approved' | 'denied' | 'cancelled'
      status_label     — "Approved" | "Denied" | "Cancelled"
      processed_by     — name of HR staff who acted on it (optional)
-     remarks          — optional text reason (especially for denial)
-#}
-{% extends "emails/base_email.html" %}
+     remarks          — optional text reason (especially for denial) 
+{% endcomment %}
 
 {% block subject %}Leave Application &mdash; {{ status_label }}{% endblock %}
 

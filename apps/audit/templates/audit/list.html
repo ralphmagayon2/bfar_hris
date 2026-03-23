@@ -135,10 +135,11 @@
             {{ log.ip_address|default:"—" }}
           </td>
           <td>
-            <a href="{% url 'audit:detail' log.log_id %}"
-               style="font-size:.72rem;color:var(--navy-600);text-decoration:none;">
-              View
-            </a>
+            <button onclick="openLogDrawer({{ log.log_id }})"
+                    style="font-size:.72rem; color: var(--navy-600); background-color: none; 
+                    border: none; cursor:pointer; text-decoration:underline;">
+            View
+            </button>
           </td>
         </tr>
         {% empty %}
@@ -178,8 +179,53 @@
   </div>
   {% endif %}
 </div>
+
+{% comment %} ── Log detail drawer ──  {% endcomment %}
+<div id="log-drawer-overlay"
+     style="display:none;position:fixed;inset:0;background:rgba(10,35,66,.35);
+            z-index:900;"
+     onclick="closeLogDrawer()"></div>
+
+<div id="log-drawer"
+     style="position:fixed;top:0;right:0;height:100vh;width:min(520px,95vw);
+            background:var(--white);box-shadow:-8px 0 40px rgba(0,0,0,.18);
+            z-index:901;overflow-y:auto;transform:translateX(100%);
+            transition:transform .25s ease;display:flex;flex-direction:column;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;
+              padding:16px 20px;border-bottom:1px solid var(--gray-100);
+              position:sticky;top:0;background:var(--white);z-index:1;">
+    <div style="font-size:.9rem;font-weight:700;color:var(--navy-900);">
+      <i class="fas fa-clipboard-list" style="color:var(--navy-700);margin-right:6px;"></i>
+      Audit Log Detail
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a id="drawer-open-page" href="#" target="_blank"
+         style="font-size:.75rem;color:var(--navy-600);">
+        <i class="fas fa-arrow-up-right-from-square"></i> Open full page
+      </a>
+      <button onclick="closeLogDrawer()"
+              style="width:28px;height:28px;border-radius:6px;border:none;
+                     background:var(--gray-100);cursor:pointer;
+                     display:flex;align-items:center;justify-content:center;">
+        <i class="fas fa-times" style="font-size:.8rem;color:var(--gray-500);"></i>
+      </button>
+    </div>
+  </div>
+
+  <div id="drawer-body" style="padding:20px;flex:1;">
+    <div style="text-align:center;padding:40px;color:var(--gray-400);">
+      <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;"></i>
+      <p style="margin-top:12px;font-size:.84rem;">Loading…</p>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block js %}
+<script>
+  // Pass server-side URL to JS
+  window.AUDIT_DETAIL_BASE = "{% url 'audit:detail' 999999 %}".slice(0, -7);
+</script>
 <script src="{% static 'js/audit_list.js' %}"></script>
 {% endblock %}

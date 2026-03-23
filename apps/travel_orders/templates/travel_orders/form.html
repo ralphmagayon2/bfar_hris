@@ -248,7 +248,7 @@
 
 <!-- Back link -->
 <div style="margin-bottom:16px;">
-  <a href="{% url 'travel_orders:list' %}" class="btn btn-ghost btn-sm">
+  <a href="{% url 'travel_orders:to_list' %}" class="btn btn-ghost btn-sm">
     <i class="fas fa-arrow-left"></i> Back to Travel Orders
   </a>
 </div>
@@ -544,7 +544,7 @@
           <i class="fas fa-save"></i>
           {% if travel_order %}Save Changes{% else %}Create Travel Order{% endif %}
         </button>
-        <a href="{% url 'travel_orders:list' %}" class="btn btn-ghost" style="justify-content:center;margin-top:6px;">
+        <a href="{% url 'travel_orders:to_list' %}" class="btn btn-ghost" style="justify-content:center;margin-top:6px;">
           Cancel
         </a>
       </div>
