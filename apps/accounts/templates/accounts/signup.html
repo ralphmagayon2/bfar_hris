@@ -12,10 +12,11 @@
     <link rel="stylesheet" href="{% static 'fontawesome/css/all.min.css' %}" />
     <!-- login.css first (base styles, variables, left panel, field styles) -->
     <link rel="stylesheet" href="{% static 'css/login.css' %}">
+    <link rel="stylesheet" href="{% static 'css/messages.css' %}">
     <!-- signup.css second (wizard panes, responsive overrides) -->
     <link rel="stylesheet" href="{% static 'css/signup.css' %}">
 </head>
-<body data-has-errors={% if form.erros %}1{% else %}0{% endif %}>
+<body data-has-errors="{% if form.erros %}1{% else %}0{% endif %}">
 
 {% comment %} Messages for different templates/html file {% endcomment %}
 {% include 'includes/messages.html' %}
@@ -98,13 +99,13 @@
         </div>
 
         <!-- Django server-side messages -->
-        {% if messages %}
+        {% comment %} {% if messages %}
             {% for message in messages %}
             <div class="dj-msg">
                 <i class="fas fa-circle-exclamation"></i> {{ message }}
             </div>
             {% endfor %}
-        {% endif %}
+        {% endif %} {% endcomment %}
 
         <!-- ── Panes wrapper ── -->
         <div class="wz-panes">

@@ -1,5 +1,7 @@
-{# templates/emails/account_created.html #}
-{#
+{% extends "email/base_email.html" %}
+
+{% comment %} templates/emails/account_created.html {% endcomment %}
+{% comment %} 
    Sent when a new SystemUser is created (employee or admin account).
 
    Context variables (from accounts/tasks.py send_account_created_email):
@@ -9,9 +11,8 @@
      temp_password   — plaintext temp password (shown once)
      division        — division name or "—"
      position        — position title or "—"
-     login_url       — e.g. "http://192.168.1.10:8000/accounts/login/"
-#}
-{% extends "emails/base_email.html" %}
+     login_url       — e.g. "http://192.168.1.10:8000/accounts/login/" 
+{% endcomment %}
 
 {% block subject %}Your BFAR HRIS Account Has Been Created{% endblock %}
 

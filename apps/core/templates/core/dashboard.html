@@ -29,7 +29,7 @@
     <h1 class="dash-greeting">
       Good {% now "G" as current_hour %}
       {% if current_hour|add:"0" < 12 %}Morning{% elif current_hour|add:"0" < 18 %}Afternoon{% else %}Evening{% endif %},
-      <span>{{ request.user.first_name|default:request.user.username }}</span> 👋
+      <span>{{ current_user.get_display_name|default:"User" }}</span> 👋
     </h1>
     <p class="dash-date">
       <i class="fas fa-calendar-day"></i>
@@ -39,7 +39,7 @@
   </div>
   <div class="dash-actions">
     
-    <a href="{% url 'dtr:list' %}" class="btn btn-outline btn-sm">
+    <a href="{% url 'dtr:dtr_list' %}" class="btn btn-outline btn-sm">
       <i class="fas fa-clock"></i> DTR
     </a>
 
@@ -181,7 +181,7 @@
           <span style="font-size:.74rem;color:var(--gray-400);" id="last-updated">
             {{ today|date:"M d, Y" }}
           </span>
-          <a href="{% url 'dtr:list' %}" class="btn btn-ghost btn-sm">
+          <a href="{% url 'dtr:dtr_list' %}" class="btn btn-ghost btn-sm">
             Full DTR <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
           </a>
         </div>
@@ -270,7 +270,7 @@
           <i class="fas fa-route teal"></i>
           Recent Travel Orders
         </div>
-        <a href="{% url 'travel_orders:list' %}" class="btn btn-ghost btn-sm">
+        <a href="{% url 'travel_orders:to_list' %}" class="btn btn-ghost btn-sm">
           View All <i class="fas fa-arrow-right" style="font-size:.65rem;"></i>
         </a>
       </div>
@@ -451,12 +451,12 @@
           </a>
           {% endif %}
 
-          <a href="{% url 'holidays:list' %}" class="qa-btn amber">
+          <a href="{% url 'holidays:holiday_list' %}" class="qa-btn amber">
             <i class="fas fa-calendar-days"></i>
             Holidays
           </a>
 
-          <a href="{% url 'leaves:list' %}" class="qa-btn purple">
+          <a href="{% url 'leaves:leave_list' %}" class="qa-btn purple">
             <i class="fas fa-umbrella-beach"></i>
             Leave Credits
           </a>
@@ -466,7 +466,7 @@
             Biometrics
           </a>
 
-          <a href="{% url 'dtr:list' %}" class="qa-btn teal">
+          <a href="{% url 'dtr:dtr_list' %}" class="qa-btn teal">
             <i class="fas fa-clock"></i>
             DTR
           </a>
@@ -483,7 +483,7 @@
           <i class="fas fa-calendar-days amber"></i>
           Upcoming Holidays
         </div>
-        <a href="{% url 'holidays:list' %}" class="btn btn-ghost btn-sm">Manage</a>
+        <a href="{% url 'holidays:holiday_list' %}" class="btn btn-ghost btn-sm">Manage</a>
       </div>
       <div class="dash-card-body" style="padding-top:4px;padding-bottom:4px;">
         {% if upcoming_holidays %}

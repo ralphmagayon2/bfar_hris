@@ -1,5 +1,7 @@
-{# templates/emails/payslip_ready.html #}
-{#
+{% extends "email/base_email.html" %}
+
+{% comment %} templates/emails/payslip_ready.html {% endcomment %}
+{% comment %} 
    Sent when payroll is computed and a payslip is ready to view.
 
    Context variables (from payroll/tasks.py send_payslip_notification_email):
@@ -10,9 +12,8 @@
      release_date      — formatted string e.g. "April 30, 2026"
      net_pay_display   — formatted string e.g. "₱7,450.00"
      total_income      — formatted string
-     total_deductions  — formatted string
-#}
-{% extends "emails/base_email.html" %}
+     total_deductions  — formatted string 
+{% endcomment %}
 
 {% block subject %}Payslip Ready &mdash; {{ period_name }}{% endblock %}
 

@@ -164,7 +164,7 @@ class Command(BaseCommand):
                     employee=emp,
                     period_month="MARCH",
                     period_year=2026,
-                    basic_monthly_pay=emp.montly_salary,
+                    basic_monthly_pay=emp.monthly_salary,
                     pera=emp.pera,
                     gsis_life_insurance=Decimal('1200.00'),
                     medicare_premiums=Decimal('500.00'),
@@ -179,7 +179,7 @@ class Command(BaseCommand):
                     period=period,
                     payroll_group=emp.payroll_group,
                     cutoff_type='first',
-                    basic_salary=emp.montly_salary,
+                    basic_salary=emp.monthly_salary,
                     status='released'
                 )
                 pr.compute_first_cutoff() # Compute 1st cutoff fields [cite: 128]

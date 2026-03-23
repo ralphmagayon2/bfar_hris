@@ -25,3 +25,48 @@ function submitFilterDebounced() {
     document.getElementById('audit-filter-form').submit();
   }, 400);
 }
+
+function openLogDrawer(logId) {
+  const overlay = document.getElementById('log-drawer-overlay');
+  const drawer  = document.getElementById('log-drawer');
+  const body    = document.getElementById('drawer-body');
+  const link    = document.getElementById('drawer-open-page');
+
+  const detailUrl = window.AUDIT_DETAIL_BASE + logId + '/';
+  link.href = detailUrl;
+
+  overlay.style.display = 'block';
+  drawer.style.transform = 'translateX(0)';
+  document.body.style.overflow = 'hidden';
+
+  body.innerHTML = `
+    <div style="text-align:center;padding:40px;color:var(--gray-400);">
+      <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;"></i>
+      <p style="margin-top:12px;font-size:.84rem;">Loading…</p>
+    </div>`;
+
+  fetch(detailUrl + '?partial=1', {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+  })
+  .then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text();
+  })
+  .then(html => { body.innerHTML = html; })
+  .catch(err => {
+    body.innerHTML = `
+      <div style="color:var(--danger);padding:24px;font-size:.84rem;">
+        <i class="fas fa-circle-exclamation"></i> Failed to load. ${err.message}
+      </div>`;
+  });
+}
+
+function closeLogDrawer() {
+  document.getElementById('log-drawer').style.transform = 'translateX(100%)';
+  document.getElementById('log-drawer-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeLogDrawer();
+});

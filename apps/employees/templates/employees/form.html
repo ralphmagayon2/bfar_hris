@@ -178,7 +178,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       {% endif %}
     </p>
   </div>
-  <a href="{% url 'employees:list' %}" class="btn btn-outline btn-sm">
+  <a href="{% url 'employees:employee_list' %}" class="btn btn-outline btn-sm">
     <i class="fas fa-arrow-left"></i> Back to List
   </a>
 </div>
@@ -215,7 +215,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   </div>
 </div>
 
-<form method="post" action="" enctype="multipart/form-data" id="emp-form">
+<form method="post" action="{% if employee %}{% url 'employees:edit' employee.employee_id %}{% else %}{% url 'accounts:create_employee' %}{% endif %}" enctype="multipart/form-data" id="emp-form">
   {% csrf_token %}
 
   <!-- ════════════ STEP 1: Personal Info ════════════ -->
@@ -353,11 +353,20 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       <div class="form-card-body">
         <div class="form-grid-2" style="margin-bottom:14px;">
           <div class="form-group">
-            <label class="form-label">Employee ID</label>
-            <input type="text" name="employee_id" class="form-control"
-                   value="{{ employee.employee_id|default:'' }}"
-                   placeholder="Auto-assigned if blank">
-            <span class="form-hint">Unique identifier for biometric and payroll records.</span>
+            <label class="form-label">
+              Biometric ID Number <span class="req">*</span>
+            </label>
+            <input type="text" name="id_number" class="form-control"
+                  value="{{ employee.id_number|default:'' }}"
+                  placeholder="e.g. 000000037"
+                  required
+                  maxlength="20"
+                  pattern="[0-9]+"
+                  title="Numbers only — match the User ID in the ZKTeco device">
+            <span class="form-hint">
+              Must match the User ID enrolled in the fingerprint device.
+              This is what employees use to create their HRIS account.
+            </span>
           </div>
           <div class="form-group">
             <label class="form-label">Employment Type <span class="req">*</span></label>
@@ -693,7 +702,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       </button>
     </div>
     <div class="action-bar-right">
-      <a href="{% url 'employees:list' %}" class="btn btn-ghost btn-sm">Cancel</a>
+      <a href="{% url 'employees:employee_list' %}" class="btn btn-ghost btn-sm">Cancel</a>
       <button type="button" class="btn btn-primary btn-sm" id="btn-next"
               onclick="goStep(currentStep + 1)">
         Next <i class="fas fa-arrow-right"></i>

@@ -57,7 +57,7 @@ async function doLookup() {
 
     try {
         const res = await fetch(
-            `/accounts/api/employee-lookup-public/?id_number=${encodeURIComponent(val)}`
+            `/api/employee-lookup-public/?id_number=${encodeURIComponent(val)}`
         );
 
         const data = await res.json();

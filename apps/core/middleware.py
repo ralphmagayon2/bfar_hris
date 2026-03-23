@@ -89,14 +89,29 @@ class InjectCurrentUserMiddleware:
             user = (
                 SystemUser.objects
                 .select_related('employee')
-                .get(pk=user_id, is_active=True)
+                .get(pk=user_id, is_active=True, is_deleted=False)
             )
             return user
         except SystemUser.DoesNotExist:
-            # Stale session — user deleted or deactivated.
-            logger.warning(
-                "InjectCurrentUserMiddleware: no active user for user_id=%s — "
-                "clearing session", user_id
-            )
+            # Check if user exists but inactive/deleted (for better logging)
+            try:
+                dead = SystemUser.objects.get(pk=user_id)
+                # Stale session — user deleted or deactivated.
+                logger.warning(
+                    "InjectCurrentUserMiddleware: user_id=%s exists but "
+                    "is_active=%s is_deleted=%s — clearing session", 
+                    user_id, dead.is_active, dead.is_deleted,
+                )
+            except SystemUser.DoesNotExist:
+                logger.warning(
+                    'InjectCurrentMiddleware: user_id=%s not found — '
+                    'clearing session', user_id
+                )
             request.session.flush()
+            return None
+        except Exception as exc:
+            logger.error(
+                'InjectCurrentMiddleware: unexpected error for user_id=%s: %s',
+                user_id, exc,
+            )
             return None

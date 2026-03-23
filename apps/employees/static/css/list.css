@@ -49,6 +49,13 @@
 .row-btn.edit:hover {background:var(--navy-25);   color:var(--navy-700);}
 .row-btn.dtr:hover  {background:var(--teal-50);   color:var(--teal-700);}
 
+/* Table wrapper */
+.table-wrap {
+    overflow-x: auto;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
 /* Pagination */
 .pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-top:1px solid var(--gray-100);flex-wrap:wrap;gap:8px;}
 .page-info{font-size:.78rem;color:var(--gray-500);}

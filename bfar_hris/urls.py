@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.core.exceptions import PermissionDenied
+from django.views.generic import RedirectView
 
 def trigger_403(request):
     return PermissionDenied
@@ -33,8 +34,12 @@ def trigger_500(request):
 # Reordered URL patterns to ensure specific paths are checked before catch-all paths (nagkaproblem ako sa pag-access ng /employees/ dahil nauna yung accounts.urls na may catch-all pattern)
 urlpatterns = [
     path('dj-admin/', admin.site.urls),
+
+    # Redirect root to login page
+    path('', RedirectView.as_view(url="/login/", permanent="False"), name="login"),
     
     # 1. SPECIFIC PATHS GO FIRST
+    path('core/', include('apps.core.urls', namespace='core')),
     path('employees/', include('apps.employees.urls', namespace='employees')),
     path('biometrics/', include('apps.biometrics.urls', namespace='biometrics')),
     path('api/biometrics/', include('apps.biometrics.urls', namespace='biometrics_api')),
@@ -47,7 +52,6 @@ urlpatterns = [
 
     # 2. ROOT / CATCH-ALL PATHS GO LAST
     path('', include('apps.accounts.urls', namespace='accounts')),
-    path('', include('apps.core.urls', namespace='core')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 """""

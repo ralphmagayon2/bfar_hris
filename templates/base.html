@@ -87,7 +87,7 @@
             <li class="nav-section-label"><span>People</span></li>
 
             <li class="{% if 'employees' in request.resolver_match.namespace %}nav-active{% endif %}">
-              <a href="{% url 'employees:list' %}" data-tooltip="Employees">
+              <a href="{% url 'employees:employee_list' %}" data-tooltip="Employees">
                 <i class="fas fa-users"></i>
                 <span>Employees</span>
               </a>
@@ -105,21 +105,21 @@
             <li class="nav-section-label"><span>Attendance</span></li>
 
             <li class="{% if 'dtr' in request.resolver_match.namespace %}nav-active{% endif %}">
-              <a href="{% url 'dtr:list' %}" data-tooltip="Daily Time Record">
+              <a href="{% url 'dtr:dtr_list' %}" data-tooltip="Daily Time Record">
                 <i class="fas fa-clock"></i>
                 <span>Daily Time Record</span>
               </a>
             </li>
 
             <li class="{% if 'travel_orders' in request.resolver_match.namespace %}nav-active{% endif %}">
-              <a href="{% url 'travel_orders:list' %}" data-tooltip="Travel Orders">
+              <a href="{% url 'travel_orders:to_list' %}" data-tooltip="Travel Orders">
                 <i class="fas fa-route"></i>
                 <span>Travel Orders</span>
               </a>
             </li>
 
             <li class="{% if 'holidays' in request.resolver_match.namespace %}nav-active{% endif %}">
-              <a href="{% url 'holidays:list' %}" data-tooltip="Holidays">
+              <a href="{% url 'holidays:holiday_list' %}" data-tooltip="Holidays">
                 <i class="fas fa-calendar-days"></i>
                 <span>Holidays</span>
               </a>
@@ -129,7 +129,7 @@
             <li class="nav-section-label"><span>HR Management</span></li>
 
             <li class="{% if 'leaves' in request.resolver_match.namespace %}nav-active{% endif %}">
-              <a href="{% url 'leaves:list' %}" data-tooltip="Leave Records">
+              <a href="{% url 'leaves:leave_list' %}" data-tooltip="Leave Records">
                 <i class="fas fa-umbrella-beach"></i>
                 <span>Leave Records</span>
               </a>
@@ -145,13 +145,6 @@
             <!-- SYSTEM -->
             <li class="nav-section-label"><span>System</span></li>
 
-            <li class="{% if 'audit' in request.resolver_match.namespace %}nav-active{% endif %}">
-              <a href="{% url 'audit:list' %}" data-tooltip="Audit Trail">
-                <i class="fas fa-shield-halved"></i>
-                <span>Audit Trail</span>
-              </a>
-            </li>
-
             {% if user_is_superadmin or user_role == 'hr_admin' or user_role == 'hr_staff'  %}
             <li class="{% if request.resolver_match.url_name == 'user_list' %}nav-active{% endif %}">
               <a href="{% url 'accounts:user_list' %}" data-tooltip="System Users">
@@ -161,23 +154,40 @@
             </li>
             
             <li class="{% if request.resolver_match.url_name == 'deleted_users' %}nav-active{% endif %}">
-              <a href="{% url 'accounts:deleted_users' %}" data-tooltip="System Users">
+              <a href="{% url 'accounts:deleted_users' %}" data-tooltip="Deleted Users">
                 <i class="fas fa-trash-can"></i>
                 <span>Deleted Users</span>
               </a>
             </li>
             {% endif %}
 
+            <!-- AUDIT TRAIL -->
+            <li class="nav-section-label"><span>User Logs</span></li>
+
+            <li class="{% if request.resolver_match.url_name == 'list' %}nav-active{% endif %}">
+              <a href="{% url 'audit:list' %}" data-tooltip="Audit Trail">
+                <i class="fas fa-shield-halved"></i>
+                <span>Audit Trail</span>
+              </a>
+            </li>
+
+            <li class="{% if request.resolver_match.url_name == 'activity_list' %}nav-active{% endif %}">
+              <a href="{% url 'audit:activity_list' %}" data-tooltip="Activity Log">
+                <i class="fas fa-user-clock"></i>
+                <span>Activity Log</span>
+              </a>
+            </li>
+
           </ul>
         </nav>
 
         <!-- Sidebar footer -->
         <div class="sidebar-footer">
-          <a href="{% url 'accounts:profile' %}" class="sidebar-footer-link" data-tooltip="My Profile">
+          <a href="{% url 'accounts:admin_profile' %}" class="sidebar-footer-link" data-tooltip="My Profile">
             <i class="fas fa-circle-user"></i>
             <span>My Profile</span>
           </a>
-          <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;width:100%;">
+          <form method="post" action="{% url 'accounts:admin_logout' %}" style="margin:0;width:100%;">
             {% csrf_token %}
             <button type="submit"
                     class="sidebar-footer-link sidebar-logout"
@@ -305,14 +315,14 @@
                   </div>
                 </div>
                 <div class="user-dropdown-divider"></div>
-                <a href="{% url 'accounts:profile' %}" class="user-dropdown-item">
+                <a href="{% url 'accounts:admin_profile' %}" class="user-dropdown-item">
                   <i class="fas fa-circle-user"></i> My Profile
                 </a>
                 <a href="#" class="user-dropdown-item">
                   <i class="fas fa-lock"></i> Change Password
                 </a>
                 <div class="user-dropdown-divider"></div>
-                <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;">
+                <form method="post" action="{% url 'accounts:admin_logout' %}" style="margin:0;">
                   {% csrf_token %}
                   <button type="submit"
                           class="user-dropdown-item danger"

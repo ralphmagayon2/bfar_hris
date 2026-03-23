@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Activity Log — BFAR HRIS{% endblock %}
+{% block page_title %}Activity Log{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/audit_list.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Activity Log</h1>
+    <p class="page-sub">Login, logout, and security events — {{ total_logs|default:0 }} total entries</p>
+  </div>
+  <a href="{% url 'audit:list' %}" class="btn btn-ghost btn-sm">
+    <i class="fas fa-shield-halved"></i> Audit Log
+  </a>
+</div>
+
+{# ── Stats ── #}
+<div class="audit-grid">
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);
+              box-shadow:var(--shadow);padding:12px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;
+                color:var(--success);margin-bottom:3px;">Logins Today</div>
+    <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-mono);
+                color:var(--success);">{{ stats.logins_today|default:0 }}</div>
+  </div>
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);
+              box-shadow:var(--shadow);padding:12px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;
+                color:var(--gray-400);margin-bottom:3px;">Logouts Today</div>
+    <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-mono);
+                color:var(--navy-900);">{{ stats.logouts_today|default:0 }}</div>
+  </div>
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);
+              box-shadow:var(--shadow);padding:12px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;
+                color:var(--danger);margin-bottom:3px;">Failed Logins Today</div>
+    <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-mono);
+                color:var(--danger);">{{ stats.failures_today|default:0 }}</div>
+  </div>
+  <div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);
+              box-shadow:var(--shadow);padding:12px 16px;">
+    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;
+                color:var(--amber-700);margin-bottom:3px;">Accounts Locked (7 days)</div>
+    <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-mono);
+                color:var(--amber-700);">{{ stats.locked_7d|default:0 }}</div>
+  </div>
+</div>
+
+{# ── Toolbar ── #}
+<form method="get" id="activity-filter-form">
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" name="q" placeholder="Search user or description…"
+             value="{{ search_query }}" oninput="submitActivityDebounced()">
+    </div>
+    <div class="filter-row">
+      <select class="filter-select" name="action" onchange="this.form.submit()">
+        <option value="">All Actions</option>
+        <option value="login"            {% if action_filter == 'login'            %}selected{% endif %}>Login</option>
+        <option value="logout"           {% if action_filter == 'logout'           %}selected{% endif %}>Logout</option>
+        <option value="login_failed"     {% if action_filter == 'login_failed'     %}selected{% endif %}>Failed Login</option>
+        <option value="password_changed" {% if action_filter == 'password_changed' %}selected{% endif %}>Password Changed</option>
+        <option value="account_locked"   {% if action_filter == 'account_locked'   %}selected{% endif %}>Account Locked</option>
+      </select>
+      <input type="date" name="date" value="{{ date_filter }}"
+             style="padding:7px 10px;border:1.5px solid var(--gray-200);
+                    border-radius:var(--radius);font-size:.82rem;font-family:var(--font);"
+             onchange="this.form.submit()">
+    </div>
+  </div>
+  <span style="font-size:.76rem;color:var(--gray-400);">
+    {{ logs|length }} of {{ total_logs }} entries shown
+  </span>
+</div>
+</form>
+
+{# ── Table ── #}
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);
+            box-shadow:var(--shadow);overflow:hidden;">
+  <div class="table-wrap">
+    <table class="table-hris">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Description</th>
+          <th>IP Address</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="font-family:var(--font-mono);font-size:.78rem;
+                     white-space:nowrap;color:var(--gray-500);">
+            {{ log.get_ph_date_short }}<br>
+            <span style="color:var(--gray-400);">{{ log.get_ph_time_only }}</span>
+          </td>
+          <td>
+            <div style="font-weight:500;font-size:.83rem;color:var(--navy-900);">
+              {{ log.user.username|default:log.attempted_username|default:"Unknown" }}
+            </div>
+            {% if log.user %}
+            <div style="font-size:.7rem;color:var(--gray-400);">
+              {{ log.user.get_role_display }}
+            </div>
+            {% else %}
+            <div style="font-size:.7rem;color:var(--danger);">
+              Unregistered attempt
+            </div>
+            {% endif %}
+          </td>
+          <td>
+            {% if log.action == 'login' %}
+              <span class="action-badge" style="background:var(--success-light);color:var(--success);">
+                <i class="fas fa-right-to-bracket"></i> Login
+              </span>
+            {% elif log.action == 'logout' %}
+              <span class="action-badge" style="background:var(--gray-100);color:var(--gray-500);">
+                <i class="fas fa-right-from-bracket"></i> Logout
+              </span>
+            {% elif log.action == 'login_failed' %}
+              <span class="action-badge" style="background:var(--danger-light);color:var(--danger);">
+                <i class="fas fa-triangle-exclamation"></i> Failed
+              </span>
+            {% elif log.action == 'password_changed' %}
+              <span class="action-badge" style="background:var(--navy-50);color:var(--navy-700);">
+                <i class="fas fa-key"></i> Password
+              </span>
+            {% elif log.action == 'account_locked' %}
+              <span class="action-badge" style="background:var(--amber-50);color:var(--amber-700);">
+                <i class="fas fa-lock"></i> Locked
+              </span>
+            {% else %}
+              <span class="action-badge" style="background:var(--gray-100);color:var(--gray-500);">
+                {{ log.get_action_display }}
+              </span>
+            {% endif %}
+          </td>
+          <td style="font-size:.81rem;color:var(--gray-700);max-width:320px;">
+            {{ log.description|default:"—" }}
+          </td>
+          <td style="font-family:var(--font-mono);font-size:.78rem;color:var(--gray-400);">
+            {{ log.ip_address|default:"—" }}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" style="text-align:center;padding:48px;color:var(--gray-400);">
+            <i class="fas fa-user-clock" style="font-size:2rem;display:block;
+               opacity:.2;margin-bottom:10px;"></i>
+            No activity log entries yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if logs.has_other_pages %}
+  <div style="padding:12px 18px;border-top:1px solid var(--gray-100);
+              display:flex;align-items:center;justify-content:space-between;">
+    <div class="page-info">
+      Showing {{ logs.start_index }}–{{ logs.end_index }} of {{ logs.paginator.count }}
+    </div>
+    <div class="page-btns">
+      {% if logs.has_previous %}
+      <a href="?page={{ logs.previous_page_number }}&action={{ action_filter }}&q={{ search_query }}&date={{ date_filter }}"
+         class="page-btn"><i class="fas fa-chevron-left"></i></a>
+      {% endif %}
+      {% for num in logs.paginator.page_range %}
+        {% if logs.number == num %}
+          <span class="page-btn active">{{ num }}</span>
+        {% elif num > logs.number|add:"-3" and num < logs.number|add:"3" %}
+          <a href="?page={{ num }}&action={{ action_filter }}&q={{ search_query }}&date={{ date_filter }}"
+             class="page-btn">{{ num }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if logs.has_next %}
+      <a href="?page={{ logs.next_page_number }}&action={{ action_filter }}&q={{ search_query }}&date={{ date_filter }}"
+         class="page-btn"><i class="fas fa-chevron-right"></i></a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+let _actTimer = null;
+function submitActivityDebounced() {
+  clearTimeout(_actTimer);
+  _actTimer = setTimeout(() => {
+    document.getElementById('activity-filter-form').submit();
+  }, 400);
+}
+</script>
+{% endblock %}

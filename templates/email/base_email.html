@@ -1,13 +1,14 @@
-{# templates/emails/base_email.html #}
-{#
+{% comment %} templates/emails/base_email.html  {% endcomment %}
+{% comment %} 
    BFAR Region III — HRIS
    Base email template. All transactional emails extend this.
 
    Child templates must override:
      {% block subject %}   — used in <title> only (subject is set in tasks.py)
      {% block banner %}    — the colored strip under the BFAR header
-     {% block body %}      — the main email content
-#}
+     {% block body %}      — the main email content 
+{% endcomment %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
