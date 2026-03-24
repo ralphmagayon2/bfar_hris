@@ -365,6 +365,54 @@ class Employee(PhilippinesTimeMixin, models.Model):
         null=True,
         help_text="Encrypted face recognition template from device"
     )
+    # apps/employees/models.py
+
+    # ----- Media -----
+    profile_picture = models.ImageField(
+        upload_to='employee_profiles/', 
+        blank=True, 
+        null=True,
+        help_text="Employee profile picture (PNG/JPG, max 2MB)"
+    )
+
+    # ----- Additional Personal Info (From Form Step 1) -----
+    date_of_birth = models.DateField(null=True, blank=True)
+    sex = models.CharField(
+        max_length=10, 
+        choices=[('male', 'Male'), ('female', 'Female')], 
+        blank=True, null=True
+    )
+    civil_status = models.CharField(
+        max_length=20, 
+        choices=[('single', 'Single'), ('married', 'Married'), ('widowed', 'Widowed'), ('separated', 'Separated')], 
+        blank=True, null=True
+    )
+    contact_number = models.CharField(max_length=50, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+
+    # ----- Additional Employment Info (From Form Step 2) -----
+    contract_end_date = models.DateField(blank=True, null=True, help_text="For COS/JO")
+    biometric_id = models.IntegerField(blank=True, null=True, help_text="Numeric ID for ZKTeco")
+    
+    # ----- Salary & Deductions (From Form Step 3) -----
+    salary_grade = models.CharField(max_length=50, blank=True, null=True)
+    gsis_monthly = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    philhealth_monthly = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    pagibig_monthly = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    tax_monthly = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+
+    # ----- Government IDs (From Form Step 3) -----
+    tin = models.CharField(max_length=50, blank=True, null=True)
+    gsis_number = models.CharField(max_length=50, blank=True, null=True)
+    philhealth_number = models.CharField(max_length=50, blank=True, null=True)
+    pagibig_number = models.CharField(max_length=50, blank=True, null=True)
+    sss_number = models.CharField(max_length=50, blank=True, null=True)
+    philsys_number = models.CharField(max_length=50, blank=True, null=True)
+
+    # ----- Schedule & Station (From Form Step 4) -----
+    station = models.CharField(max_length=200, blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
 
     # ------ Timestamps ------
     created_at = models.DateTimeField(auto_now_add=True)

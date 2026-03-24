@@ -215,9 +215,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   </div>
 </div>
 
-<form method="post" action="{% if employee %}{% url 'employees:edit' employee.employee_id %}{% else %}{% url 'accounts:create_employee' %}{% endif %}" enctype="multipart/form-data" id="emp-form">
-  {% csrf_token %}
-
+<form method="post" action="{% if employee %}{% url 'employees:edit' employee.employee_id %}{% else %}{% url 'employees:form' %}{% endif %}" enctype="multipart/form-data" id="emp-form">  {% csrf_token %}
   <!-- ════════════ STEP 1: Personal Info ════════════ -->
   <div class="step-panel active" id="panel-0">
 
@@ -429,9 +427,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
                     onchange="loadUnits(this.value)">
               <option value="">Select division…</option>
               {% for div in divisions %}
-              <option value="{{ div.id }}"
-                {% if employee.division.id == div.id %}selected{% endif %}>
-                {{ div.name }}
+              <option value="{{ div.division_id }}"
+                {% if employee.division_id == div.division_id %}selected{% endif %}>
+                {{ div.division_name }}
               </option>
               {% endfor %}
             </select>
@@ -441,9 +439,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
             <select name="unit" id="unit-sel" class="form-control form-select">
               <option value="">Select unit…</option>
               {% for unit in units %}
-              <option value="{{ unit.id }}"
-                {% if employee.unit.id == unit.id %}selected{% endif %}>
-                {{ unit.name }}
+              <option value="{{ unit.unit_id }}" data-division="{{ unit.division_id }}"
+                {% if employee.unit_id == unit.unit_id %}selected{% endif %}>
+                {{ unit.unit_name }}
               </option>
               {% endfor %}
             </select>
@@ -453,9 +451,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
             <select name="position" class="form-control form-select" required>
               <option value="">Select position…</option>
               {% for pos in positions %}
-              <option value="{{ pos.id }}"
-                {% if employee.position.id == pos.id %}selected{% endif %}>
-                {{ pos.title }}
+              <option value="{{ pos.position_id }}"
+                {% if employee.position_id == pos.position_id %}selected{% endif %}>
+                {{ pos.position_title }}
               </option>
               {% endfor %}
             </select>
@@ -465,9 +463,9 @@ textarea.form-control { resize: vertical; min-height: 80px; }
             <select name="payroll_group" class="form-control form-select" required>
               <option value="">Select payroll group…</option>
               {% for pg in payroll_groups %}
-              <option value="{{ pg.id }}"
-                {% if employee.payroll_group.id == pg.id %}selected{% endif %}>
-                {{ pg.name }}
+              <option value="{{ pg.group_id }}"
+                {% if employee.payroll_group_id == pg.group_id %}selected{% endif %}>
+                {{ pg.group_name }}
               </option>
               {% endfor %}
             </select>
@@ -638,9 +636,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
             <select name="work_schedule" class="form-control form-select" required>
               <option value="">Select schedule…</option>
               {% for sched in work_schedules %}
-              <option value="{{ sched.id }}"
-                {% if employee.work_schedule.id == sched.id %}selected{% endif %}>
-                {{ sched.name }} — {{ sched.start_time|time:"g:i A" }} to {{ sched.end_time|time:"g:i A" }}
+              <option value="{{ sched.schedule_id }}">
+                {{ sched.schedule_name }} — {{ sched.am_in|time:"g:i A" }} to {{ sched.pm_out|time:"g:i A" }}
               </option>
               {% endfor %}
             </select>
@@ -773,12 +770,24 @@ function computeRates() {
 }
 document.addEventListener('DOMContentLoaded', computeRates);
 
-/* Unit filter based on division */
 function loadUnits(divId) {
-  // In production: fetch('/api/units/?division=' + divId).then(...)
-  // For now, all units are already in the DOM; filter client-side
   const sel = document.getElementById('unit-sel');
-  // Reset and show all for now; replace with AJAX if units are large
+  const options = sel.querySelectorAll('option');
+  
+  options.forEach(opt => {
+    // Always show the default "Select unit..." option
+    if (opt.value === "") {
+      opt.style.display = 'block';
+      return;
+    }
+    // Show only units matching the selected division
+    if (opt.dataset.division === divId) {
+      opt.style.display = 'block';
+    } else {
+      opt.style.display = 'none';
+    }
+  });
+  sel.value = ""; // Reset the selection
 }
 </script>
 {% endblock %}
