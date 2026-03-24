@@ -52,24 +52,8 @@ urlpatterns = [
 
     # 2. ROOT / CATCH-ALL PATHS GO LAST
     path('', include('apps.accounts.urls', namespace='accounts')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
 
-"""""
-urlpatterns = [
-    path('dj-admin/', admin.site.urls),
-    path('', include('apps.accounts.urls', namespace='accounts')),
-    path('', include('apps.core.urls', namespace='core')),
-    path('employees/', include('apps.employees.urls', namespace='employees')),
-    path('biometrics/', include('apps.biometrics.urls', namespace='biometrics')),
-    path('api/biometrics/', include('apps.biometrics.urls', namespace='biometrics_api')),
-    path('dtr/', include('apps.dtr.urls', namespace='dtr')),
-    path('travel-orders/', include('apps.travel_orders.urls', namespace='travel_orders')),
-    path('leaves/', include('apps.leaves.urls', namespace='leaves')),
-    path('payroll/', include('apps.payroll.urls', namespace='payroll')),
-    path('holidays/', include('apps.holidays.urls', namespace='holidays')),
-    path('audit/', include('apps.audit.urls', namespace='audit')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-"""
 # ============================================
 # MEDIA & STATIC FILES CONFIGURATION
 # ============================================

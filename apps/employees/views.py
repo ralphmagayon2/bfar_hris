@@ -6,6 +6,10 @@ from django.db.models import Count, Q
 from apps.employees.models import Employee, Division
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.utils import timezone
+from .models import Employee, Division, Unit, PayrollGroup, Position, WorkSchedule, EmployeeSchedule
 
 # Update: Para lang makita ko yung format na dinesign ko
 def detail(request, pk):
@@ -115,6 +119,104 @@ def employee_list(request):
     }
 
     return render(request, 'employees/list.html', context)
+
+def process_employee_form(request, pk=None):
+    """
+    Handles CREATE and UPDATE logic.
+    """
+    if request.method == 'GET':
+        # Load form context (combining your add_form and edit_form logic)
+        employee = get_object_or_404(Employee, employee_id=pk) if pk else None
+        context = {
+            'employee': employee,
+            'divisions': Division.objects.order_by('division_code'),
+            'units': Unit.objects.order_by('unit_name'),
+            'payroll_groups': PayrollGroup.objects.order_by('group_name'),
+            'positions': Position.objects.order_by('employment_type', 'position_title'),
+            'work_schedules': WorkSchedule.objects.order_by('schedule_name'),
+        }
+        return render(request, 'employees/form.html', context)
+
+    if request.method == 'POST':
+        # 1. Fetch or initialize the Employee object
+        employee = get_object_or_404(Employee, employee_id=pk) if pk else Employee()
+
+        # 2. Map POST data to standard fields
+        # Step 1: Personal Info
+        employee.last_name = request.POST.get('last_name')
+        employee.first_name = request.POST.get('first_name')
+        employee.middle_name = request.POST.get('middle_name')
+        employee.suffix = request.POST.get('name_ext') # Mapped to suffix
+        employee.date_of_birth = request.POST.get('date_of_birth') or None
+        employee.sex = request.POST.get('sex')
+        employee.civil_status = request.POST.get('civil_status')
+        employee.contact_number = request.POST.get('contact_number')
+        employee.email = request.POST.get('email')
+        employee.address = request.POST.get('address')
+        
+        if 'profile_picture' in request.FILES:
+            employee.profile_picture = request.FILES['profile_picture']
+
+        # Step 2: Employment
+        employee.id_number = request.POST.get('id_number')
+        employee.employment_type = request.POST.get('employment_type')
+        employee.date_hired = request.POST.get('date_hired') or None
+        employee.contract_end_date = request.POST.get('contract_end_date') or None
+        employee.is_active = (request.POST.get('status') == 'active')
+        
+        bio_id = request.POST.get('biometric_id')
+        employee.biometric_id = int(bio_id) if bio_id else None
+
+        # Foreign Keys
+        employee.division_id = request.POST.get('division')
+        employee.unit_id = request.POST.get('unit') or None
+        employee.position_id = request.POST.get('position')
+        employee.payroll_group_id = request.POST.get('payroll_group')
+
+        # Step 3: Salary & Payroll
+        employee.monthly_salary = request.POST.get('monthly_salary')
+        employee.salary_grade = request.POST.get('salary_grade')
+        
+        # Deductions (Optional inputs, convert to None if empty)
+        def clean_decimal(val):
+            return val if val else None
+
+        employee.gsis_monthly = clean_decimal(request.POST.get('gsis_monthly'))
+        employee.philhealth_monthly = clean_decimal(request.POST.get('philhealth_monthly'))
+        employee.pagibig_monthly = clean_decimal(request.POST.get('pagibig_monthly'))
+        employee.tax_monthly = clean_decimal(request.POST.get('tax_monthly'))
+
+        # IDs
+        employee.tin = request.POST.get('tin')
+        employee.gsis_number = request.POST.get('gsis_number')
+        employee.philhealth_number = request.POST.get('philhealth_number')
+        employee.pagibig_number = request.POST.get('pagibig_number')
+        employee.sss_number = request.POST.get('sss_number')
+        employee.philsys_number = request.POST.get('philsys_number')
+
+        # Step 4: Schedule Notes
+        employee.station = request.POST.get('station')
+        employee.remarks = request.POST.get('remarks')
+
+        # 3. Save the core employee record
+        employee.save()
+
+        # 4. Handle Work Schedule Assignment (Table 7)
+        sched_id = request.POST.get('work_schedule')
+        if sched_id:
+            # Check if this schedule is already assigned as the latest to avoid duplicates
+            latest_sched = employee.schedules.order_by('-effective_date').first()
+            if not latest_sched or str(latest_sched.schedule_id) != str(sched_id):
+                EmployeeSchedule.objects.create(
+                    employee=employee,
+                    schedule_id=sched_id,
+                    effective_date=timezone.now().date() # Becomes effective immediately
+                )
+
+        # 5. Redirect and notify
+        action = "updated" if pk else "added"
+        messages.success(request, f"Employee {employee.get_full_name()} successfully {action}.")
+        return redirect('employees:employee_list')
 
 # Same din dito
 def edit_form(request, pk):
