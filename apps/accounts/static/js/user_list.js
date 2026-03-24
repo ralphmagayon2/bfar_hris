@@ -73,6 +73,14 @@ function openModal(id) {
   if (!el) return;
   el.classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  // Reset generated password preview and add-modal closes
+  if (id === 'add-modal') {
+    const preview = document.getElementById('gen-pw-preview');
+    const text = document.getElementById('gen-pw-text');
+    if (preview) preview.style.display = 'none';
+    if (text) text.textContent = '';
+  }
 }
 
 function closeModal(id) {
@@ -678,4 +686,72 @@ function showInlineToast(message, type = 'success') {
     toast.classList.remove('visible');
     toast.addEventListener('transitionend', () => toast.remove(), { once: true });
   }, 3500);
+}
+
+// Auto-generate password
+function generatePassword() {
+  // Generate a strong password matching your validation rules:
+  // 8+ chars, uppercase, lowercase, number, special char
+  const upper   = 'ABCDEFGHJKLMNPQRSTUVWXYZ';   // removed confusing I, O
+  const lower   = 'abcdefghjkmnpqrstuvwxyz';     // removed confusing l, o
+  const numbers = '23456789';                     // removed confusing 0, 1
+  const special = '@$!%*?&_+-=';
+
+  // Guarantee at least one of each required type
+  let pw = [
+    upper[Math.floor(Math.random() * upper.length)],
+    upper[Math.floor(Math.random() * upper.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    numbers[Math.floor(Math.random() * numbers.length)],
+    numbers[Math.floor(Math.random() * numbers.length)],
+    special[Math.floor(Math.random() * special.length)],
+    special[Math.floor(Math.random() * special.length)],
+  ];
+
+  // Pad to 12 chars with random mix
+  const all = upper + lower + numbers + special;
+  while (pw.length < 12) {
+    pw.push(all[Math.floor(Math.random() * all.length)]);
+  }
+
+  // Shuffle
+  pw = pw.sort(() => Math.random() - 0.5).join('');
+
+  // Show preview
+  const preview = document.getElementById('gen-pw-preview');
+  const text    = document.getElementById('gen-pw-text');
+  if (preview) preview.style.display = 'flex';
+  if (text)    text.textContent       = pw;
+}
+
+function useGeneratedPassword() {
+  const pw   = document.getElementById('gen-pw-text')?.textContent?.trim();
+  const pw1  = document.getElementById('add-pw1');
+  const pw2  = document.getElementById('add-pw2');
+  const eye1 = document.querySelector('#add-pw1 ~ .pw-eye i');
+  const eye2 = document.querySelector('#add-pw2 ~ .pw-eye i');
+
+  if (!pw || !pw1 || !pw2) return;
+
+  // Fill both fields
+  pw1.value = pw;
+  pw2.value = pw;
+
+  // Show as text so admin can verify it before submitting
+  pw1.type = 'text';
+  pw2.type = 'text';
+  if (eye1) eye1.className = 'fas fa-eye-slash';
+  if (eye2) eye2.className = 'fas fa-eye-slash';
+
+  // Visual confirmation
+  const useBtn = document.querySelector('#gen-pw-preview button');
+  if (useBtn) {
+    useBtn.textContent = 'Pasted!';
+    useBtn.style.background = 'var(--success)';
+    setTimeout(() => {
+      useBtn.innerHTML = '<i class="fas fa-paste" style="font-size:.65rem;"></i> Use';
+      useBtn.style.background = 'var(--navy-700)';
+    }, 1500);
+  }
 }

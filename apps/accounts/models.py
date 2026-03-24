@@ -27,6 +27,7 @@ import hashlib
 import secrets
 import logging
 import pytz
+from django.utils import timezone
 
 from django.db import models
 from django.contrib.auth.hashers import make_password, check_password
@@ -119,6 +120,11 @@ class SystemUser(models.Model):
         help_text="Token expiry - 1 hour from generation"
     )
 
+    reset_token_issued_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Whent the last reset token was issued — used for resend cooldown"
+    )
+
     # ── Timestamps ────────────────────────────────────────────────────────────
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -144,10 +150,35 @@ class SystemUser(models.Model):
             self.reset_token_hash and self.reset_token_expires_at and timezone.now() < self.reset_token_expires_at
         )
     
+    def can_resend_reset_token(self, cooldown_seconds: int = 120) -> bool:
+        """
+        Returns True if enough time has passed since the last token was issued.
+        Prevents spam — default cooldown is 2 minutes.
+        """
+        if not self.reset_token_issued_at:
+            return True
+        
+        elapsed = (timezone.now() - self.reset_token_issued_at).total_seconds()
+        return elapsed >= cooldown_seconds
+
+    def seconds_until_resend_allowed(self, cooldown_seconds: int = 120) -> int:
+        """Return how many seconds remain before resend is allowed. 0 if allowed now."""
+        if not self.reset_token_issued_at:
+            return 0
+        
+        elapsed = (timezone.now() - self.reset_token_issued_at).total_seconds()
+        remaining = cooldown_seconds - elapsed
+        return max(0, int(remaining))
+    
     def clear_reset_token(self) -> None:
-        self.reset_token_hash = ''
+        self.reset_token_hash      = ''
         self.reset_token_expires_at = None
-        self.save(update_fields=['reset_token_hash', 'reset_token_expires_at'])
+        self.reset_token_issued_at  = None
+        self.save(update_fields=[
+            'reset_token_hash',
+            'reset_token_expires_at',
+            'reset_token_issued_at',   
+        ])
 
     # ── Role Helpers ──────────────────────────────────────────────────────────
     def is_superadmin(self):

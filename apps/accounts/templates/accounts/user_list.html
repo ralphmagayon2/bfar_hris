@@ -474,6 +474,45 @@
           <p class="m-hint"><i class="fas fa-circle-info"></i> Super Admin accounts can only be created by a Super Admin.</p>
           {% endif %}
         </div>
+
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            
+            <button type="button" onclick="generatePassword()"
+                    style="display:inline-flex;align-items:center;gap:5px;
+                          padding:4px 10px;border-radius:5px;border:1.5px solid var(--navy-700);
+                          background:var(--navy-25);color:var(--navy-700);
+                          font-size:.72rem;font-weight:700;cursor:pointer;
+                          font-family:var(--font);transition:background .15s;">
+              <i class="fas fa-wand-magic-sparkles" style="font-size:.65rem;"></i>
+              Generate Password
+            </button>
+          </div>
+
+          {# Generated password preview — hidden until generated #}
+          <div id="gen-pw-preview" style="display:none;align-items:center;gap:8px;
+              background:var(--navy-25);border:1.5px solid var(--navy-200);
+              border-radius:7px;padding:8px 12px;margin-bottom:10px;">
+            <i class="fas fa-key" style="color:var(--navy-700);font-size:.8rem;flex-shrink:0;"></i>
+            <span id="gen-pw-text" style="font-family:var(--font-mono);font-size:.83rem;
+                  font-weight:700;color:var(--navy-900);flex:1;letter-spacing:.5px;"></span>
+            <button type="button" onclick="useGeneratedPassword()"
+                    style="padding:4px 10px;border-radius:5px;border:none;
+                          background:var(--navy-700);color:#fff;
+                          font-size:.72rem;font-weight:700;cursor:pointer;
+                          font-family:var(--font);white-space:nowrap;">
+              <i class="fas fa-paste" style="font-size:.65rem;"></i> Use
+            </button>
+            <button type="button" onclick="generatePassword()"
+                    style="padding:4px 8px;border-radius:5px;
+                          border:1.5px solid var(--gray-200);background:var(--white);
+                          color:var(--gray-500);font-size:.72rem;cursor:pointer;
+                          font-family:var(--font);" title="Regenerate">
+              <i class="fas fa-arrows-rotate"></i>
+            </button>
+          </div>
+        </div>
+
         <div class="m-grid-2">
           <div class="m-group">
             <label class="m-label">Password <span class="req">*</span></label>

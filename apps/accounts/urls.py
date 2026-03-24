@@ -18,6 +18,7 @@ urlpatterns = [
     # Employee Forgot Password and Reset Password
     path('forgot-password/', views.forgot_password, name='forgot_password'),
     path('reset-password/<str:token>/', views.reset_password, name='reset_password'),
+    path('resend-reset-email/', views.resend_reset_email, name='resend_reset_email'),
 
     # Admin Portal
     path('admin/login/', views.admin_login, name='admin_login'),

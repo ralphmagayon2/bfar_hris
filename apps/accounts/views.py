@@ -94,6 +94,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST, require_GET
+import json
 
 from apps.accounts.models import SystemUser
 
@@ -113,6 +114,9 @@ from apps.audit.models import create_activity_log, create_audit_log
 from apps.accounts.decorators import (
     login_required, admin_required, role_required
 )
+
+# email from tasks
+from apps.accounts.tasks import send_password_reset_email, send_account_created_email
 
 logger = logging.getLogger(__name__)
 
@@ -655,6 +659,11 @@ def admin_logout(request):
 
 @require_http_methods(['GET', 'POST'])
 def forgot_password(request):
+    # If admin is somehow here, send them to the right page
+    role = request.session.get('_auth_user_role', '')
+    if role in ('superadmin', 'hr_admin', 'hr_staff'):
+        return redirect('accounts:admin_forgot_password')
+    
     if request.method == 'POST':
         email = request.POST.get('email', '').strip().lower()
  
@@ -668,36 +677,60 @@ def forgot_password(request):
             return render(request, 'accounts/forgot_password.html', ctx)
  
         # Always show the same success screen whether email exists or not
-        ctx = {'success_email': mask_email(email)}
+        ctx = { 'success_email': mask_email(email), 'real_email': email, }
  
         try:
             user = SystemUser.objects.get(personal_email__iexact=email, role='viewer')
         except SystemUser.DoesNotExist:
+            logger.info('[accounts] forgot_password: no viewer found for email=%s', mask_email(email))
             return render(request, 'accounts/forgot_password.html', ctx)
  
         if not user.is_active:
             return render(request, 'accounts/forgot_password.html', ctx)
  
-        # Throttle: don't issue a new token if one is still valid
+        # Remaining time from token expiry (1 hour)
         if user.has_valid_reset_token():
-            return render(request, 'accounts/forgot_password.html', ctx)
+            # Calculate minutes/seconds remaining on the token (up to 1 hour)
+            from django.utils import timezone as tz
+            token_remaining = max(0, int(
+                (user.reset_token_expires_at - tz.now()).total_seconds()
+            ))
+            resend_remaining = user.seconds_until_resend_allowed(120)
+
+            mins = token_remaining // 60
+            secs = token_remaining % 60
+
+            logger.info(
+                '[accounts] forgot_password: throttled — user_id=%s, token expires in %sm %ss',
+                user.user_id, mins, secs,
+            )
+            return render(request, 'accounts/forgot_password.html', {
+                **ctx,
+                'cooldown_seconds':   resend_remaining,
+                'throttled':          True,
+                'token_remaining_min': mins,
+                'token_remaining_sec': secs,
+            })
  
         try:
             token = generate_reset_token()
             user.reset_token_hash       = hash_token(token)
             user.reset_token_expires_at = timezone.now() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)
-            user.save(update_fields=['reset_token_hash', 'reset_token_expires_at'])
+            user.reset_token_issued_at  = timezone.now()
+            user.save(update_fields=['reset_token_hash', 'reset_token_expires_at', 'reset_token_issued_at'])
         except Exception as exc:
             logger.error('[accounts] forgot_password token save error: %s', exc)
             # Still show the sucess screen — don't leak whether the email exists
             return render(request, 'accounts/forgot_password.html', ctx)
     
         try:
-            from apps.accounts.tasks import send_password_reset_email
-            reset_url = request.build_absolute_uri(f'/accounts/reset-password/{token}/')
+            reset_url = request.build_absolute_uri(f'/reset-password/{token}/')
+            logger.info('[accounts] Sending password reset email to user_id=%s email=%s',
+                        user.user_id, mask_email(email))
             send_password_reset_email.delay(user_id=user.user_id, reset_url=reset_url, is_admin=False)
+            logger.info('[accounts] Password reset task dispatched for user_id=%s', user.user_id)
         except Exception as exc:
-            logger.error('[accounts] Failed to queue reset email: %s', exc)
+            logger.error('[accounts] Failed to dispatch reset email: %s', exc, exc_info=True)
  
         logger.info('[accounts] Password reset token issued: user_id=%s', user.user_id)
         return render(request, 'accounts/forgot_password.html', ctx)
@@ -730,8 +763,98 @@ def admin_forgot_password(request):
         })
  
         # Same response whether match found or not (security)
-        success_ctx = {**ctx, 'success_email': mask_email(personal_email)}
+        success_ctx = {**ctx, 'success_email': mask_email(personal_email), 'real_email': personal_email, } # Needed for resend
  
+        try:
+            user = SystemUser.objects.get(
+                username=username,
+                personal_email__iexact=personal_email,
+            )
+            if user.role == 'viewer':
+                # Explicitly block viewers — they must use the employee portal
+                raise SystemUser.DoesNotExist
+        except SystemUser.DoesNotExist:
+            logger.info('[accounts] admin_forgot_password: no admin found for username=%s', username)
+            return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
+ 
+        if not user.is_active:
+            return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
+ 
+        # Remaining time from token expiry (1 hour)
+        if user.has_valid_reset_token():
+            from django.utils import timezone as tz
+            token_remaining  = max(0, int(
+                (user.reset_token_expires_at - tz.now()).total_seconds()
+            ))
+            resend_remaining = user.seconds_until_resend_allowed(120)
+
+            mins = token_remaining // 60
+            secs = token_remaining % 60
+
+            logger.info(
+                '[accounts] admin_forgot_password: throttled — user_id=%s, token expires in %sm %ss',
+                user.user_id, mins, secs,
+            )
+            return render(request, 'accounts/admin/admin_forgot_password.html', {
+                **success_ctx,
+                'cooldown_seconds':    resend_remaining,
+                'throttled':           True,
+                'token_remaining_min': mins,
+                'token_remaining_sec': secs,
+            })
+ 
+        try:
+            token = generate_reset_token()
+            user.reset_token_hash       = hash_token(token)
+            user.reset_token_expires_at = timezone.now() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)
+            user.reset_token_issued_at  = timezone.now()
+            user.save(update_fields=['reset_token_hash', 'reset_token_expires_at', 'reset_token_issued_at'])
+        except Exception as exc:
+            logger.error('[accounts] admin_fogot_password token save error: %s', exc)
+            return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
+ 
+        try:
+            reset_url = request.build_absolute_uri(f'/reset-password/{token}/')
+            logger.warning('[accounts] Admin reset email dispatching: user_id=%s username=%s',
+                        user.user_id, username)
+            send_password_reset_email.delay(user_id=user.user_id, reset_url=reset_url, is_admin=True)
+            logger.warning('[accounts] Admin reset task dispatched for user_id=%s', user.user_id)
+        except Exception as exc:
+            logger.error('[accounts] Failed to dispatch admin reset email: %s', exc, exc_info=True)
+ 
+        logger.warning('[accounts] Admin reset requested: %s from %s', username, get_client_ip(request))
+        return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
+ 
+    return render(request, 'accounts/admin/admin_forgot_password.html')
+
+# RESEND RESET PASSWORD — Just for user na didn't receive email also anti spamming with cooldown
+@require_POST
+def resend_reset_email(request):
+    """
+    Resend password reset email.
+    Called by the resend button on both forgot password success screens.
+    Enforces a 2-minute cooldown per user.
+
+    POST body (form data):
+        email          — for employee portal (viewer)
+        username       — for admin portal (admin roles)
+        personal_email — for admin portal
+        portal         — 'admin' or 'employee'
+    """
+    import json
+
+    portal         = request.POST.get('portal', 'employee').strip()
+    is_admin_portal = portal == 'admin'
+
+    COOLDOWN_SECONDS = 120  # 2 minutes
+
+    if is_admin_portal:
+        username       = request.POST.get('username', '').strip()
+        personal_email = request.POST.get('personal_email', '').strip().lower()
+
+        if not username or not personal_email:
+            return JsonResponse({'ok': False, 'error': 'Missing credentials.'}, status=400)
+
         try:
             user = SystemUser.objects.get(
                 username=username,
@@ -740,35 +863,61 @@ def admin_forgot_password(request):
             if user.role == 'viewer':
                 raise SystemUser.DoesNotExist
         except SystemUser.DoesNotExist:
-            return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
- 
-        if not user.is_active:
-            return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
- 
-        if user.has_valid_reset_token():
-            return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
- 
-        try:
-            token = generate_reset_token()
-            user.reset_token_hash       = hash_token(token)
-            user.reset_token_expires_at = timezone.now() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)
-            user.save(update_fields=['reset_token_hash', 'reset_token_expires_at'])
-        except Exception as exc:
-            logger.error('[accounts] admin_fogot_password token save error: %s', exc)
-            return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
- 
-        try:
-            from apps.accounts.tasks import send_password_reset_email
-            reset_url = request.build_absolute_uri(f'/accounts/reset-password/{token}/')
-            send_password_reset_email.delay(user_id=user.user_id, reset_url=reset_url, is_admin=True)
-        except Exception as exc:
-            logger.error('[accounts] Failed to queue admin reset email: %s', exc)
- 
-        logger.warning('[accounts] Admin reset requested: %s from %s', username, get_client_ip(request))
-        return render(request, 'accounts/admin/admin_forgot_password.html', success_ctx)
- 
-    return render(request, 'accounts/admin/admin_forgot_password.html')
+            # Security: don't reveal whether user exists
+            return JsonResponse({'ok': True, 'message': 'If valid, a new link has been sent.'})
 
+    else:
+        email = request.POST.get('email', '').strip().lower()
+
+        if not email or not is_valid_email(email):
+            return JsonResponse({'ok': False, 'error': 'Invalid email.'}, status=400)
+
+        try:
+            user = SystemUser.objects.get(
+                personal_email__iexact=email,
+                role='viewer',
+            )
+        except SystemUser.DoesNotExist:
+            return JsonResponse({'ok': True, 'message': 'If valid, a new link has been sent.'})
+
+    # Check account is active
+    if not user.is_active or user.is_deleted:
+        return JsonResponse({'ok': True, 'message': 'If valid, a new link has been sent.'})
+
+    # Enforce cooldown
+    remaining = user.seconds_until_resend_allowed(COOLDOWN_SECONDS)
+    if remaining > 0:
+        return JsonResponse({
+            'ok':           False,
+            'cooldown':     True,
+            'remaining':    remaining,
+            'error':        f'Please wait {remaining} seconds before requesting another link.',
+        }, status=429)
+
+    # Issue new token
+    try:
+        token = generate_reset_token()
+        user.reset_token_hash       = hash_token(token)
+        user.reset_token_expires_at = timezone.now() + timedelta(hours=RESET_TOKEN_EXPIRY_HOURS)
+        user.reset_token_issued_at  = timezone.now()
+        user.save(update_fields=['reset_token_hash', 'reset_token_expires_at', 'reset_token_issued_at'])
+    except Exception as exc:
+        logger.error('[accounts] resend_reset_email token save error: %s', exc)
+        return JsonResponse({'ok': False, 'error': 'Failed to generate new link.'}, status=500)
+
+    try:
+        reset_url = request.build_absolute_uri(f'/reset-password/{token}/')
+        send_password_reset_email.delay(
+            user_id=user.user_id,
+            reset_url=reset_url,
+            is_admin=is_admin_portal,
+        )
+        logger.info('[accounts] resend_reset_email: new token issued for user_id=%s', user.user_id)
+    except Exception as exc:
+        logger.error('[accounts] resend_reset_email task failed: %s', exc, exc_info=True)
+        return JsonResponse({'ok': False, 'error': 'Failed to send email.'}, status=500)
+
+    return JsonResponse({'ok': True, 'message': 'A new reset link has been sent.'})
 
 # RESET PASSWORD  /accounts/reset-password/<token>/
 # Shared by both employee and admin reset flows
@@ -776,17 +925,32 @@ def admin_forgot_password(request):
 @require_http_methods(['GET', 'POST'])
 def reset_password(request, token: str):
     token_hash = hash_token(token)
- 
+
+    # Determine portal based on role BEFORE any redirect
+    def _reset_redirect(user=None):
+        """Returns the correct login/forgot URL based on user role."""
+        if user and user.role in ('superadmin', 'hr_admin', 'hr_staff'):
+            return 'accounts:admin_login'
+        return 'accounts:login'
+
+    def _forgot_redirect(user=None):
+        if user and user.role in ('superadmin', 'hr_admin', 'hr_staff'):
+            return 'accounts:admin_forgot_password'
+        return 'accounts:forgot_password'
+
     try:
         user = SystemUser.objects.get(reset_token_hash=token_hash)
     except SystemUser.DoesNotExist:
+        # Token not found — we don't know the role, default to employee portal
         messages.error(request, 'Invalid or expired reset link.')
         return redirect('accounts:login')
- 
+
     if not user.has_valid_reset_token():
-        messages.error(request, 'This reset link has expired. Please request a new one.')
-        target = 'accounts:admin_forgot_password' if user.role != 'viewer' else 'accounts:forgot_password'
-        return redirect(target)
+        messages.error(
+            request,
+            'This reset link has expired. Please request a new one.'
+        )
+        return redirect(_forgot_redirect(user))
  
     if request.method == 'POST':
         new_password     = request.POST.get('new_password', '')
@@ -824,14 +988,14 @@ def reset_password(request, token: str):
             )
         except Exception as exc:
             logger.error('[accounts] activity log failed on reset_password: %s', exc)
-        return redirect('accounts:admin_login' if user.role != 'viewer' else 'accounts:login')
+        return redirect(_reset_redirect(user))
  
     return render(request, 'accounts/reset_password.html', {'token': token, 'username': user.username})
 
 
 # CREATE EMPLOYEE  /accounts/employees/create/   [superadmin only]
 # Creates an Employee record + linked viewer SystemUser in one transaction.
-
+# This is for testing only. The real one is in employee views.
 @login_required
 @role_required('superadmin')
 @require_http_methods(['GET', 'POST'])
@@ -976,7 +1140,7 @@ def create_employee(request):
 
 # CREATE SYSTEM USER  /accounts/users/create/   [superadmin only]
 # Creates a standalone admin/staff SystemUser, optionally linked to an Employee.
-
+# This one is testing also only the real one is in user_list in the form there in _action_add_user
 @login_required
 @role_required('superadmin')
 @require_http_methods(['GET', 'POST'])
@@ -1426,6 +1590,7 @@ def _action_add_user(request):
             )
             user.set_password(password1)
             user.save()
+            plain_password = password1 # capture password before it's gone
     except IntegrityError as exc:
         logger.error('[accounts] _action_add_user IntegrityError: %s', exc)
         messages.error(request, 'A database conflict occurred. Username or email may already be taken.')
@@ -1453,6 +1618,18 @@ def _action_add_user(request):
         '[accounts] User created: %s (%s) by %s (user_id=%s)',
         username, role, actor.username, actor.user_id,
     )
+
+    # Send welcome email with password temp
+    # We don't have a temp password here since the actor set the password directly.
+    try:
+        send_account_created_email.delay(
+            user_id=user.user_id,
+            temp_password=plain_password,
+        )
+    except Exception as exc:
+        logger.error('[accounts] _action_add_user email failed: %s', exc)
+        messages.warning(request, f'User "{username}" created but notification email failed.')
+
     messages.success(request, f'User "{username}" ({valid_roles[role]}) created successfully.')
     return redirect('accounts:user_list')
  
