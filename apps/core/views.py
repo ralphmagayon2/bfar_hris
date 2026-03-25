@@ -58,7 +58,7 @@ def _hr_dashboard(request, system_user):
     """Full HR dashboard for superadmin, hr_admin, hr_staff"""
     today = timezone.localdate()
 
-    total_employees = Employee.objects.filter(is_active=True).count()
+    total_employees = Employee.objects.filter(status='active').count()
     present_today = DTRRecord.objects.filter(dtr_date=today, am_in__isnull=False).count()
     late_today = DTRRecord.objects.filter(dtr_date=today, am_in_status='late').count()
     absent_today = total_employees - present_today

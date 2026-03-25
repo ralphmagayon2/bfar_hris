@@ -10,6 +10,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from .models import Employee, Division, Unit, PayrollGroup, Position, WorkSchedule, EmployeeSchedule
+from django.views.decorators.http import require_POST
 
 # Update: Para lang makita ko yung format na dinesign ko
 def detail(request, pk):
@@ -47,11 +48,11 @@ def add_form(request):
 # CHANGED THE FUNCTION NAME HERE
 def employee_list(request):
     # 1. optimized queryset with select_related to reduce DB kasi grabi if every row needs to access related fields in the template, mas efficient to fetch all related data in one query
-    base_qs = Employee.objects.select_related('position', 'division', 'unit', 'system_user').all() # added system_user so has_account doesn't hit the DB per row
+    base_qs = Employee.objects.select_related('position', 'division', 'unit', 'system_user').all() # added system_user so has_account doesn't hit the DB per row and filter is_deleted here so we don't have to keep filtering it out in the code below
     
     # 2. Get the totals BEFORE applying filters
     total_all = base_qs.count()
-    total_active = base_qs.filter(is_active=True).count()
+    total_active = base_qs.filter(status='active').count()
     type_stats = base_qs.values('employment_type').annotate(count=Count('employee_id')).order_by('employment_type')
     # group by employment_type and count how many employees in each type, ordered by employment_type wow
     divisions = Division.objects.all().order_by('division_code')
@@ -74,10 +75,8 @@ def employee_list(request):
         base_qs = base_qs.filter(employment_type__iexact=emp_type)
     if div_id:
         base_qs = base_qs.filter(division_id=div_id)
-    if status_filter == 'active':
-        base_qs = base_qs.filter(is_active=True)
-    elif status_filter == 'inactive':
-        base_qs = base_qs.filter(is_active=False)
+    if status_filter:
+        base_qs = base_qs.filter(status=status_filter)
 
     # Account Filter    
     if account_filter == 'has_account':
@@ -162,7 +161,8 @@ def process_employee_form(request, pk=None):
         employee.employment_type = request.POST.get('employment_type')
         employee.date_hired = request.POST.get('date_hired') or None
         employee.contract_end_date = request.POST.get('contract_end_date') or None
-        employee.is_active = (request.POST.get('status') == 'active')
+        # FIXED: Save the exact status string from the dropdown, defaulting to 'active'
+        employee.status = request.POST.get('status') or 'active'
         
         bio_id = request.POST.get('biometric_id')
         employee.biometric_id = int(bio_id) if bio_id else None
@@ -217,6 +217,25 @@ def process_employee_form(request, pk=None):
         action = "updated" if pk else "added"
         messages.success(request, f"Employee {employee.get_full_name()} successfully {action}.")
         return redirect('employees:employee_list')
+    
+    from django.views.decorators.http import require_POST
+
+@require_POST
+def change_employee_status(request, pk):
+    """Updates the employment status of an employee via the toast modal."""
+    employee = get_object_or_404(Employee, employee_id=pk)
+    new_status = request.POST.get('new_status')
+    
+    # Validate against our choices
+    valid_statuses = [choice[0] for choice in Employee.STATUS_CHOICES]
+    if new_status in valid_statuses:
+        employee.status = new_status
+        employee.save()
+        messages.success(request, f"{employee.get_full_name()}'s status updated to {new_status.title()}.")
+    else:
+        messages.error(request, "Invalid status selected.")
+        
+    return redirect('employees:employee_list')
 
 # Same din dito
 def edit_form(request, pk):
