@@ -165,19 +165,19 @@ def base_print(request):
     return render(request, 'base_print.html')
 
 def base_email(request):
-    return render(request, 'email/base_email.html')
+    return render(request, 'emails/base_email.html')
 
 def account_created_email(request):
-    return render(request, 'email/account_created.html')
+    return render(request, 'emails/account_created.html')
 
 def leave_status_email(request):
-    return render(request, 'email/leave_status.html')
+    return render(request, 'emails/leave_status.html')
 
 def password_reset_email(request):
-    return render(request, 'email/password_reset.html')
+    return render(request, 'emails/password_reset.html')
 
 def payslip_ready(request):
-    return render(request, 'email/payslip_ready.html')
+    return render(request, 'emails/payslip_ready.html')
 
 def travel_order_encoded_email(request):
-    return render(request, 'email/travel_order_encoded.html')
+    return render(request, 'emails/travel_order_encoded.html')

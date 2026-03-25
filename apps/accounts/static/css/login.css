@@ -428,6 +428,11 @@ body {
 }
 .login-footer a:hover { text-decoration: underline; }
 
+/* Admin reset password — amber accent override */
+.login-right--admin::before {
+    background: linear-gradient(90deg, #FCBF49, #F59E0B) !important;
+}
+
 /* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 1024px) {
     body { overflow-y: auto; }
