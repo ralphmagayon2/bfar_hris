@@ -348,10 +348,22 @@ class Employee(PhilippinesTimeMixin, models.Model):
     )
 
     # ----- Status -----
-    is_active = models.BooleanField(
-        default=True,
-        help_text="Active/Inactive status"
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('resigned', 'Resigned'),
+        ('retired', 'Retired'),
+        ('terminated', 'Terminated'),
+    ]
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active',
+        help_text="Current employment status"
     )
+    @property
+    def is_active(self):
+        return self.status == 'active'
 
     # ------ Biometrics Templates (Encrypted) -----
     fingerprint_template = models.BinaryField(
@@ -417,6 +429,13 @@ class Employee(PhilippinesTimeMixin, models.Model):
     # ------ Timestamps ------
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateField(auto_now=True)
+
+    # Removed delete feature, government regulations require us to keep all employee records for audit purposes.
+    # # ------ Delete ------
+    # is_deleted = models.BooleanField(
+    #     default=False,
+    #     help_text="Soft delete flagger. T = hidden from all lists, F = active employee"
+    # )
 
     # ----- Display Helpers -----
     def get_full_name(self):

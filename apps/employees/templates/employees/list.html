@@ -108,7 +108,7 @@
             data-empid="{{ emp.employee_id|lower|default:'' }}"
             data-type="{{ emp.employment_type|lower }}"
             data-division="{{ emp.division.id|default:'' }}"
-            data-status="{% if emp.is_active %}active{% else %}inactive{% endif %}">
+            data-status="{{ emp.status }}">
           <td>
             <div class="emp-cell">
               <div class="emp-avatar">
@@ -143,12 +143,11 @@
             ₱{{ emp.monthly_salary|floatformat:2 }}
           </td>
           <td>
-            <span class="status-badge {% if emp.is_active %}badge-present{% else %}badge-absent{% endif %}">
-              {% if emp.is_active %}Active{% else %}Inactive{% endif %}
+            <span class="status-badge badge-{{ emp.status }}">
+              {{ emp.get_status_display }}
             </span>
           </td>
-          <td>
-            {% if emp.has_account %}
+            <td>{% if emp.has_account %}
               <span style="display:inline-flex;align-items:center;gap:5px;
                           padding:2px 9px;border-radius:999px;font-size:.67rem;font-weight:700;
                           background:var(--success-light);color:var(--success);">
@@ -175,6 +174,13 @@
               <a href="{% url 'employees:detail' emp.employee_id %}" class="row-btn view" title="View Profile">
                 <i class="fas fa-eye"></i>
               </a>
+              <button class="row-btn status-btn" title="Change Status" 
+                      data-emp-id="{{ emp.employee_id }}"
+                      data-emp-name="{{ emp.get_full_name|escapejs }}"
+                      data-emp-status="{{ emp.status }}"
+                      onclick="confirmStatusChange(this)">
+                <i class="fas fa-user-tag"></i>
+              </button>
             </div>
           </td>
         </tr>
@@ -221,10 +227,43 @@
   </div>
 </div>
 {% endif %}
-    </div>
-  </div>
-
 </div>
+
+{% comment %} ══ SHARED TOAST CONFIRMATION OVERLAY ══ {% endcomment %}
+<div id="toast-confirm-overlay" class="toast-overlay" aria-hidden="true">
+  <div class="toast-card" role="dialog" aria-modal="true"
+       aria-labelledby="toast-title" aria-describedby="toast-desc">
+    
+    <div class="toast-icon-wrap" id="toast-icon-wrap">
+      <i class="fas fa-ban" id="toast-icon"></i>
+    </div>
+    
+    <div class="toast-body">
+      <p class="toast-title" id="toast-title">Confirm Action</p>
+      <p class="toast-desc"  id="toast-desc">Are you sure?</p>
+      
+      <div id="toast-status-select-wrap" style="display:none; margin-top: 14px; width: 100%;">
+          <select id="toast-status-select" class="form-control form-select" style="text-align: center;">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="resigned">Resigned</option>
+              <option value="retired">Retired</option>
+              <option value="terminated">Terminated</option>
+          </select>
+      </div>
+    </div>
+    
+    <div class="toast-actions">
+      <button class="toast-btn toast-cancel" onclick="dismissToast()">Cancel</button>
+      <button class="toast-btn toast-confirm" id="toast-confirm-btn" onclick="executeToastAction()">Confirm</button>
+    </div>
+    
+  </div>
+</div>
+
+<script>
+  const CSRF_TOKEN = "{{ csrf_token }}";
+</script>
 {% endblock %}
 
 
