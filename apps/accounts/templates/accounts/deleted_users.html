@@ -204,8 +204,15 @@
                       onclick="confirmRestore(this)">
                 <i class="fas fa-rotate-left"></i>
               </button>
+              <button class="row-btn delete" title="Delete user"
+                      data-user-id="{{ u.user_id }}"
+                      data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                      onclick="confirmPermanentDelete(this)">
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
           </td>
+
         </tr>
         {% empty %}
         <tr>
@@ -303,6 +310,7 @@
   const RESTORE_BASE_URL = "/users/";
   const BULK_RESTORE_URL = "{% url 'accounts:bulk_restore' %}";
   const BULK_PERMANENT_DEL_URL = "{% url 'accounts:bulk_permanent_delete' %}";
+  const PERMANENT_DEL_USER_URL = "/users/"
   const CSRF_TOKEN = "{{ csrf_token }}";
   const ACTOR_ROLE = "{{ actor_role }}";
   const IS_SUPERADMIN = {{ is_superadmin_actor|yesno:"true,false" }};

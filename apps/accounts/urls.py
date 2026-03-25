@@ -35,7 +35,8 @@ urlpatterns = [
     path('users/create/', views.create_system_user, name='create_system_user'),
     # Bulk Action
     path('users/bulk-action/', views.bulk_action, name='bulk_action'),
-    path('users/deleted/', views.deleted_users, name='deleted_users'),
+    path('users/deleted/', views.deleted_users, name='deleted_users'), # Soft delete user
+    path('users/<int:user_id>/permanent-delete/', views.permanent_delete_user, name='permanent_delete_user'), # Permanently delete user
     path('users/<int:user_id>/restore/', views.restore_user, name='restore_user'),
     path('api/employee-search/', views.employee_search, name='employee_search'),
     # Bulk Action in Delete Users Page

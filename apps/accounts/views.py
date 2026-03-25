@@ -97,6 +97,7 @@ from django.views.decorators.http import require_http_methods, require_POST, req
 import json
 
 from apps.accounts.models import SystemUser
+from apps.employees.models import Employee
 
 # UTILITIES from apps/account/utils.py
 from apps.accounts.utils import (
@@ -1880,9 +1881,15 @@ def _action_delete_user(request):
     
     try:
         with transaction.atomic():
+            # Preserve employee link but ensure employee record is untouched
+            linked_employee_id = target.employee_id # capture for audit
+            
             target.is_deleted = True
             target.is_active = False
             target.save(update_fields=['is_deleted', 'is_active'])
+            # NOTE: We deliberately do NOT touch target.employee here.
+            # The employee record remains active and linked for audit trail purposes.
+            # Only permanent delete unlinks the employee.
     except Exception as exc:
         logger.error('[accounts] _action_delete_user save error: %s', exc)
         messages.error(request, 'A system error occured while deleting the user.')
@@ -2082,7 +2089,7 @@ def bulk_action(request):
 
 
 # Kaka update lang
-# Shows soft-deleted accounts. Superadmin only.
+# Shows soft-deleted accounts. Superadmin and HR Admin only.
 
 @login_required
 @role_required('superadmin', 'hr_admin')
@@ -2175,6 +2182,7 @@ def restore_user(request, user_id: int):
             performed_by=actor,
             new_value={'is_deleted': False, 'is_active': True, 'restored': True},
             ip_address=get_client_ip(request),
+            description=f'{actor.username} restore user account of "{target.username}" ({target.role}).',
         )
     except Exception as exc:
         logger.error('[accounts] restore_user audit log failed: %s', exc)
@@ -2224,7 +2232,7 @@ def bulk_restore(request):
                 performed_by=actor,
                 new_value={'is_deleted': False, 'restored': True, 'bulk': True},
                 ip_address=get_client_ip(request),
-                description=f'{actor.username} bulk-restored {len(actioned_ids)} account(s).',
+                description=f'{actor.username} bulk-restored of user {target.username} with ID#: {len(actioned_ids)}',
             )
         except Exception as exc:
             logger.error('[accounts] bulk_restore audit failed: %s', exc)
@@ -2241,6 +2249,76 @@ def bulk_restore(request):
         'message':     f'{len(actioned_ids)} user(s) restored successfully.',
     })
 
+# Single permanent delete endpoint
+@login_required
+@role_required('superadmin', 'hr_admin')
+@require_POST
+def permanent_delete_user(request, user_id: int):
+    """
+    Permanently delete single soft-deleted user.
+    Unlink from employee first to preserve employee data.
+    """
+    actor = request.current_user
+    target = get_object_or_404(SystemUser, user_id=user_id, is_deleted=True)
+
+    username = target.username
+    employee_id = target.employee_id # capture before unlinking
+    employee_was_active = None
+
+    if employee_id:
+        try:
+            emp = Employee.objects.get(employee_id=employee_id)
+            employee_was_active = emp.is_active
+        except Exception:
+            pass
+
+    try:
+        with transaction.atomic():
+            # Unlink employee record — preserves employee, removes account
+            target.employee = None
+            target.save(update_fields=['employee'])
+            target.delete()
+
+            if employee_id and employee_was_active is not None:
+                try:
+                    Employee.objects.filter(employee_id=employee_id).update(
+                        is_active=employee_was_active
+                    )
+                except Exception as exc:
+                    logger.error('[accounts] permanent_delete_user: failed to restore employees if is_active: %s', exc)
+                    
+    except Exception as exc:
+        logger.error('[accounts] permanent_delete_user error: %s', exc)
+        return JsonResponse({'ok': False, 'error': 'Delete failed.'}, status=500)
+    
+    try:
+        create_audit_log(
+            table_affected='system_users',
+            record_id=user_id,
+            action='delete',
+            performed_by=actor,
+            old_value={
+                'username': username,
+                'employee_id': employee_id,
+            },
+            new_value={
+                'permanent_delete': True,
+                'username': username,
+                'employee_unlinked': employee_id,
+            },
+            ip_address=get_client_ip(request),
+            description=f'{actor.username} permanently deleted account "{username}."'
+        )
+    except Exception as exc:
+        logger.error('[account] permanent_delete_user audit failed: %s', exc)
+        
+    request.session['_bulk_message'] = f'Account "{username}" permanently deleted. Employee record preserve.'
+    request.session['_bulk_level'] = 'success'
+
+    return JsonResponse({
+        'ok': True,
+        'message': f'Account "{username}" permanently deleted.'
+    })
 
 @login_required
 @role_required('superadmin', 'hr_admin')
@@ -2265,7 +2343,30 @@ def bulk_permanent_delete(request):
     for target in targets:
         uid      = target.user_id
         username = target.username
+        employee_pk = target.employee_id # <- capture BEFORE any changes
+        # Capture employee's current active status before we touch anything 
+        employee_was_active = None
+        if employee_pk:
+            try:
+                emp = Employee.objects.get(employee_id=employee_pk)
+                employee_was_active = emp.is_active
+            except Exception:
+                pass
+
+        # Unlink employee before deleting — preserves employee record
+        target.employee = None
+        target.save(update_fields=['employee'])
         target.delete()
+
+        # Restore employee is_active in case cascade/signal incorrectly changed it
+        if employee_pk and employee_was_active is not None:
+            try:
+                Employee.objects.filter(employee_id=employee_pk).update(
+                    is_active=employee_was_active
+                )
+            except Exception as exc:
+                logger.error('[accounts] failed to restore employee is_active after delete: %s', exc)
+
         actioned_ids.append(uid)
 
         try:
@@ -2274,9 +2375,13 @@ def bulk_permanent_delete(request):
                 record_id=uid,
                 action='delete',
                 performed_by=actor,
+                old_value={
+                    'username': username,
+                    'employee_id': employee_pk,
+                    },
                 new_value={'permanent_delete': True, 'username': username, 'bulk': True},
                 ip_address=get_client_ip(request),
-                description=f'{actor.username} permanently deleted {len(actioned_ids)} account(s) from the database.',
+                description=f'{actor.username} permanently deleted account(s) "{username}" (bulk).',
             )
         except Exception as exc:
             logger.error('[accounts] bulk_permanent_delete audit failed: %s', exc)
