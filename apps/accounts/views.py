@@ -264,8 +264,15 @@ def signup(request):
         employee = None
         if employee_pk and not errors:
             try:
-                from apps.employees.models import Employee
-                employee = Employee.objects.get(employee_id=int(employee_pk), id_number=id_number)
+                
+                employee = Employee.objects.filter(
+                    employee_id=int(employee_pk), 
+                    id_number=id_number,
+                    status='active'
+                ).first()
+
+                if not employee.is_active:
+                    errors.append('This employee is inactive and cannot register an account. Please contact HR.')
  
                 if hasattr(employee, 'system_user'):
                     errors.append('This employee ID already has an HRIS account. Use "Forgot Password" if locked out.')
@@ -343,12 +350,29 @@ def employee_lookup_public(request):
         return JsonResponse({'found': False, 'message': 'Employee ID is required.'})
  
     try:
-        from apps.employees.models import Employee
+        
         emp = Employee.objects.select_related(
             'position', 'division'
-        ).get(id_number=id_number)
+        ).filter(
+            id_number=id_number,
+            status='active'
+        ).first()
  
         already_has_account = hasattr(emp, 'system_user')
+
+        # If wala sa list
+        if not emp:
+            return JsonResponse({
+                'found': False,
+                'message': 'Employee not found, inactive, or not eligible for registration.'
+            })
+        
+        # Block already linked
+        if hasattr(emp, 'system_user'):
+            return JsonResponse({
+                'found': False,
+                'message': 'This employee already has an account.'
+            })
  
         return JsonResponse({
             'found':               True,
@@ -460,12 +484,13 @@ def admin_signup(request):
  
     For the simpler inline creation form inside base.html, use create_system_user.
     """
-    from apps.employees.models import Employee
+    
  
     # All active employees for the "link to employee" dropdown
     employees = (
         Employee.objects
-        .filter(is_active=True)
+        .filter(status='active')
+        .exclude(system_user__isnull=False) # Update: Already linked remove di ko pala na add.
         .select_related('position')
         .order_by('last_name', 'first_name')
     )
@@ -515,9 +540,14 @@ def admin_signup(request):
         linked_employee = None
         if linked_emp_id:
             try:
-                linked_employee = Employee.objects.get(employee_id=int(linked_emp_id))
+                linked_employee = Employee.objects.filter(employee_id=int(linked_emp_id), status='active').first()
+
+                if not linked_employee:
+                    errors.append('Selected employee is not active or not eligible.')
+
                 if hasattr(linked_employee, 'system_user'):
                     errors.append(f'{linked_employee.get_full_name()} already has a system account.')
+
             except Exception:
                 errors.append('Selected employee record not found.')
  
@@ -1033,7 +1063,7 @@ def create_employee(request):
             if not p.get(field, '').strip():
                 errors.append(f'{label} is required.')
  
-        from apps.employees.models import Employee
+        
         id_number = clean_input(p.get('id_number', ''), 50)
         if id_number and Employee.objects.filter(id_number=id_number).exists():
             errors.append(f'Employee ID "{id_number}" is already registered.')
@@ -1182,7 +1212,7 @@ def create_system_user(request):
         linked_employee = None
         if employee_id_input:
             try:
-                from apps.employees.models import Employee
+                
                 linked_employee = Employee.objects.get(id_number=employee_id_input)
                 if hasattr(linked_employee, 'system_user'):
                     errors.append(f'Employee {employee_id_input} already has a system account.')
@@ -1570,7 +1600,7 @@ def _action_add_user(request):
 
             if emp_id_input:
                 try:
-                    from apps.employees.models import Employee
+                    
                     linked_employee = Employee.objects.get(employee_id=int(emp_id_input))
                     if hasattr(linked_employee, 'system_user'):
                         errors.append(f'{linked_employee.get_full_name()} is already linked to another account.')
@@ -1696,7 +1726,7 @@ def _action_edit_user(request):
  
     if not unlink and link_emp:
         try:
-            from apps.employees.models import Employee
+            
             linked_employee = Employee.objects.get(employee_id=int(link_emp))
             # Allow re-linking to the same employee; block linking to someone else's account
             existing = SystemUser.objects.filter(
@@ -2268,7 +2298,7 @@ def permanent_delete_user(request, user_id: int):
     if employee_id:
         try:
             emp = Employee.objects.get(employee_id=employee_id)
-            employee_was_active = emp.is_active
+            employee_was_active = emp.status
         except Exception:
             pass
 
@@ -2412,12 +2442,12 @@ def employee_search(request):
         return JsonResponse({'results': []})
 
     try:
-        from apps.employees.models import Employee
+        
         from django.db.models import Q
 
         # Step 1 — search employees
         qs = Employee.objects.select_related('position').filter(
-            is_active=True
+            status='active'
         ).filter(
             Q(last_name__icontains=q)  |
             Q(first_name__icontains=q) |
@@ -2478,7 +2508,7 @@ def employee_lookup(request):
         return JsonResponse({'found': False, 'message': 'ID number required.'})
  
     try:
-        from apps.employees.models import Employee
+        
         emp = Employee.objects.select_related('position', 'division').get(id_number=id_number)
         already_linked = hasattr(emp, 'system_user')
         return JsonResponse({
