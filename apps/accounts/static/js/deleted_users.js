@@ -18,6 +18,74 @@ function filterDeleted() {
   if (countEl) countEl.textContent = `${visible} record${visible !== 1 ? 's' : ''}`;
 }
 
+let _pendingDeleteBtn = null;
+
+// Single user permanent delete toast
+function confirmPermanentDelete(btn) {
+  _pendingDeleteBtn = btn;
+
+  const username = btn.dataset.username;
+
+  const iconWrap  = document.getElementById('del-bulk-icon-wrap');
+  const icon      = document.getElementById('del-bulk-icon');
+  const title     = document.getElementById('del-bulk-title');
+  const desc      = document.getElementById('del-bulk-desc');
+  const warning   = document.getElementById('del-bulk-warning');
+  const confirmBtn = document.getElementById('del-bulk-confirm-btn');
+
+  // Apply DANGER style
+  iconWrap.className   = 'toast-icon-wrap danger';
+  icon.className       = 'fas fa-trash';
+  title.textContent    = `Permanently delete "${username}"?`;
+  desc.textContent     = 'This account will be permanently removed from the system.';
+  warning.style.display = 'block';
+
+  confirmBtn.className  = 'toast-btn toast-confirm danger';
+  confirmBtn.textContent = 'Delete permanently';
+
+  // Override click behavior
+  confirmBtn.onclick = executePermanentDelete;
+
+  const overlay = document.getElementById('del-bulk-toast-overlay');
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function executePermanentDelete() {
+  if (!_pendingDeleteBtn) return;
+
+  const btn    = _pendingDeleteBtn;
+  const userId = btn.dataset.userId;
+
+  dismissDelBulkToast();
+  btn.disabled = true;
+
+  fetch(PERMANENT_DEL_USER_URL + userId + '/permanent-delete/', {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': CSRF_TOKEN,
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    }
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+
+    if (!data.ok) {
+      showInlineToast(data.error || 'Delete failed.', 'error');
+      return;
+    }
+
+    showInlineToast(data.message, 'success');
+    setTimeout(() => window.location.reload(), 900);
+  })
+  .catch(() => {
+    btn.disabled = false;
+    showInlineToast('Network error.', 'error');
+  });
+}
+
 /* ─── Restore toast ──────────────────────────────────────────────────────── */
 let _pendingRestoreBtn = null;
 
