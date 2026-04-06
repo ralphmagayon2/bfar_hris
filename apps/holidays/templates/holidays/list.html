@@ -1,3 +1,5 @@
+<!-- apps/holidays/templates/holidays/list.html -->
+
 {% extends 'base.html' %}
 {% load static %}
 
@@ -36,24 +38,79 @@
   </div>
 </div>
 
-<!-- Toolbar -->
-<div class="toolbar">
+<!-- Toolbar 1 -->
+<div class="toolbar" style="margin-bottom: 14px;">
   <div class="toolbar-left">
-    <div class="search-wrap"><i class="fas fa-search"></i>
-      <input type="text" id="hol-search" placeholder="Search holiday name…" oninput="filterHolidays()">
-    </div>
-
-    <div class="filter-row">
-      <select class="filter-select" id="hol-type-filter" onchange="filterHolidays()">
-        <option value="">All Types</option>
-        <option value="regular">Regular</option>
-        <option value="special">Special</option>
-      </select>
-      <input type="number" id="hol-year-filter" style="padding:7px 10px;border:1.5px solid var(--gray-200);border-radius:var(--radius);font-size:.82rem;font-family:var(--font);width:80px;" value="{{ today.year }}" placeholder="Year" oninput="filterHolidays()">
-    </div>
-    
+    <select class="filter-select" id="hol-year-filter" onchange="filterHolidays()" style="font-weight: 600;">
+      <option value="">All Years</option>
+      {% for y in available_years %}
+        <option value="{{ y }}" {% if y == today.year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
   </div>
-  <span id="hol-count" style="font-size:.76rem;color:var(--gray-400);">{{ holidays|length }} holidays</span>
+</div>
+
+<!-- Calendar -->
+ <div class="calendar-container" id="calendar-view" style="margin-bottom: 20px;">
+  <div class="cal-left">
+    <div class="calendar">
+      <div class="month">
+        <i class="fas fa-angle-left prev"></i>
+        <div class="date">december 2026</div>
+        <i class="fas fa-angle-right next"></i>
+      </div>
+      <div class="weekdays">
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+      </div>
+      <div class="days"></div>
+      <div class="goto-today">
+        <div class="goto">
+          <input type="text" placeholder="mm/yyyy" class="date-input" />
+          <button class="goto-btn">Go</button>
+        </div>
+        <button class="today-btn">Today</button>
+      </div>
+    </div>
+  </div>
+  <div class="cal-right">
+    <div class="today-date">
+      <div class="event-day">wed</div>
+      <div class="event-date">12th december 2026</div>
+    </div>
+    <div class="events"></div>
+  </div>
+</div>
+
+<script>
+  const RAW_HOLIDAYS = [
+    {% for h in holidays %}
+    {
+      id: "{{ h.holiday_id }}",
+      name: "{{ h.holiday_name|escapejs }}",
+      date_str: "{{ h.holiday_date|date:'Y-m-d' }}", // Format: YYYY-MM-DD
+      type: "{{ h.holiday_type|escapejs }}"
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+</script>
+
+<!-- Toolbar 2 -->
+<div class="toolbar" style="margin-top: 24px; margin-bottom: 14px;">
+  <div class="toolbar-left">
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" id="hol-search" placeholder="Search holiday name..." onkeyup="filterHolidays()">
+    </div>
+    <select class="filter-select" id="hol-type-filter" onchange="filterHolidays()">
+      <option value="">All Types</option>
+      <option value="regular">Regular</option>
+      <option value="special">Special Non-Working</option>
+      <option value="local">Local Holiday</option>
+    </select>
+  </div>
+  <div class="toolbar-right">
+    <span id="hol-count" style="font-size:.78rem;color:var(--gray-400);">{{ holidays.count }} holidays</span>
+  </div>
 </div>
 
 <!-- Table -->
@@ -72,44 +129,66 @@
       </thead>
       <tbody id="hol-tbody">
         {% for holiday in holidays %}
-        <tr data-name="{{ holiday.name|lower }}"
+        <tr data-name="{{ holiday.holiday_name|lower }}"
             data-type="{{ holiday.holiday_type|lower }}"
-            data-year="{{ holiday.date|date:'Y' }}">
+            data-year="{{ holiday.holiday_date|date:'Y' }}"
+            data-month="{{ holiday.holiday_date|date:'n' }}"
+            data-day="{{ holiday.holiday_date|date:'j' }}">
           <td>
             <div class="hol-cell">
               <div class="date-block">
-                <span class="day-num">{{ holiday.date|date:"d" }}</span>
-                <span class="day-mon">{{ holiday.date|date:"M" }}</span>
+                <span class="day-num">{{ holiday.holiday_date|date:"d" }}</span>
+                <span class="day-mon">{{ holiday.holiday_date|date:"M" }}</span>
               </div>
               <span style="font-family:var(--font-mono);font-size:.8rem;color:var(--gray-500);">
-                {{ holiday.date|date:"Y" }}
+                {{ holiday.holiday_date|date:"Y" }}
               </span>
             </div>
           </td>
-          <td style="font-weight:500;">{{ holiday.name }}</td>
-          <td><span class="holiday-type {{ holiday.holiday_type|lower }}">{{ holiday.holiday_type|capfirst }}</span></td>
-          <td style="font-size:.82rem;color:var(--gray-500);">{{ holiday.date|date:"l" }}</td>
-          <td style="font-size:.8rem;color:var(--gray-500);">
-            {% if holiday.date >= today %}{{ holiday.date|timeuntil }}{% else %}<span style="color:var(--gray-300);">Past</span>{% endif %}
+          
+          <td style="font-weight:500;">{{ holiday.holiday_name }}</td>
+          
+          <td>
+            <span class="holiday-type {{ holiday.holiday_type|lower }}">
+              {{ holiday.holiday_type|capfirst }}
+            </span>
           </td>
+          
+          <td style="font-size:.82rem;color:var(--gray-500);">
+            {{ holiday.holiday_date|date:"l" }}
+          </td>
+          
+          <td style="font-size:.8rem;color:var(--gray-500);">
+            {% if holiday.holiday_date >= today %}
+              {{ holiday.holiday_date|timeuntil }}
+            {% else %}
+              <span style="color:var(--gray-300);">Past</span>
+            {% endif %}
+          </td>
+          
           <td>
             <div class="row-actions">
               <button class="row-btn edit" title="Edit"
-                      onclick="openEditModal('{{ holiday.id }}','{{ holiday.name|escapejs }}','{{ holiday.date|date:'Y-m-d' }}','{{ holiday.holiday_type }}')">
+                      onclick="openEditModal('{{ holiday.holiday_id }}','{{ holiday.holiday_name|escapejs }}','{{ holiday.holiday_date|date:'Y-m-d' }}','{{ holiday.holiday_type }}')">
                 <i class="fas fa-pen"></i>
               </button>
-              <form method="post" action="" style="display:inline;" onsubmit="return confirm('Delete {{ holiday.name }}?')">
-                {% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="holiday_id" value="{{ holiday.id }}">
-                <button type="submit" class="row-btn del"><i class="fas fa-trash"></i></button>
-              </form>
+              
+              <button class="row-btn del" title="Delete"
+                      data-hol-id="{{ holiday.holiday_id }}"
+                      data-hol-name="{{ holiday.holiday_name|escapejs }}"
+                      onclick="confirmDeleteHoliday(this)">
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="6" style="text-align:center;padding:48px;color:var(--gray-400);">
-          <i class="fas fa-calendar-days" style="font-size:2rem;display:block;opacity:.2;margin-bottom:10px;"></i>
-          No holidays on record. Add one to get started.
-        </td></tr>
+        <tr>
+          <td colspan="6" style="text-align:center;padding:48px;color:var(--gray-400);">
+            <i class="fas fa-calendar-days" style="font-size:2rem;display:block;opacity:.2;margin-bottom:10px;"></i>
+            No holidays on record. Add one to get started.
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -184,6 +263,27 @@
     </form>
   </div>
 </div>
+
+<div id="toast-confirm-overlay" class="toast-overlay" aria-hidden="true">
+  <div class="toast-card" role="dialog" aria-modal="true"
+       aria-labelledby="toast-title" aria-describedby="toast-desc">
+    <div class="toast-icon-wrap" id="toast-icon-wrap">
+      <i class="fas fa-ban" id="toast-icon"></i>
+    </div>
+    <div class="toast-body">
+      <p class="toast-title" id="toast-title">Confirm Action</p>
+      <p class="toast-desc"  id="toast-desc">Are you sure?</p>
+    </div>
+    <div class="toast-actions">
+      <button class="toast-btn toast-cancel" onclick="dismissToast()">Cancel</button>
+      <button class="toast-btn toast-confirm" id="toast-confirm-btn" onclick="executeToastAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CSRF_TOKEN = "{{ csrf_token }}";
+</script>
 {% endblock %}
 
 {% block js %}
