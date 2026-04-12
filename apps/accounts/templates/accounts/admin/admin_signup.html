@@ -24,12 +24,22 @@
       </div>
     </div>
 
+    {% if is_bootstrap %}
+    <h2 class="info-heading">First-Time System Setup</h2>
+    <p class="info-sub">
+      No administrator account exists yet. Create the initial
+      <strong style="color:#FCD34D;">Super Admin</strong> account to unlock
+      the HRIS. This account will have full unrestricted access and can
+      create all other HR accounts afterward.
+    </p>
+    {% else %}
     <h2 class="info-heading">Admin Account Creation</h2>
     <p class="info-sub">
       Only the Super Admin can create accounts for HR personnel.
       Each account is assigned a specific role that determines
       what they can view and modify in the system.
     </p>
+    {% endif %}
 
     <div class="role-info-list">
 
@@ -65,6 +75,15 @@
 
     </div>
 
+    {% if is_bootstrap %}
+    <div class="info-warning" style="border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.08);">
+      <i class="fas fa-triangle-exclamation" style="color:var(--amber);"></i>
+      <span>
+        This setup page is only available once. After the Super Admin account
+        is created, this URL will redirect to the sign-in page.
+      </span>
+    </div>
+    {% else %}
     <div class="info-warning">
       <i class="fas fa-triangle-exclamation"></i>
       <span>
@@ -72,6 +91,7 @@
         Credentials are encrypted — passwords cannot be recovered, only reset.
       </span>
     </div>
+    {% endif %}
 
   </aside>
 
@@ -79,18 +99,31 @@
   <main class="form-panel">
     <div class="form-card">
 
-      <div class="admin-badge">
-        {% comment %} <i class="fas fa-shield-halved"></i> {% endcomment %}
-        Administration Portal — New Account
+      <div class="admin-badge {% if is_bootstrap %}admin-badge--bootstrap{% endif %}">
+        {% if is_bootstrap %}
+          <i class="fas fa-wand-magic-sparkles"></i>&nbsp; First-Time Setup — System Bootstrap
+        {% else %}
+          Administration Portal — New Account
+        {% endif %}
       </div>
 
-      <h2 class="card-heading">Create Admin Account</h2>
-      <div class="subheading-box">
+      {% comment %} Card Sub-heading {% endcomment %}
+      <h2 class="card-heading">
+        {% if is_bootstrap %}Create Super Admin Account{% else %}Create Admin Account{% endif %}
+      </h2>
+
+      <div class="subheading-box {% if is_bootstrap %}subheading-box--bootstrap{% endif %}">
         <p class="card-subheading">
+          {% if is_bootstrap %}
+            No administrators exist yet. This account will be assigned the
+            <strong>Super Admin</strong> role automatically and will have
+            full access to all HRIS modules.
+          {% else %}
             Fill in the details below. The new user will log in using their username and password
             at the <strong>Admin Sign In</strong> page.
+          {% endif %}
         </p>
-    </div>
+      </div>
 
       <!-- Messages -->
       {% if messages %}
@@ -113,10 +146,11 @@
       </div>
       {% endif %}
 
-      <form method="post" class="admin-signup" id="admin-signup-form" novalidate>
+      <form method="post" class="admin-signup" id="admin-signup-form" novalidate {% if is_bootstrap %}data-bootstrap="true"{% endif %}>
         {% csrf_token %}
 
-        <!-- SECTION 1: Role assignment -->
+        <!-- SECTION 1: Role assignment — hidden in bootstrap, locked to superadmin -->
+        {% if not is_bootstrap %}
         <div class="section-label">Step 1 — Assign Role</div>
 
         <div class="field-group">
@@ -172,6 +206,11 @@
             <span class="field-error">{{ form.role.errors.0 }}</span>
           {% endif %}
         </div>
+        {% else %}
+        {% comment %} Invisible hidden input so the form POST always has role=superadmin {% endcomment %}
+        <input type="hidden" name="role" value="superadmin">
+        {% endif %}
+        
 
         <!-- SECTION 2: Link to employee (optional) -->
         <div class="section-label">Step 2 — Link to Employee Record (Optional)</div>
@@ -317,7 +356,8 @@
           <span id="personal-email-field-error" style="font-size:.78rem;color:var(--danger);display:none;"></span>
         </div>
 
-        <!-- SECTION 4: Account status -->
+        <!-- SECTION 4: Account status — hidden in bootstrap (always active) -->
+        {% if not is_bootstrap %}
         <div class="section-label">Step 4 — Account Status</div>
 
         <div class="field-group">
@@ -361,11 +401,18 @@
           </div>
           <p class="field-hint">An inactive account cannot log in. The superadmin can activate it later from the user list.</p>
         </div>
+        {% else %}
+        <input type="hidden" name="is_active" value="1">
+        {% endif %}
 
         <!-- Submit -->
         <button type="submit" class="btn-submit" id="btn-submit">
           <span class="btn-text">
-            <i class="fas fa-user-plus"></i>&nbsp; Create Admin Account
+            {% if is_bootstrap %}
+              <i class="fas fa-shield-halved"></i>&nbsp; Create Super Admin &amp; Launch HRIS
+            {% else %}
+              <i class="fas fa-user-plus"></i>&nbsp; Create Admin Account
+            {% endif %}
           </span>
           <span class="btn-spinner"><div class="spinner-ring"></div></span>
         </button>
@@ -373,9 +420,11 @@
       </form>
 
       <div class="card-footer">
-        Already have an account? <a href="{% url 'accounts:admin_login' %}">Sign in here</a>
-        &nbsp;·&nbsp;
-        {% comment %} <a href="{% url 'accounts:user_list' %}">View all users</a> {% endcomment %}
+        {% if is_bootstrap %}
+          Already have an account? <a href="{% url 'accounts:admin_login' %}">Sign in here</a>
+        {% else %}
+          Already have an account? <a href="{% url 'accounts:admin_login' %}">Sign in here</a>
+        {% endif %}
       </div>
 
       <p class="card-version">bfar_hris &nbsp;·&nbsp; Admin Portal &nbsp;·&nbsp; v1.0.0</p>

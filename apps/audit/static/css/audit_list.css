@@ -6,6 +6,14 @@
     font-size: 0.85rem;
 }
 
+.btn-ghost {
+    border:  1px solid var(--gray-200);
+}
+
+.btn-ghost:hover {
+    border: 1px solid var(--navy-700);
+}
+
 /* Audit Grid */
 .audit-grid {
     display: grid;

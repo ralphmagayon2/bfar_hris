@@ -78,7 +78,7 @@ def to_list(request):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def to_create(request):
-    employees = Employee.objects.filter(is_active=True).order_by('last_name', 'first_name')
+    employees = Employee.objects.filter(status='active').order_by('last_name', 'first_name')
 
     if request.method == 'POST':
         errors = _validate_to_form(request.POST)
@@ -117,7 +117,7 @@ def to_edit(request, to_id):
         TravelOrder.objects.select_related('employee', 'created_by'),
         to_id=to_id
     )
-    employees = Employee.objects.filter(is_active=True).order_by('last_name', 'first_name')
+    employees = Employee.objects.filter(status='active').order_by('last_name', 'first_name')
 
     if request.method == 'POST':
         errors = _validate_to_form(request.POST)

@@ -381,6 +381,22 @@
   line-height: 40px;
 }
 
+/* Locked account badge */
+.locked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: .62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  background: #FFF3E0;
+  color: #E65100;
+  border: 1px solid #FFE0B2;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 992px) {
   .bulk-bar {

@@ -115,6 +115,7 @@
       <option value="">Choose action…</option>
       <option value="activate">Activate Selected</option>
       <option value="deactivate">Deactivate selected</option>
+      <option value="unlock">Unlock selected</option>
       <option value="delete">Delete selected</option>
     </select>
     <button class="btn btn-sm bulk-apply-btn" id="bulk-apply-btn"
@@ -224,12 +225,17 @@
           </td>
 
           <td>
-            <div style="display:flex;align-items:center;gap:7px;">
+            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
               <span class="status-dot {% if u.is_active %}active{% else %}inactive{% endif %}"
                     id="status-dot-{{ u.user_id }}"></span>
               <span id="status-text-{{ u.user_id }}" style="font-size:.82rem;">
                 {% if u.is_active %}Active{% else %}Inactive{% endif %}
               </span>
+              {% if u.user_id in locked_user_ids %}
+              <span class="locked-badge">
+                <i class="fas fa-lock" style="font-size:.55rem;"></i> Locked
+              </span>
+              {% endif %}
             </div>
           </td>
 
@@ -312,16 +318,28 @@
               {% elif actor_role == 'hr_staff' and u.role == 'hr_admin' %}
                 <span class="row-btn-placeholder"></span>
               {% else %}
-                <button class="row-btn toggle {% if u.is_active %}deactivate{% else %}activate{% endif %}"
-                        id="toggle-btn-{{ u.user_id }}"
-                        title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %} {{ u.username }}"
-                        data-user-id="{{ u.user_id }}"
-                        data-username="{{ u.get_display_name|default:u.username|escapejs }}"
-                        data-is-active="{% if u.is_active %}1{% else %}0{% endif %}"
-                        onclick="confirmToggle(this)">
-                  <i class="fas fa-{% if u.is_active %}ban{% else %}check{% endif %}"
-                     id="toggle-icon-{{ u.user_id }}"></i>
-                </button>
+                {% if u.user_id in locked_user_ids %}
+                  {# Locked account — show unlock button regardless of is_active #}
+                  <button class="row-btn toggle activate"
+                          id="unlock-btn-{{ u.user_id }}"
+                          title="Unlock {{ u.username }}"
+                          data-user-id="{{ u.user_id }}"
+                          data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                          onclick="confirmUnlock(this)">
+                    <i class="fas fa-lock-open" id="unlock-icon-{{ u.user_id }}"></i>
+                  </button>
+                {% else %}
+                  <button class="row-btn toggle {% if u.is_active %}deactivate{% else %}activate{% endif %}"
+                          id="toggle-btn-{{ u.user_id }}"
+                          title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %} {{ u.username }}"
+                          data-user-id="{{ u.user_id }}"
+                          data-username="{{ u.get_display_name|default:u.username|escapejs }}"
+                          data-is-active="{% if u.is_active %}1{% else %}0{% endif %}"
+                          onclick="confirmToggle(this)">
+                    <i class="fas fa-{% if u.is_active %}ban{% else %}check{% endif %}"
+                      id="toggle-icon-{{ u.user_id }}"></i>
+                  </button>
+                {% endif %}
               {% endif %}
 
             {% comment %} Delete: superadmin deletes anyone except self; {% endcomment %}

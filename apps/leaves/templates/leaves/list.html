@@ -124,8 +124,8 @@
           <td style="font-family:var(--font-mono);font-size:.8rem;text-align:center;color:var(--warning);">{{ item.sl_used_ytd|floatformat:3 }}</td>
           <td>
             <div class="row-actions">
-              <a href="{% url 'leaves:elr' item.employee.id %}" class="row-btn view" title="View ELR"><i class="fas fa-eye"></i></a>
-              <a href="{% url 'leaves:print_elr' item.employee.id %}" class="row-btn print" title="Print ELR" target="_blank"><i class="fas fa-print"></i></a>
+              <a href="{% url 'leaves:elr' item.employee.employee_id %}" class="row-btn view" title="View ELR"><i class="fas fa-eye"></i></a>
+              <a href="{% url 'leaves:print_elr' item.employee.employee_id %}" class="row-btn print" title="Print ELR" target="_blank"><i class="fas fa-print"></i></a>
             </div>
           </td>
         </tr>

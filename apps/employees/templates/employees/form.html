@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% comment %} templates/employees/form.html {% endcomment %}
 
 {% block title %}{% if employee %}Edit Employee{% else %}Add Employee{% endif %} — BFAR HRIS{% endblock %}
 {% block page_title %}{% if employee %}Edit Employee{% else %}Add Employee{% endif %}{% endblock %}
@@ -160,6 +161,103 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 .action-bar-left  { display: flex; gap: 8px; }
 .action-bar-right { display: flex; gap: 8px; }
+
+@media (max-width: 768px) {
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .page-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .step-nav {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .step-item {
+    min-width: 180px;
+    flex: 0 0 auto;
+  }
+
+  .form-card-head {
+    padding: 12px 14px;
+  }
+
+  .form-card-body {
+    padding: 14px;
+  }
+
+  .rate-display {
+    grid-template-columns: 1fr;
+  }
+
+  .action-bar {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+    padding: 14px;
+  }
+
+  .action-bar-left,
+  .action-bar-right {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .action-bar-right {
+    flex-wrap: wrap;
+  }
+
+  .action-bar-right .btn,
+  .action-bar-left .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .deduction-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .step-item {
+    min-width: 150px;
+    padding: 10px;
+  }
+
+  .step-label {
+    font-size: .72rem;
+  }
+
+  .step-num {
+    width: 24px;
+    height: 24px;
+    font-size: .7rem;
+  }
+
+  .form-control {
+    font-size: .82rem;
+    padding: 8px 10px;
+  }
+
+  .form-card-title {
+    font-size: .8rem;
+  }
+
+  .av-preview-circle {
+    width: 68px;
+    height: 68px;
+  }
+}
 </style>
 {% endblock %}
 
@@ -228,7 +326,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       </div>
       <div class="form-card-body">
         <div class="avatar-upload-zone" onclick="document.getElementById('id-photo').click()">
-          <input type="file" id="id-photo" name="profile_picture" accept="image/*"
+          <input type="file" id="id-photo" name="profile_picture" accept="image/jpeg,image/png,image/webp"
                  onchange="previewPhoto(this)">
           <div class="av-preview-circle" id="photo-preview">
             {% if employee and employee.profile_picture %}
@@ -239,7 +337,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
           </div>
           <div>
             <div style="font-size:.82rem;font-weight:600;color:var(--navy-700);">Click to upload photo</div>
-            <div style="font-size:.72rem;color:var(--gray-400);">PNG, JPG — max 2 MB</div>
+            <div style="font-size:.72rem;color:var(--gray-400);">PNG, JPG — max 5 MB</div>
           </div>
         </div>
       </div>
@@ -257,13 +355,13 @@ textarea.form-control { resize: vertical; min-height: 80px; }
           <div class="form-group">
             <label class="form-label">Last Name <span class="req">*</span></label>
             <input type="text" name="last_name" class="form-control"
-                   value="{{ employee.last_name|default:'' }}" required
+                   value="{{ employee.last_name|default:'' }}"
                    placeholder="Dela Cruz">
           </div>
           <div class="form-group">
             <label class="form-label">First Name <span class="req">*</span></label>
             <input type="text" name="first_name" class="form-control"
-                   value="{{ employee.first_name|default:'' }}" required
+                   value="{{ employee.first_name|default:'' }}"
                    placeholder="Juan">
           </div>
           <div class="form-group">
@@ -275,17 +373,17 @@ textarea.form-control { resize: vertical; min-height: 80px; }
           <div class="form-group">
             <label class="form-label">Name Extension</label>
             <input type="text" name="name_ext" class="form-control"
-                   value="{{ employee.name_ext|default:'' }}"
+                   value="{{ employee.suffix|default:'' }}"
                    placeholder="Jr., Sr., III">
           </div>
           <div class="form-group">
             <label class="form-label">Date of Birth <span class="req">*</span></label>
             <input type="date" name="date_of_birth" class="form-control"
-                   value="{{ employee.date_of_birth|date:'Y-m-d'|default:'' }}" required>
+                   value="{{ employee.date_of_birth|date:'Y-m-d'|default:'' }}">
           </div>
           <div class="form-group">
             <label class="form-label">Sex <span class="req">*</span></label>
-            <select name="sex" class="form-control form-select" required>
+            <select name="sex" class="form-control form-select">
               <option value="">Select…</option>
               <option value="male"   {% if employee.sex == 'male' %}selected{% endif %}>Male</option>
               <option value="female" {% if employee.sex == 'female' %}selected{% endif %}>Female</option>
@@ -318,13 +416,33 @@ textarea.form-control { resize: vertical; min-height: 80px; }
             <label class="form-label">Mobile Number</label>
             <input type="tel" name="contact_number" class="form-control"
                    value="{{ employee.contact_number|default:'' }}"
-                   placeholder="09XX-XXX-XXXX">
+                   placeholder="09XX-XXX-XXXX"
+                   max-length="13"
+                   inputmode="numeric">
           </div>
           <div class="form-group">
-            <label class="form-label">Email Address</label>
-            <input type="email" name="email" class="form-control"
-                   value="{{ employee.email|default:'' }}"
-                   placeholder="juan@bfar.gov.ph">
+            <label class="form-label">Contact Email</label>
+            {% if linked_account %}
+              <input type="email" name="email" class="form-control"
+                     value="{{ employee.email|default:'' }}"
+                     placeholder="Work or contact email">
+              <span class="form-hint">
+                <i class="fas fa-link" style="color:var(--navy-700);"></i>
+                This employee has a linked HRIS account
+                (<strong>{{ linked_account.username }}</strong>).
+                Their password reset email
+                ({{ linked_account.personal_email|default:"not set" }})
+                is managed separately in
+                <a href="{% url 'accounts:user_list' %}" target="_blank">User Management</a>.
+              </span>
+            {% else %}
+              <input type="email" name="email" class="form-control"
+                     value="{{ employee.email|default:'' }}"
+                     placeholder="juan@bfar.gov.ph">
+              <span class="form-hint">
+                Contact email for display purposes. Not used for system login.
+              </span>
+            {% endif %}
           </div>
         </div>
         <div class="form-group span3">
@@ -357,7 +475,6 @@ textarea.form-control { resize: vertical; min-height: 80px; }
             <input type="text" name="id_number" class="form-control"
                   value="{{ employee.id_number|default:'' }}"
                   placeholder="e.g. 000000037"
-                  required
                   maxlength="20"
                   pattern="[0-9]+"
                   title="Numbers only — match the User ID in the ZKTeco device">
@@ -369,21 +486,49 @@ textarea.form-control { resize: vertical; min-height: 80px; }
           <div class="form-group">
             <label class="form-label">Employment Type <span class="req">*</span></label>
             <select name="employment_type" id="emp-type-sel" class="form-control form-select"
-                    required onchange="toggleContractEnd()">
+                    onchange="toggleContractEnd()">
               <option value="">Select type…</option>
-              <option value="permanent"    {% if employee.employment_type == 'permanent' %}selected{% endif %}>Permanent</option>
-              <option value="cos"          {% if employee.employment_type == 'cos' %}selected{% endif %}>Contract of Service (COS)</option>
-              <option value="jo"           {% if employee.employment_type == 'jo' %}selected{% endif %}>Job Order (JO)</option>
-              <option value="nsap"         {% if employee.employment_type == 'nsap' %}selected{% endif %}>NSAP Enumerator</option>
-              <option value="nsap_fw"      {% if employee.employment_type == 'nsap_fw' %}selected{% endif %}>NSAP Freshwater</option>
-              <option value="fishcore"     {% if employee.employment_type == 'fishcore' %}selected{% endif %}>FishCore</option>
-              <option value="adjudication" {% if employee.employment_type == 'adjudication' %}selected{% endif %}>Adjudication</option>
+
+              <option value="Permanent"
+                {% if employee.employment_type == 'Permanent' %}selected{% endif %}>
+                Permanent
+              </option>
+
+              <option value="COS"
+                {% if employee.employment_type == 'COS' %}selected{% endif %}>
+                Contract of Service (COS)
+              </option>
+
+              <option value="JO"
+                {% if employee.employment_type == 'JO' %}selected{% endif %}>
+                Job Order (JO)
+              </option>
+
+              <option value="JO"
+                {% if employee.employment_type == 'JO' and employee.payroll_group.group_name == 'NSAP Enumerator' %}selected{% endif %}>
+                NSAP Enumerator
+              </option>
+
+              <option value="JO"
+                {% if employee.employment_type == 'JO' and employee.payroll_group.group_name == 'NSAP Freshwater' %}selected{% endif %}>
+                NSAP Freshwater
+              </option>
+
+              <option value="COS"
+                {% if employee.employment_type == 'COS' and employee.payroll_group.group_name == 'FishCore' %}selected{% endif %}>
+                FishCore
+              </option>
+
+              <option value="COS"
+                {% if employee.employment_type == 'COS' and employee.payroll_group.group_name == 'Adjudication' %}selected{% endif %}>
+                Adjudication
+              </option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Date Hired <span class="req">*</span></label>
             <input type="date" name="date_hired" class="form-control"
-                   value="{{ employee.date_hired|date:'Y-m-d'|default:'' }}" required>
+                   value="{{ employee.date_hired|date:'Y-m-d'|default:'' }}">
           </div>
           <div class="form-group contract-end-wrap" id="contract-end-wrap">
             <label class="form-label">Contract End Date</label>
@@ -423,8 +568,8 @@ textarea.form-control { resize: vertical; min-height: 80px; }
         <div class="form-grid-2">
           <div class="form-group">
             <label class="form-label">Division <span class="req">*</span></label>
-            <select name="division" id="div-sel" class="form-control form-select" required
-                    onchange="loadUnits(this.value)">
+            <select name="division" id="div-sel" class="form-control form-select"
+                    onchange="loadUnits(this.value, '')">
               <option value="">Select division…</option>
               {% for div in divisions %}
               <option value="{{ div.division_id }}"
@@ -435,8 +580,12 @@ textarea.form-control { resize: vertical; min-height: 80px; }
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Unit / Section</label>
-            <select name="unit" id="unit-sel" class="form-control form-select">
+            <label class="form-label">
+              Unit / Section
+              <span style="font-weight:400; font-size:.72rem; color:var(--gray-400);text-transform:none;">(optional)</span>
+            </label>
+            <select name="unit" id="unit-sel" class="form-control form-select"
+                    data-select="{{ employee.unit_id|default:'' }}">
               <option value="">Select unit…</option>
               {% for unit in units %}
               <option value="{{ unit.unit_id }}" data-division="{{ unit.division_id }}"
@@ -448,7 +597,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
           </div>
           <div class="form-group">
             <label class="form-label">Position / Designation <span class="req">*</span></label>
-            <select name="position" class="form-control form-select" required>
+            <select name="position" class="form-control form-select">
               <option value="">Select position…</option>
               {% for pos in positions %}
               <option value="{{ pos.position_id }}"
@@ -460,7 +609,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
           </div>
           <div class="form-group">
             <label class="form-label">Payroll Group <span class="req">*</span></label>
-            <select name="payroll_group" class="form-control form-select" required>
+            <select name="payroll_group" class="form-control form-select">
               <option value="">Select payroll group…</option>
               {% for pg in payroll_groups %}
               <option value="{{ pg.group_id }}"
@@ -494,7 +643,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
             <input type="number" name="monthly_salary" id="monthly-salary"
                    class="form-control" step="0.01" min="0"
                    value="{{ employee.monthly_salary|default:'' }}"
-                   required oninput="computeRates()"
+                   oninput="computeRates()"
                    placeholder="e.g. 25000.00">
           </div>
           <div class="form-group">
@@ -631,36 +780,81 @@ textarea.form-control { resize: vertical; min-height: 80px; }
       </div>
       <div class="form-card-body">
         <div class="form-grid-2">
+
           <div class="form-group">
             <label class="form-label">Work Schedule <span class="req">*</span></label>
-            <select name="work_schedule" class="form-control form-select" required>
-              <option value="">Select schedule…</option>
+            <select name="work_schedule" id="work-schedule-sel"
+                    class="form-control form-select" onchange="updateSchedHint()">
+              <option value="">— Inherit from Division / Unit —</option>
               {% for sched in work_schedules %}
-              <option value="{{ sched.schedule_id }}">
+              <option value="{{ sched.schedule_id }}"
+                data-flexible="{{ sched.is_flexible|yesno:'true,false' }}"
+                data-am-in="{{ sched.am_in|time:'H:i' }}"
+                data-am-out="{{ sched.am_out|time:'H:i' }}"
+                data-pm-in="{{ sched.pm_in|time:'H:i' }}"
+                data-pm-out="{{ sched.pm_out|time:'H:i' }}"
+                data-flex-earliest="{{ sched.flex_start_earliest|time:'g:i A' }}"
+                data-flex-latest="{{ sched.flex_start_latest|time:'g:i A' }}"
+                data-hours="{{ sched.working_hours_per_day }}"
+                {% if current_schedule_id == sched.schedule_id %}selected{% endif %}>
                 {{ sched.schedule_name }} — {{ sched.am_in|time:"g:i A" }} to {{ sched.pm_out|time:"g:i A" }}
               </option>
               {% endfor %}
             </select>
             <span class="form-hint">
-              Standard: 8:00 AM – 5:00 PM, Mon–Fri.
-              Absent starts from 8:01 AM; late deduction begins immediately.
+              Selecting a schedule here sets a personal override for this employee.
             </span>
           </div>
+
           <div class="form-group">
-            <label class="form-label">Station / Workplace</label>
-            <input type="text" name="station" class="form-control"
-                   value="{{ employee.station|default:'' }}"
-                   placeholder="e.g. BFAR-III Main Office, San Fernando">
+            <label class="form-label">Effective From</label>
+            <input type="date" name="schedule_effective_date" id="schedule-effective-date"
+                  class="form-control"
+                  value="{{ current_effective_date|date:'Y-m-d'|default:today|date:'Y-m-d' }}"
+                  min="{{ today|date:'Y-m-d' }}">
+            <span class="form-hint">
+              Schedule takes effect from this date onward. Past DTR records are unaffected.
+              Leave as today for immediate effect.
+            </span>
           </div>
+
         </div>
+
+        <!-- Inherit hint -->
+        <div id="inherited-sched-hint"
+            style="font-size:.72rem;color:var(--gray-500);margin-top:10px;
+                    padding:8px 10px;background:var(--navy-25);border-radius:6px;
+                    {% if not current_schedule_id %}display:block;{% else %}display:none;{% endif %}">
+          <i class="fas fa-info-circle" style="color:var(--navy-700);"></i>
+          <span id="inherited-sched-name">
+            {% if inherited_schedule_name %}
+              Inheriting: <strong>{{ inherited_schedule_name }}</strong> from their Division/Unit.
+            {% else %}
+              No schedule assigned. Will use system default (8AM–5PM).
+            {% endif %}
+          </span>
+        </div>
+
+        {% if next_sched %}
+        <div style="margin-top:8px;padding:8px 12px;background:#FFF8E1;
+                    border-radius:6px;border:1px solid #FFE082;font-size:.76rem;">
+          <i class="fas fa-forward" style="color:#F57F17;margin-right:5px;"></i>
+          <strong>Next scheduled change:</strong>
+          {{ next_sched.schedule.schedule_name }}
+          — effective <strong>{{ next_sched.effective_date|date:"M d, Y" }}</strong>
+        </div>
+        {% endif %}
+
+        <!-- DTR Scan Rules — dynamic based on selected schedule -->
         <div style="margin-top:14px;">
-          <div style="background:var(--navy-25);border-radius:8px;padding:14px;">
+          <div id="dtr-scan-rules-box" style="background:var(--navy-25);border-radius:8px;padding:14px;">
             <div style="font-size:.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
-              DTR Scan Rules (BFAR-III Standard)
+              DTR Scan Rules — <span id="sched-rules-label">BFAR-III Standard</span>
             </div>
-            <table class="deduction-table">
+            <table class="deduction-table" id="dtr-rules-table">
               <thead><tr><th>Scan</th><th>Expected</th><th>Rule</th></tr></thead>
-              <tbody>
+              <tbody id="dtr-rules-body">
+                <!-- Populated by JS based on selected schedule -->
                 <tr><td>AM IN</td><td>8:00 AM</td><td>After 8:00 AM = Late; every minute beyond deducted</td></tr>
                 <tr><td>AM OUT</td><td>12:00 PM</td><td>Missing = Half-day; undertime if earlier</td></tr>
                 <tr><td>PM IN</td><td>1:00 PM</td><td>Missing with AM OUT missing = Half-day absent</td></tr>
@@ -669,6 +863,16 @@ textarea.form-control { resize: vertical; min-height: 80px; }
             </table>
           </div>
         </div>
+
+        <div class="form-grid-2" style="margin-top:14px;">
+          <div class="form-group">
+            <label class="form-label">Station / Workplace</label>
+            <input type="text" name="station" class="form-control"
+                  value="{{ employee.station|default:'' }}"
+                  placeholder="e.g. BFAR-III Main Office, San Fernando">
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -694,14 +898,14 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   <div class="action-bar">
     <div class="action-bar-left">
       <button type="button" class="btn btn-outline btn-sm" id="btn-prev"
-              onclick="goStep(currentStep - 1)" style="display:none;">
+              onclick="goStep(window.currentStep - 1)" style="display:none;">
         <i class="fas fa-arrow-left"></i> Previous
       </button>
     </div>
     <div class="action-bar-right">
       <a href="{% url 'employees:employee_list' %}" class="btn btn-ghost btn-sm">Cancel</a>
       <button type="button" class="btn btn-primary btn-sm" id="btn-next"
-              onclick="goStep(currentStep + 1)">
+              onclick="goStep(window.currentStep + 1)">
         Next <i class="fas fa-arrow-right"></i>
       </button>
       <button type="submit" class="btn btn-primary btn-sm" id="btn-submit" style="display:none;">
@@ -712,82 +916,25 @@ textarea.form-control { resize: vertical; min-height: 80px; }
   </div>
 
 </form>
+
+<div id="toast-confirm-overlay" class="toast-overlay" aria-hidden="true">
+  <div class="toast-card" role="dialog" aria-modal="true">
+    <div class="toast-icon-wrap" id="toast-icon-wrap" style="background:var(--navy-50);color:var(--navy-700);">
+      <i class="fas fa-floppy-disk" id="toast-icon"></i>
+    </div>
+    <div class="toast-body">
+      <p class="toast-title" id="toast-title">Save Employee?</p>
+      <p class="toast-desc" id="toast-desc"></p>
+    </div>
+    <div class="toast-actions">
+      <button class="toast-btn toast-cancel" type="button" onclick="dismissToast()">Cancel</button>
+      <button class="toast-btn toast-confirm success" id="toast-confirm-btn" type="button" onclick="executeToastAction()">Confirm</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 
 {% block js %}
-<script>
-let currentStep = 0;
-const TOTAL = 4;
-
-function goStep(n) {
-  if (n < 0 || n >= TOTAL) return;
-  document.querySelectorAll('.step-panel').forEach((p,i) => p.classList.toggle('active', i===n));
-  document.querySelectorAll('.step-item').forEach((s,i) => {
-    s.classList.remove('active','done');
-    if (i === n) s.classList.add('active');
-    else if (i < n) s.classList.add('done');
-  });
-  document.getElementById('btn-prev').style.display   = n > 0 ? '' : 'none';
-  document.getElementById('btn-next').style.display   = n < TOTAL-1 ? '' : 'none';
-  document.getElementById('btn-submit').style.display = n === TOTAL-1 ? '' : 'none';
-  currentStep = n;
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-document.addEventListener('DOMContentLoaded', () => goStep(0));
-
-/* Photo preview */
-function previewPhoto(input) {
-  if (!input.files[0]) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('photo-preview').innerHTML =
-      '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover;">';
-  };
-  reader.readAsDataURL(input.files[0]);
-}
-
-/* Contract end date toggle */
-function toggleContractEnd() {
-  const type = document.getElementById('emp-type-sel').value;
-  const wrap = document.getElementById('contract-end-wrap');
-  wrap.classList.toggle('show', type === 'cos' || type === 'jo');
-}
-document.addEventListener('DOMContentLoaded', toggleContractEnd);
-
-/* Rate computation (COS/JO formula: monthly ÷ 22) */
-function computeRates() {
-  const monthly = parseFloat(document.getElementById('monthly-salary').value) || 0;
-  const daily   = monthly / 22;
-  const hourly  = daily / 8;
-  const perMin  = hourly / 60;
-  const half    = monthly / 2;
-  const fmt = v => '₱' + v.toFixed(4).replace(/\.?0+$/, '');
-  document.getElementById('daily-rate').textContent  = monthly ? fmt(daily)  : '₱ —';
-  document.getElementById('hourly-rate').textContent = monthly ? fmt(hourly) : '₱ —';
-  document.getElementById('per-min').textContent     = monthly ? fmt(perMin) : '₱ —';
-  document.getElementById('half-month').textContent  = monthly ? '₱' + half.toFixed(2) : '₱ —';
-}
-document.addEventListener('DOMContentLoaded', computeRates);
-
-function loadUnits(divId) {
-  const sel = document.getElementById('unit-sel');
-  const options = sel.querySelectorAll('option');
-  
-  options.forEach(opt => {
-    // Always show the default "Select unit..." option
-    if (opt.value === "") {
-      opt.style.display = 'block';
-      return;
-    }
-    // Show only units matching the selected division
-    if (opt.dataset.division === divId) {
-      opt.style.display = 'block';
-    } else {
-      opt.style.display = 'none';
-    }
-  });
-  sel.value = ""; // Reset the selection
-}
-</script>
+<script src="{% static 'js/employee_form.js' %}"></script>
 {% endblock %}

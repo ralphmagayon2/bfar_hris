@@ -1,0 +1,366 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Org Structure — BFAR HRIS{% endblock %}
+{% block page_title %}Org Structure{% endblock %}
+
+{% block css %}
+<style>
+/* Page layout */
+.org-header-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+/* Division card */
+.div-card {
+  background: var(--white);
+  border-radius: 12px;
+  border: 1px solid var(--gray-100);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.div-card-head {
+  padding: 14px 18px;
+  background: var(--navy-25);
+  border-bottom: 1px solid var(--navy-100);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.div-code-badge {
+  font-size: .67rem; font-weight: 800;
+  padding: 3px 8px; border-radius: 6px;
+  background: var(--navy-700); color: var(--white);
+  letter-spacing: .5px; text-transform: uppercase;
+  flex-shrink: 0;
+}
+.div-name {
+  font-size: .92rem; font-weight: 700; color: var(--navy-900);
+  flex: 1; min-width: 0;
+}
+.div-sched-pill {
+  font-size: .68rem; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--navy-50); color: var(--navy-700);
+  white-space: nowrap; flex-shrink: 0;
+}
+.div-sched-pill.none { background: var(--gray-100); color: var(--gray-400); }
+.div-head-actions { display: flex; gap: 5px; flex-shrink: 0; }
+
+/* Unit rows */
+.unit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--gray-100);
+  gap: 10px;
+  flex-wrap: wrap;
+  transition: background .15s;
+}
+.unit-row:last-child { border-bottom: none; }
+.unit-row:hover { background: var(--gray-50); }
+
+/* Sub-unit rows — indented */
+.sub-unit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px 8px 40px;
+  border-bottom: 1px solid var(--gray-100);
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--gray-50);
+  transition: background .15s;
+}
+.sub-unit-row:last-child { border-bottom: none; }
+.sub-unit-row:hover { background: #F0F4F8; }
+
+.unit-indent-icon {
+  color: var(--gray-300); margin-right: 6px; font-size: .8rem;
+}
+
+.unit-name { font-size: .83rem; font-weight: 600; color: var(--navy-900); }
+.unit-meta { font-size: .69rem; color: var(--gray-400); margin-top: 2px; }
+
+.unit-sched-pill {
+  font-size: .67rem; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap;
+}
+.unit-sched-pill.own       { background: var(--navy-50); color: var(--navy-700); }
+.unit-sched-pill.inherited { background: var(--gray-100); color: var(--gray-500); font-style: italic; }
+.unit-sched-pill.none      { background: var(--gray-100); color: var(--gray-300); }
+
+.unit-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+/* Empty unit state */
+.no-units {
+  padding: 20px 18px;
+  font-size: .8rem; color: var(--gray-400);
+  text-align: center;
+}
+
+/* Stats bar */
+.org-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+@media (max-width: 640px) { .org-stats { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 360px) { .org-stats { grid-template-columns: 1fr; } }
+
+.stat-card {
+  background: var(--white);
+  border-radius: 10px;
+  border: 1px solid var(--gray-100);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  text-align: center;
+}
+.stat-val  { font-size: 1.5rem; font-weight: 800; color: var(--navy-900); line-height: 1; }
+.stat-label{ font-size: .71rem; color: var(--gray-400); margin-top: 4px; text-transform: uppercase; letter-spacing: .4px; }
+
+/* Search bar */
+.org-search-wrap {
+  position: relative; margin-bottom: 16px;
+}
+.org-search-wrap i {
+  position: absolute; left: 12px; top: 50%;
+  transform: translateY(-50%); color: var(--gray-400); font-size: .8rem;
+}
+.org-search-wrap input {
+  width: 100%; padding: 9px 12px 9px 34px;
+  border: 1.5px solid var(--gray-200); border-radius: var(--radius);
+  font-size: .83rem; font-family: var(--font); color: var(--navy-900);
+  background: var(--white); box-sizing: border-box;
+  transition: border-color .2s;
+}
+.org-search-wrap input:focus { outline: none; border-color: var(--navy-700); }
+
+/* Responsive action buttons */
+@media (max-width: 480px) {
+  .div-head-actions .btn span { display: none; }
+  .unit-actions .btn span { display: none; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Org Structure</h1>
+    <p class="page-sub">Manage divisions, units, and sub-units for BFAR Region III.</p>
+  </div>
+  <div class="org-header-actions">
+    <a href="{% url 'employees:unit_create' %}" class="btn btn-outline btn-sm">
+      <i class="fas fa-plus"></i> Add Unit
+    </a>
+    <a href="{% url 'employees:division_create' %}" class="btn btn-primary btn-sm">
+      <i class="fas fa-plus"></i> Add Division
+    </a>
+  </div>
+</div>
+
+<!-- Stats -->
+{% with total_divs=divisions|length %}
+<div class="org-stats">
+  <div class="stat-card">
+    <div class="stat-val">{{ divisions|length }}</div>
+    <div class="stat-label">Divisions</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val">
+      {% with cnt=0 %}
+        {% for div in divisions %}{% for unit in div.units.all %}{% if not unit.parent_unit %}{% with cnt=cnt|add:1 %}{% endwith %}{% endif %}{% endfor %}{% endfor %}
+      {% endwith %}
+      {{ divisions|length }}
+    </div>
+    <div class="stat-label">Top-level Units</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val" id="stat-subunits">—</div>
+    <div class="stat-label">Sub-units</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val" id="stat-with-sched">—</div>
+    <div class="stat-label">With Schedule</div>
+  </div>
+</div>
+{% endwith %}
+
+<!-- Search -->
+<div class="org-search-wrap">
+  <i class="fas fa-search"></i>
+  <input type="text" id="org-search" placeholder="Search divisions or units…"
+         oninput="filterOrg(this.value)">
+</div>
+
+<!-- Division cards -->
+<div id="org-list">
+{% for div in divisions %}
+<div class="div-card" data-org-name="{{ div.division_name|lower }} {{ div.division_code|lower }}">
+  <div class="div-card-head">
+    <span class="div-code-badge">{{ div.division_code }}</span>
+    <span class="div-name">{{ div.division_name }}</span>
+    {% if div.default_schedule %}
+      <span class="div-sched-pill">
+        <i class="fas fa-clock" style="font-size:.58rem;margin-right:3px;"></i>
+        {{ div.default_schedule.schedule_name }}
+      </span>
+    {% else %}
+      <span class="div-sched-pill none">
+        <i class="fas fa-circle-minus" style="font-size:.58rem;margin-right:3px;"></i>
+        No schedule
+      </span>
+    {% endif %}
+    <div class="div-head-actions">
+      <a href="{% url 'employees:unit_create' %}?division={{ div.division_id }}"
+         class="btn btn-ghost btn-sm" style="font-size:.72rem;padding:4px 9px;"
+         title="Add unit to this division">
+        <i class="fas fa-plus"></i>
+        <span> Unit</span>
+      </a>
+      <a href="{% url 'employees:division_edit' div.division_id %}"
+         class="btn btn-ghost btn-sm" style="font-size:.72rem;padding:4px 9px;"
+         title="Edit division">
+        <i class="fas fa-pen"></i>
+        <span> Edit</span>
+      </a>
+    </div>
+  </div>
+
+  {# Top-level units for this division #}
+  {% with top_units=div.units.all %}
+  {% if top_units %}
+    {% for unit in top_units %}
+    {% if not unit.parent_unit %}
+    <div class="unit-row" data-org-name="{{ unit.unit_name|lower }}">
+      <div>
+        <div class="unit-name">{{ unit.unit_name }}</div>
+        <div class="unit-meta">
+          {% if unit.default_schedule %}
+            <span class="unit-sched-pill own">
+              <i class="fas fa-clock" style="font-size:.57rem;"></i>
+              {{ unit.default_schedule.schedule_name }}
+            </span>
+          {% elif div.default_schedule %}
+            <span class="unit-sched-pill inherited">
+              <i class="fas fa-arrow-up" style="font-size:.57rem;"></i>
+              Inherits: {{ div.default_schedule.schedule_name }}
+            </span>
+          {% else %}
+            <span class="unit-sched-pill none">No schedule</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="unit-actions">
+        <a href="{% url 'employees:unit_create' %}?parent={{ unit.unit_id }}&division={{ div.division_id }}"
+           class="btn btn-ghost btn-sm" style="font-size:.71rem;padding:3px 8px;"
+           title="Add sub-unit">
+          <i class="fas fa-plus"></i>
+          <span> Sub-unit</span>
+        </a>
+        <a href="{% url 'employees:unit_edit' unit.unit_id %}"
+           class="btn btn-ghost btn-sm" style="font-size:.71rem;padding:3px 8px;"
+           title="Edit unit">
+          <i class="fas fa-pen"></i>
+          <span> Edit</span>
+        </a>
+      </div>
+    </div>
+
+    {# Sub-units of this unit #}
+    {% for sub in unit.sub_units.all %}
+    <div class="sub-unit-row" data-org-name="{{ sub.unit_name|lower }}">
+      <div style="display:flex;align-items:center;">
+        <i class="fas fa-turn-down-right unit-indent-icon"></i>
+        <div>
+          <div class="unit-name" style="font-size:.8rem;">{{ sub.unit_name }}</div>
+          <div class="unit-meta" style="margin-top:2px;">
+            {% if sub.default_schedule %}
+              <span class="unit-sched-pill own">
+                <i class="fas fa-clock" style="font-size:.56rem;"></i>
+                {{ sub.default_schedule.schedule_name }}
+              </span>
+            {% elif unit.default_schedule %}
+              <span class="unit-sched-pill inherited">
+                <i class="fas fa-arrow-up" style="font-size:.56rem;"></i>
+                {{ unit.default_schedule.schedule_name }}
+              </span>
+            {% elif div.default_schedule %}
+              <span class="unit-sched-pill inherited">
+                <i class="fas fa-arrow-up" style="font-size:.56rem;"></i>
+                {{ div.default_schedule.schedule_name }}
+              </span>
+            {% else %}
+              <span class="unit-sched-pill none">No schedule</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="unit-actions">
+        <a href="{% url 'employees:unit_edit' sub.unit_id %}"
+           class="btn btn-ghost btn-sm" style="font-size:.71rem;padding:3px 8px;">
+          <i class="fas fa-pen"></i>
+          <span> Edit</span>
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% endif %}
+    {% endfor %}
+  {% else %}
+  <div class="no-units">
+    No units yet.
+    <a href="{% url 'employees:unit_create' %}?division={{ div.division_id }}"
+       style="color:var(--navy-700);font-weight:600;">Add one.</a>
+  </div>
+  {% endif %}
+  {% endwith %}
+</div>
+{% empty %}
+<div style="text-align:center;padding:60px 20px;color:var(--gray-400);">
+  <i class="fas fa-sitemap" style="font-size:2rem;display:block;opacity:.2;margin-bottom:12px;"></i>
+  No divisions yet.
+  <a href="{% url 'employees:division_create' %}" style="color:var(--navy-700);font-weight:600;">
+    Add the first one.
+  </a>
+</div>
+{% endfor %}
+</div>
+
+{% endblock %}
+
+{% block js %}
+<script>
+function filterOrg(q) {
+  const term = q.toLowerCase();
+  document.querySelectorAll('#org-list .div-card').forEach(card => {
+    const divMatch = card.dataset.orgName && card.dataset.orgName.includes(term);
+    const units = card.querySelectorAll('[data-org-name]');
+    let anyUnit = false;
+    units.forEach(u => {
+      const show = !term || divMatch || u.dataset.orgName.includes(term);
+      u.style.display = show ? '' : 'none';
+      if (show) anyUnit = true;
+    });
+    card.style.display = (!term || divMatch || anyUnit) ? '' : 'none';
+  });
+}
+
+// Compute stats from DOM
+document.addEventListener('DOMContentLoaded', () => {
+  const subUnits = document.querySelectorAll('.sub-unit-row').length;
+  const withSched = document.querySelectorAll('.unit-sched-pill.own, .div-sched-pill:not(.none)').length;
+  document.getElementById('stat-subunits').textContent = subUnits;
+  document.getElementById('stat-with-sched').textContent = withSched;
+});
+</script>
+{% endblock %}

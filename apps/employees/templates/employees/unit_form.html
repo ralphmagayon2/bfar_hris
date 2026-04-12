@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if unit %}Edit Unit{% else %}Add Unit{% endif %} — BFAR HRIS{% endblock %}
+{% block page_title %}{% if unit %}Edit Unit{% else %}Add Unit{% endif %}{% endblock %}
+
+{% block css %}
+<style>
+.form-wrap { max-width: 640px; }
+.form-card {
+  background: var(--white); border-radius: 12px;
+  border: 1px solid var(--gray-100); box-shadow: var(--shadow);
+  overflow: hidden; margin-bottom: 16px;
+}
+.form-card-head {
+  padding: 13px 18px; border-bottom: 1px solid var(--gray-100);
+  background: var(--gray-50);
+  display: flex; align-items: center; gap: 8px;
+}
+.form-card-title {
+  font-size: .87rem; font-weight: 700; color: var(--navy-900);
+  display: flex; align-items: center; gap: 8px;
+}
+.form-card-title .icon {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: var(--navy-50); color: var(--navy-700);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .72rem;
+}
+.form-card-body { padding: 18px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-label {
+  font-size: .71rem; font-weight: 700; color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.req { color: var(--danger); }
+.form-hint { font-size: .69rem; color: var(--gray-400); margin-top: 2px; line-height: 1.4; }
+.form-control {
+  padding: 9px 12px; width: 100%; box-sizing: border-box;
+  border: 1.5px solid var(--gray-200); border-radius: var(--radius);
+  font-size: .875rem; font-family: var(--font); color: var(--navy-900);
+  background: var(--white); transition: border-color .2s, box-shadow .2s;
+}
+.form-control:focus {
+  outline: none; border-color: var(--navy-700);
+  box-shadow: 0 0 0 3px rgba(21,101,192,.1);
+}
+.form-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2378909C' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+  padding-right: 32px;
+}
+.action-bar {
+  position: sticky; bottom: 0; z-index: 50;
+  background: var(--white); border-top: 1px solid var(--gray-100);
+  padding: 13px 20px; margin-top: 6px;
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: 0 -2px 12px rgba(10,35,66,.07);
+  border-radius: 0 0 12px 12px;
+}
+.info-box {
+  background: var(--navy-25); border-radius: 8px;
+  padding: 11px 14px; font-size: .76rem;
+  color: var(--gray-600); line-height: 1.6; margin-top: 12px;
+}
+.info-box i { color: var(--navy-700); margin-right: 5px; }
+
+/* Sub-unit indicator */
+.sub-unit-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 8px;
+  background: #F3E5F5; color: #6A1B9A;
+  font-size: .75rem; font-weight: 600; margin-bottom: 12px;
+}
+
+/* Inherited schedule preview */
+.inherited-preview {
+  margin-top: 10px; padding: 10px 13px;
+  background: var(--gray-50); border-radius: 8px;
+  border: 1px solid var(--gray-100);
+  font-size: .77rem; color: var(--gray-600);
+  display: none;
+}
+.inherited-preview.show { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">{% if unit %}Edit Unit{% else %}Add Unit{% endif %}</h1>
+    <p class="page-sub">
+      {% if unit %}Editing: <strong>{{ unit.unit_name }}</strong>
+      {% else %}Create a new unit, section, or sub-unit.{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'employees:org_structure' %}" class="btn btn-outline btn-sm">
+    <i class="fas fa-arrow-left"></i> Back to Org
+  </a>
+</div>
+
+<div class="form-wrap">
+<form method="post">
+  {% csrf_token %}
+
+  <!-- Organization placement -->
+  <div class="form-card">
+    <div class="form-card-head">
+      <div class="form-card-title">
+        <div class="icon"><i class="fas fa-sitemap"></i></div>
+        Organization Placement
+      </div>
+    </div>
+    <div class="form-card-body">
+
+      <div class="form-group">
+        <label class="form-label">Unit / Section Name <span class="req">*</span></label>
+        <input type="text" name="unit_name" class="form-control"
+               value="{{ unit.unit_name|default:'' }}" required
+               placeholder="e.g. Planning Unit, Aurora Province, Baler Satellite Station">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Division <span class="req">*</span></label>
+        <select name="division_id" id="div-sel" class="form-control form-select"
+                required onchange="onDivisionChange(this.value)">
+          <option value="">Select division…</option>
+          {% for div in divisions %}
+          <option value="{{ div.division_id }}"
+            {% if unit and unit.division_id == div.division_id %}selected
+            {% elif request.GET.division == div.division_id|stringformat:"s" %}selected{% endif %}
+            data-sched="{{ div.default_schedule.schedule_name|default:'' }}">
+            {{ div.division_code }} — {{ div.division_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Parent Unit <span style="font-weight:400;color:var(--gray-400);">(optional — leave blank for top-level unit)</span></label>
+        <select name="parent_unit_id" id="parent-sel" class="form-control form-select"
+                onchange="onParentChange(this.value)">
+          <option value="">— Top-level unit —</option>
+          {% for pu in parent_units %}
+          <option value="{{ pu.unit_id }}"
+            {% if unit and unit.parent_unit_id == pu.unit_id %}selected
+            {% elif request.GET.parent == pu.unit_id|stringformat:"s" %}selected{% endif %}
+            data-div="{{ pu.division_id }}"
+            data-sched="{{ pu.default_schedule.schedule_name|default:'' }}">
+            {{ pu.division.division_code }} — {{ pu.unit_name }}
+          </option>
+          {% endfor %}
+        </select>
+        <span class="form-hint">
+          Select a parent to make this a sub-unit (e.g. Baler Satellite under Aurora Brackishwater).
+          Only top-level units are available as parents.
+        </span>
+      </div>
+
+      <!-- Sub-unit indicator -->
+      <div id="sub-unit-indicator" style="display:none;">
+        <div class="sub-unit-badge">
+          <i class="fas fa-turn-down-right" style="font-size:.7rem;"></i>
+          This will be a sub-unit
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Schedule -->
+  <div class="form-card">
+    <div class="form-card-head">
+      <div class="form-card-title">
+        <div class="icon"><i class="fas fa-calendar-week"></i></div>
+        Default Work Schedule
+      </div>
+    </div>
+    <div class="form-card-body">
+      <div class="form-group">
+        <label class="form-label">Schedule Override</label>
+        <select name="default_schedule" class="form-control form-select"
+                onchange="updateInheritedPreview()">
+          <option value="">— Inherit from parent / division —</option>
+          {% for sched in work_schedules %}
+          <option value="{{ sched.schedule_id }}"
+            {% if unit and unit.default_schedule_id == sched.schedule_id %}selected{% endif %}>
+            {{ sched.schedule_name }}
+            {% if sched.is_flexible %}(Flex){% endif %}
+            — {{ sched.am_in|time:"g:i A" }} to {{ sched.pm_out|time:"g:i A" }}
+          </option>
+          {% endfor %}
+        </select>
+        <span class="form-hint">
+          Leave blank to inherit from the parent unit or division.
+          Set this only if this unit needs a different schedule.
+        </span>
+      </div>
+
+      <!-- Inherited schedule preview -->
+      <div class="inherited-preview" id="inherited-preview">
+        <i class="fas fa-arrow-up" style="color:var(--gray-400);margin-right:5px;"></i>
+        Will inherit: <strong id="inherited-name">—</strong>
+      </div>
+
+      <div class="info-box">
+        <i class="fas fa-circle-info"></i>
+        <strong>Priority:</strong> Sub-unit → Unit → Division → System default.
+        Only set a schedule here if this unit/sub-unit differs from the group above it.
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <a href="{% url 'employees:org_structure' %}" class="btn btn-ghost btn-sm">Cancel</a>
+    <button type="submit" class="btn btn-primary btn-sm">
+      <i class="fas fa-floppy-disk"></i>
+      {% if unit %}Save Changes{% else %}Create Unit{% endif %}
+    </button>
+  </div>
+</form>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+// Build a map of division schedules and parent unit schedules for the preview
+const divSchedules    = {};
+const parentSchedules = {};
+
+document.querySelectorAll('#div-sel option[value]').forEach(opt => {
+  if (opt.value) divSchedules[opt.value] = opt.dataset.sched || '';
+});
+document.querySelectorAll('#parent-sel option[value]').forEach(opt => {
+  if (opt.value) parentSchedules[opt.value] = opt.dataset.sched || '';
+});
+
+function onDivisionChange(divId) {
+  // Filter parent unit options to only show units in this division
+  const parentSel = document.getElementById('parent-sel');
+  parentSel.querySelectorAll('option[value]').forEach(opt => {
+    opt.style.display = (!divId || opt.dataset.div === divId) ? '' : 'none';
+  });
+  // Reset parent selection if it no longer matches
+  if (parentSel.value) {
+    const sel = parentSel.querySelector(`option[value="${parentSel.value}"]`);
+    if (sel && sel.style.display === 'none') parentSel.value = '';
+  }
+  updateInheritedPreview();
+}
+
+function onParentChange(parentId) {
+  const indicator = document.getElementById('sub-unit-indicator');
+  if (indicator) indicator.style.display = parentId ? 'block' : 'none';
+  updateInheritedPreview();
+}
+
+function updateInheritedPreview() {
+  const preview     = document.getElementById('inherited-preview');
+  const nameEl      = document.getElementById('inherited-name');
+  const schedSel    = document.querySelector('select[name="default_schedule"]');
+  const parentId    = document.getElementById('parent-sel')?.value;
+  const divId       = document.getElementById('div-sel')?.value;
+
+  if (!preview || !nameEl) return;
+
+  // If explicit schedule set, no need to show inherited
+  if (schedSel && schedSel.value) {
+    preview.classList.remove('show');
+    return;
+  }
+
+  let inherited = '';
+  if (parentId && parentSchedules[parentId]) {
+    inherited = parentSchedules[parentId] + ' (from parent unit)';
+  } else if (divId && divSchedules[divId]) {
+    inherited = divSchedules[divId] + ' (from division)';
+  } else {
+    inherited = 'System default — 8AM–5PM fixed';
+  }
+
+  nameEl.textContent = inherited;
+  preview.classList.add('show');
+}
+
+// Init on load
+document.addEventListener('DOMContentLoaded', () => {
+  const divSel    = document.getElementById('div-sel');
+  const parentSel = document.getElementById('parent-sel');
+
+  if (divSel?.value)    onDivisionChange(divSel.value);
+  if (parentSel?.value) onParentChange(parentSel.value);
+
+  updateInheritedPreview();
+
+  // Pre-fill from URL params (when coming from org structure "Add Unit" buttons)
+  const params = new URLSearchParams(window.location.search);
+  const divParam    = params.get('division');
+  const parentParam = params.get('parent');
+
+  if (divParam && divSel && !divSel.value) {
+    divSel.value = divParam;
+    onDivisionChange(divParam);
+  }
+  if (parentParam && parentSel && !parentSel.value) {
+    parentSel.value = parentParam;
+    onParentChange(parentParam);
+  }
+});
+</script>
+{% endblock %}

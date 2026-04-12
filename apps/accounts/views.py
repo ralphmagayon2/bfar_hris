@@ -1,32 +1,3 @@
-# apps/accounts/views.py
-# from django.shortcuts import render, redirect
-
-# def login(request):
-#     return render(request, 'accounts/login.html')
-
-# def profile(request):
-#     return render(request, 'accounts/profile.html')
-
-# def logout(request):
-#     return render(request, 'accounts/logout.html')
-
-# def user_list(request):
-#     return render(request, 'accounts/user_list.html')
-
-# def signup_view(request):
-#     return render(request, 'accounts/signup.html')
-
-# def forgot_password_view(request):
-#     return render(request, 'accounts/forgot_password.html')
-
-# def admin_login_view(request):
-#     return render(request, 'accounts/admin/admin_login.html')
-
-# def admin_signup_view(request):
-#     return render(request, 'accounts/admin/admin_signup.html')
-
-# def admin_forgot_password_view(request):
-#     return render(request, 'accounts/admin/admin_forgot_password.html')
 
 """
 apps/accounts/views.py
@@ -95,9 +66,18 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST, require_GET
 import json
+from datetime import date
+from django.utils.dateparse import parse_date
+from dateutil.relativedelta import relativedelta
 
 from apps.accounts.models import SystemUser
 from apps.employees.models import Employee
+
+# import for profile image processing
+from PIL import Image
+from io import BytesIO
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
 # UTILITIES from apps/account/utils.py
 from apps.accounts.utils import (
@@ -105,7 +85,7 @@ from apps.accounts.utils import (
     get_attempts, increment_attempts, lock_account, is_locked, clear_attempts,
     get_client_ip, generate_temp_password, validate_password_strength,
     generate_reset_token, hash_token, generate_username, mask_email,
-    clean_input, is_valid_email
+    clean_input, is_valid_email, get_lockout_remaining
 )
 
 # AUDIT LOG from apps/audit/models.py
@@ -161,13 +141,28 @@ def employee_login(request):
     if request.session.get('_auth_user_id') and request.session.get('_auth_user_role') == 'viewer':
         return redirect('core:dashboard')
     
+    import os
+    logger.warning('[DEBUG] Handling request in PID: %s', os.getpid())
+
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
         remember = bool(request.POST.get('remember_me'))
 
         if is_locked(username):
-            messages.error(request, f'Account locked for {LOCKOUT_MINUTES} minutes due to many failed attempts.')
+            remaining = get_lockout_remaining(username)
+            if remaining > 0:
+                mins = remaining // 60
+                secs = remaining % 60
+
+                if mins > 0:
+                    time_msg = f'{mins} minute(s) and {secs} second(s)'
+                else:
+                    time_msg = f'{secs} second(s)'
+                messages.error(request, f'Your account is locked. Please wait {time_msg} before trying again, or contact HR to unlock your account.')
+            else:
+                messages.error(request, f'Your account is locked. Please contact HR to unclock your account.')
+
             return render(request, 'accounts/login.html', {'username': username})
 
         try:
@@ -192,8 +187,23 @@ def employee_login(request):
         
         if not password_ok:
             _record_failure(username, request)
-            attempts_left = MAX_ATTEMPTS - get_attempts(username)
-            messages.error(request, f'Invalid username or password. {attempts_left} attempt(s) remaining.')
+            # Re-check lock AFTER recording failure — the 5th attempt triggers lock_account()
+            # which clears the counter, so we must check is_locked() first.
+            if is_locked(username):
+                remaining = get_lockout_remaining(username)
+                if remaining > 0:
+                    mins = remaining // 60
+                    secs = remaining % 60
+                    time_msg = f'{mins} minute(s) and {secs} second(s)' if mins > 0 else f'{secs} second(s)'
+                    messages.error(request, f'Your account is now locked. Please wait {time_msg} before trying again, or contact HR to unlock your account.')
+                else:
+                    messages.error(request, 'Your account is locked. Please contact HR to unlock your account.')
+            else:
+                attempts_left = MAX_ATTEMPTS - get_attempts(username)
+                if attempts_left == 1:
+                    messages.error(request, f'Invalid username or password. WARNING: Last attempt — your account will be locked for {LOCKOUT_MINUTES} minutes if this fails.')
+                else:
+                    messages.error(request, f'Invalid username or password. {attempts_left} attempt(s) remaining.')
             return render(request, 'accounts/login.html', {'username': username})
         
         if not user.is_active:
@@ -393,6 +403,10 @@ def employee_lookup_public(request):
 # ------ ADMIN LOGIN -----
 @require_http_methods(['GET', 'POST'])
 def admin_login(request):
+    # Bootsrap guard: no superadmin yet means first-time setup
+    if not SystemUser.objects.filter(role='superadmin', is_deleted=False).exists():
+        return redirect('accounts:admin_bootstrap')
+
     if request.session.get('_auth_is_admin'):
         return redirect('core:dashboard')
  
@@ -402,7 +416,18 @@ def admin_login(request):
         remember = bool(request.POST.get('remember_me'))
  
         if is_locked(username):
-            messages.error(request, f'Account locked for {LOCKOUT_MINUTES} minutes due to too many failed attempts.')
+            remaining = get_lockout_remaining(username)
+            
+            if remaining > 0:
+                mins = remaining // 60
+                secs = remaining % 60
+                if mins > 0:
+                    time_msg = f'{mins} minute(s) and {secs} second(s)'
+                else:
+                    time_msg = f'{secs} second(s)'
+                messages.error(request, f'Your account is locked. Please wait {time_msg} before trying again, or contact HR to unlock your account.')
+            else:
+                messages.error(request, 'Your account is locked. Please contact HR to unlock your account.')
             return render(request, 'accounts/admin/admin_login.html', {'username': username})
  
         try:
@@ -425,8 +450,23 @@ def admin_login(request):
         
         if not password_ok:
             _record_failure(username, request)
-            attempts_left = MAX_ATTEMPTS - get_attempts(username)
-            messages.error(request, f'Invalid username or password. {attempts_left} attempt(s) remaining.')
+            # Re-check lock AFTER recording failure — the 5th attempt triggers lock_account()
+            # which clears the counter, so we must check is_locked() first.
+            if is_locked(username):
+                remaining = get_lockout_remaining(username)
+                if remaining > 0:
+                    mins = remaining // 60
+                    secs = remaining % 60
+                    time_msg = f'{mins} minute(s) and {secs} second(s)' if mins > 0 else f'{secs} second(s)'
+                    messages.error(request, f'Your account is now locked. Please wait {time_msg} before trying again, or contact HR/Superadmin to unlock your account.')
+                else:
+                    messages.error(request, 'Your account is locked. Please contact HR/Superadmin to unlock your account.')
+            else:
+                attempts_left = MAX_ATTEMPTS - get_attempts(username)
+                if attempts_left == 1:
+                    messages.error(request, f'Invalid username or password. WARNING: Last attempt — your account will be locked for {LOCKOUT_MINUTES} minutes if this fails.')
+                else:
+                    messages.error(request, f'Invalid username or password. {attempts_left} attempt(s) remaining.')
             return render(request, 'accounts/admin/admin_login.html', {'username': username})
 
         if not user.is_active:
@@ -462,17 +502,131 @@ def admin_login(request):
  
     return render(request, 'accounts/admin/admin_login.html')
 
+# BOOTSTRAP SETUP — /accounts/admin/bootstrap/
+# Accessible ONLY when zero superadmin accounts exist.
+# No auth decorator — this is the escape hatch for a fresh installation.
+
+@require_http_methods(['GET', 'POST'])
+def admin_bootstrap(request):
+    """
+    First-time system setup: creates the initial superadmin account.
+    Self-disables as soon as one superadmin exists (redirects to login).
+    """
+    # Guard: already bootstrapped → send to login
+    if SystemUser.objects.filter(role='superadmin', is_deleted=False).exists():
+        return redirect('accounts:admin_login')
+
+    employees = (
+        Employee.objects
+        .filter(status='active')
+        .exclude(system_user__isnull=False)
+        .select_related('position')
+        .order_by('last_name', 'first_name')
+    )
+
+    ctx = {
+        'is_bootstrap': True,
+        'employees': employees,
+        'form': {},
+    }
+
+    if request.method == 'POST':
+        p = request.POST
+
+        username       = clean_input(p.get('username', ''), 50)
+        password1      = p.get('password1', '')
+        password2      = p.get('password2', '')
+        personal_email = p.get('personal_email', '').strip().lower()
+        linked_emp_id  = p.get('linked_employee', '').strip()
+
+        errors   = []
+        pw_errors = []
+
+        # ── Username
+        if not username:
+            errors.append('Username is required.')
+        elif len(username) < 3:
+            errors.append('Username must be at least 3 characters.')
+        elif SystemUser.objects.filter(username=username).exists():
+            errors.append(f'Username "{username}" is already taken.')
+
+        # ── Password
+        pw_errors = validate_password_strength(password1)
+        if pw_errors:
+            errors.extend(pw_errors)
+        if password1 and password2 and password1 != password2:
+            errors.append('Passwords do not match.')
+
+        # ── Personal email
+        if personal_email and not is_valid_email(personal_email):
+            errors.append('Please enter a valid personal email address.')
+        elif personal_email and SystemUser.objects.filter(
+            personal_email__iexact=personal_email
+        ).exists():
+            errors.append('That personal email is already registered.')
+
+        # ── Optional employee link
+        linked_employee = None
+        if linked_emp_id:
+            try:
+                linked_employee = Employee.objects.filter(
+                    employee_id=int(linked_emp_id), status='active'
+                ).first()
+                if not linked_employee:
+                    errors.append('Selected employee is not active or not found.')
+                elif hasattr(linked_employee, 'system_user'):
+                    errors.append(
+                        f'{linked_employee.get_full_name()} already has a system account.'
+                    )
+            except Exception:
+                errors.append('Selected employee record not found.')
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+            ctx['form'] = {
+                'username':        {'value': username,       'errors': []},
+                'personal_email':  {'value': personal_email, 'errors': []},
+                'linked_employee': {'value': linked_emp_id,  'errors': []},
+                'password1':       {'errors': pw_errors},
+                'password2':       {'errors': []},
+            }
+            return render(request, 'accounts/admin/admin_signup.html', ctx)
+
+        # ── Create the first superadmin
+        try:
+            with transaction.atomic():
+                user = SystemUser(
+                    username       = username,
+                    role           = 'superadmin',   # always superadmin on bootstrap
+                    personal_email = personal_email,
+                    employee       = linked_employee,
+                    is_active      = True,            # always active on bootstrap
+                )
+                user.set_password(password1)
+                user.save()
+        except IntegrityError as exc:
+            logger.error('[accounts] admin_bootstrap IntegrityError: %s', exc)
+            messages.error(request, 'A database conflict occurred. Please try again.')
+            return render(request, 'accounts/admin/admin_signup.html', ctx)
+
+        logger.info(
+            '[accounts] Bootstrap superadmin created: user_id=%s username=%s',
+            user.user_id, username,
+        )
+        messages.success(
+            request,
+            f'Super Admin account "{username}" created successfully. You can now sign in.'
+        )
+        return redirect('accounts:admin_login')
+
+    return render(request, 'accounts/admin/admin_signup.html', ctx)
+
 
 # ADMIN SIGNUP — Superadmin creates a new HR admin/staff account
 # URL: /accounts/admin/signup/
 # Template: accounts/admin/admin_signup.html
 # Access: superadmin only
-#
-# Uses the admin_signup.html wizard (dark portal style) you already have.
-# Difference from create_system_user:
-#   - Admin sets the password directly (not a temp password)
-#   - Linked employee is chosen from a dropdown
-#   - Template is the full-page dark admin form, not the sidebar base.html page
 
 @login_required
 @role_required('superadmin', 'hr_admin')
@@ -1023,267 +1177,6 @@ def reset_password(request, token: str):
  
     return render(request, 'accounts/reset_password.html', {'token': token, 'username': user.username})
 
-
-# CREATE EMPLOYEE  /accounts/employees/create/   [superadmin only]
-# Creates an Employee record + linked viewer SystemUser in one transaction.
-# This is for testing only. The real one is in employee views.
-@login_required
-@role_required('superadmin')
-@require_http_methods(['GET', 'POST'])
-def create_employee(request):
-    from apps.employees.models import Division, Unit, PayrollGroup, Position
- 
-    ctx = {
-        'divisions':      Division.objects.order_by('division_code'),
-        'units':          Unit.objects.select_related('division').order_by('division__division_code', 'unit_name'),
-        'payroll_groups': PayrollGroup.objects.order_by('group_name'),
-        'positions':      Position.objects.order_by('employment_type', 'position_title'),
-        'employment_types': [
-            ('Permanent', 'Permanent'),
-            ('COS',       'Contract of Service'),
-            ('JO',        'Job Order'),
-        ],
-        'suffix_choices': ['', 'Jr.', 'Sr.', 'II', 'III', 'IV'],
-    }
- 
-    if request.method == 'POST':
-        p = request.POST
-        errors = []
- 
-        # ── Validation ────────────────────────────────────────────────────────
-        for field, label in [
-            ('id_number',   'Employee ID number'),
-            ('last_name',   'Last name'),
-            ('first_name',  'First name'),
-            ('employment_type', 'Employment type'),
-            ('date_hired',  'Date hired'),
-            ('monthly_salary', 'Monthly salary'),
-            ('personal_email', 'Personal email'),
-        ]:
-            if not p.get(field, '').strip():
-                errors.append(f'{label} is required.')
- 
-        
-        id_number = clean_input(p.get('id_number', ''), 50)
-        if id_number and Employee.objects.filter(id_number=id_number).exists():
-            errors.append(f'Employee ID "{id_number}" is already registered.')
- 
-        personal_email = p.get('personal_email', '').strip().lower()
-        if personal_email and not is_valid_email(personal_email):
-            errors.append('Please enter a valid email address.')
-        elif personal_email and SystemUser.objects.filter(personal_email__iexact=personal_email).exists():
-            errors.append('That personal email is already been used.')
- 
-        if errors:
-            for e in errors:
-                messages.error(request, e)
-            ctx['form'] = p
-            return render(request, 'accounts/create_employee.html', ctx)
- 
-        # ── Create ────────────────────────────────────────────────────────────
-        try:
-            with transaction.atomic():
-                from apps.employees.models import Division, Unit, PayrollGroup, Position
- 
-                def _fk(model, pk_name):
-                    pk = p.get(pk_name, '').strip()
-                    if pk:
-                        try:
-                            return model.objects.get(pk=int(pk))
-                        except (model.DoesNotExist, ValueError):
-                            pass
-                    return None
- 
-                employee = Employee.objects.create(
-                    id_number       = id_number,
-                    last_name       = clean_input(p.get('last_name',''), 100).upper(),
-                    first_name      = clean_input(p.get('first_name', ''), 100),
-                    middle_name     = clean_input(p.get('middle_name', ''), 100) or None,
-                    suffix = p.get('suffix', '').strip() or None,
-                    employment_type = p.get('employment_type', 'COS'),
-                    division        = _fk(Division,     'division_id'),
-                    unit            = _fk(Unit,         'unit_id'),
-                    payroll_group   = _fk(PayrollGroup, 'payroll_group_id'),
-                    position        = _fk(Position,     'position_id'),
-                    monthly_salary  = p.get('monthly_salary', '0').replace(',', '') or '0',
-                    pera            = p.get('pera', '2000').replace(',', '') or '2000',
-                    date_hired      = p.get('date_hired'),
-                    is_active       = True,
-                )
- 
-                temp_password = generate_temp_password()
-                username      = generate_username(employee.first_name, employee.last_name)
- 
-                sys_user = SystemUser(
-                    employee       = employee,
-                    username       = username,
-                    role           = 'viewer',
-                    personal_email = personal_email,
-                    is_active      = True,
-                )
-                sys_user.set_password(temp_password)
-                sys_user.save()
- 
-        except IntegrityError as exc:
-            logger.error('[accounts] create_employee IntegrityError: %s', exc)
-            messages.error(request, 'A database conflict occurred. Check for duplicate ID or username.')
-            ctx['form'] = p
-            return render(request, 'accounts/create_employee.html', ctx)
- 
-        # ── Queue email ───────────────────────────────────────────────────────
-        try:
-            from apps.accounts.tasks import send_account_created_email
-            send_account_created_email.delay(
-                user_id=sys_user.user_id,
-                temp_password=temp_password,
-                login_url=request.build_absolute_uri('/accounts/login/'),
-            )
-        except Exception as exc:
-            logger.error('[accounts] Failed to queue account-created email: %s', exc)
-            messages.warning(request, 'Account created but notification email failed to queue.')
- 
-        # ── Audit log ─────────────────────────────────────────────────────────
-        try:
-            create_audit_log(
-                table_affected='employees',
-                record_id=employee.employee_id,
-                action='create',
-                performed_by=request.current_user,
-                new_value={
-                    'id_number':       employee.id_number,
-                    'full_name':       employee.get_full_name(),
-                    'employment_type': employee.employment_type,
-                    'system_username': username,
-                },
-                ip_address=get_client_ip(request),
-            )
-        except Exception as exc:
-            logger.error('[accounts] Audit log failed for create_employee: %s', exc)
- 
-        messages.success(
-            request,
-            f'Employee account created for {employee.get_full_name()}. '
-            f'Username: {username}  |  Temp password: {temp_password}',
-        )
-        return redirect('accounts:user_list')
- 
-    return render(request, 'accounts/create_employee.html', ctx)
-
-# CREATE SYSTEM USER  /accounts/users/create/   [superadmin only]
-# Creates a standalone admin/staff SystemUser, optionally linked to an Employee.
-# This one is testing also only the real one is in user_list in the form there in _action_add_user
-@login_required
-@role_required('superadmin')
-@require_http_methods(['GET', 'POST'])
-def create_system_user(request):
-    ctx = {
-        'role_choices': [
-            ('hr_admin',   'HR Admin — full HR access, can approve records'),
-            ('hr_staff',   'HR Staff — can view and encode, cannot approve'),
-            ('superadmin', 'Super Admin — full system access (IT only)'),
-        ],
-    }
- 
-    if request.method == 'POST':
-        p = request.POST
-        errors = []
- 
-        username       = clean_input(p.get('username', ''), 50)
-        role           = p.get('role', '').strip()
-        personal_email = p.get('personal_email', '').strip().lower()
-        employee_id_input = clean_input(p.get('employee_id_number', ''), 50)
- 
-        if not username:
-            errors.append('Username is required.')
-        elif SystemUser.objects.filter(username=username).exists():
-            errors.append(f'Username "{username}" is already taken.')
- 
-        if not role or role not in dict(SystemUser.ROLE_CHOICES):
-            errors.append('Please select a valid role.')
- 
-        if not personal_email:
-            errors.append('Personal email is required for password recovery.')
-        elif not is_valid_email(personal_email):
-            errors.append('Please enter a valid email address')
-        elif SystemUser.objects.filter(personal_email__iexact=personal_email).exists():
-            errors.append('That personal email is already been used.')
- 
-        # Optional employee link
-        linked_employee = None
-        if employee_id_input:
-            try:
-                
-                linked_employee = Employee.objects.get(id_number=employee_id_input)
-                if hasattr(linked_employee, 'system_user'):
-                    errors.append(f'Employee {employee_id_input} already has a system account.')
-            except Exception:
-                errors.append(f'Employee ID "{employee_id_input}" not found.')
- 
-        if errors:
-            for e in errors:
-                messages.error(request, e)
-            ctx['form'] = p
-            return render(request, 'accounts/create_system_user.html', ctx)
- 
-        temp_password = generate_temp_password()
- 
-        try:
-            with transaction.atomic():
-                user = SystemUser(
-                    username       = username,
-                    role           = role,
-                    personal_email = personal_email,
-                    employee       = linked_employee,
-                    is_active      = True,
-                )
-                user.set_password(temp_password)
-                user.save()
-        except IntegrityError as exc:
-            logger.error('[accounts] create_system_user IntegrityError: %s', exc)
-            messages.error(request, 'A database conflict occurred. Please try again.')
-            ctx['form'] = p
-            return render(request, 'accounts/create_system_user.html', ctx)
- 
-        try:
-            from apps.accounts.tasks import send_account_created_email
-            login_url = request.build_absolute_uri('/accounts/admin/login/')
-            send_account_created_email.delay(
-                user_id=user.user_id,
-                temp_password=temp_password,
-                login_url=login_url,
-            )
-        except Exception as exc:
-            logger.error('[accounts] Failed to queue system user email: %s', exc)
-            messages.warning(request, 'User created but notification email failed to queue.')
- 
-        # ── Audit log ─────────────────────────────────────────────────────────
-        try:
-            create_audit_log(
-                table_affected='system_users',
-                record_id=user.user_id,
-                action='create',
-                performed_by=request.current_user,
-                new_value={
-                    'username':    username,
-                    'role':        role,
-                    'employee_id': linked_employee.id_number if linked_employee else None,
-                },
-                ip_address=get_client_ip(request),
-            )
-        except Exception as exc:
-            logger.error('[accounts] Audit log failed for create_system_user: %s', exc)
- 
-        messages.success(
-            request,
-            f'System user "{username}" ({user.get_role_display()}) created. '
-            f'Temp password: {temp_password}',
-        )
-        logger.info('[accounts] SystemUser created: %s (%s) by user_id=%s',
-                    username, role, request.current_user.user_id)
-        return redirect('accounts:user_list')
- 
-    return render(request, 'accounts/create_system_user.html', ctx)
-
 # ------ USER LIST /accounts/users ------
 # ─── Roles that can reach the user management page
 _PAGE_ROLES = ('superadmin', 'hr_admin', 'hr_staff')
@@ -1443,7 +1336,13 @@ def user_list(request):
     # Pagination — 25 per page
     paginator   = Paginator(qs, 25)
     page_number = request.GET.get('page')
-    page_obj    = paginator.get_page(page_number)
+    page_obj = paginator.get_page(page_number)
+
+    # Build a set of username that are currently cache-looked
+    locked_user_ids = set()
+    for u in page_obj.object_list:
+        if is_locked(u.username):
+            locked_user_ids.add(u.user_id)
  
     # Build role choices available for the "Add User" modal (role-gated)
     if actor.role == 'superadmin':
@@ -1482,6 +1381,8 @@ def user_list(request):
  
         # Role choices for the Add User modal (filtered by actor role)
         'add_role_choices': add_role_choices,
+
+        'locked_user_ids': locked_user_ids,
     }
  
     return render(request, 'accounts/user_list.html', context)
@@ -1508,6 +1409,10 @@ def toggle_user_active(request, user_id: int):
  
     target.is_active = not target.is_active
     target.save(update_fields=['is_active'])
+
+    # If activating — also clear any cache lock so they can log in immediately
+    if target.is_active:
+        clear_attempts(target.username)
  
     action_word = 'activated' if target.is_active else 'deactivated'
  
@@ -1538,6 +1443,45 @@ def toggle_user_active(request, user_id: int):
         'ok':        True,
         'is_active': target.is_active,
         'message':   f'User "{target.username}" has been {action_word}.',
+    })
+
+# NEW AJAX ENDPOINT: unlock_user /accounts/users/<id>/unlock/ POST → JSON
+@login_required
+@role_required(*_PAGE_ROLES)
+@require_POST
+def unlock_user(request, user_id: int):
+    actor: SystemUser = request.current_user
+    target = get_object_or_404(SystemUser, user_id=user_id)
+ 
+    allowed, err = _check_target_permission(actor, target)
+    if not allowed:
+        return JsonResponse({'ok': False, 'error': err}, status=403)
+ 
+    # Clear the failed attempts cache to unlock
+    clear_attempts(target.username)
+ 
+    # Audit log (non-fatal)
+    try:
+        create_audit_log(
+            table_affected='system_users',
+            record_id=target.user_id,
+            action='update',
+            performed_by=actor,
+            new_value={'unlocked': True},
+            ip_address=get_client_ip(request),
+            description=f'{actor.username} unlocked account "{target.username}".',
+        )
+    except Exception as exc:
+        logger.error('[accounts] unlock audit log failed: %s', exc)
+ 
+    logger.info(
+        '[accounts] User unlocked: %s by %s (user_id=%s)',
+        target.username, actor.username, actor.user_id,
+    )
+ 
+    return JsonResponse({
+        'ok':        True,
+        'message':   f'User "{target.username}" has been unlocked.',
     })
  
 # PRIVATE ACTION HANDLERS  (called from user_list POST dispatcher)
@@ -1984,7 +1928,7 @@ def bulk_action(request):
     except (json.JSONDecodeError, AttributeError):
         return JsonResponse({'ok': False, 'error': 'Invalid request body.'}, status=400)
  
-    if action not in ('activate', 'deactivate', 'delete'):
+    if action not in ('activate', 'deactivate', 'delete', 'unlock'):
         return JsonResponse({'ok': False, 'error': 'Invalid action.'}, status=400)
  
     if not isinstance(user_ids, list) or not user_ids:
@@ -2058,6 +2002,29 @@ def bulk_action(request):
                 )
             except Exception as exc:
                 logger.error('[accounts] bulk deactivate audit failed: %s', exc)
+
+        elif action == 'unlock':
+            if not is_locked(target.username):
+                skipped += 1
+                skip_details.append(f'{target.username} — not locked')
+                continue
+            
+            clear_attempts(target.username)
+            actioned += 1
+
+            # Audit
+            try:
+                create_audit_log(
+                    table_affected='system_users',
+                    record_id=target.user_id,
+                    action='update',
+                    performed_by=actor,
+                    new_value={'unlocked': True, 'bulk': True},
+                    ip_address=get_client_ip(request),
+                    description=f'{actor.username} unlocked account "{target.username}" (bulk).',
+                )
+            except Exception as exc:
+                logger.error('[accounts] bulk unlock audit failed: %s', exc)
  
         elif action == 'delete':
             target.is_deleted = True
@@ -2079,7 +2046,7 @@ def bulk_action(request):
             except Exception as exc:
                 logger.error('[accounts] bulk delete audit failed: %s', exc)
  
-    verb_map    = {'activate': 'activated', 'deactivate': 'deactivated', 'delete': 'deleted'}
+    verb_map    = {'activate': 'activated', 'deactivate': 'deactivated', 'delete': 'deleted', 'unlock': 'unlocked'}
     verb = verb_map.get(action, action)
     message = f'{actioned} user(s) {verb}.'
     if skipped:
@@ -2099,6 +2066,10 @@ def bulk_action(request):
         success_msg = f'{actioned} user(s) deactivated successfully.'
         if skipped:
             success_msg += f' {skipped} skipped (already inactive or no permission).'
+    elif action == 'unlock':
+        success_msg = f'{actioned} user(s) unlocked successfully.'
+        if skipped:
+            success_msg += f' {skipped} skipped (not locked or no permission).'
     elif action == 'delete':
         success_msg = f'{actioned} user(s) moved to deleted accounts.'
         if skipped:
@@ -2550,10 +2521,262 @@ def _record_failure(username: str, request) -> None:
         )
     except Exception as exc:
         logger.error('[account] activity log failed on _record_failure: %s', exc)
-        
 
+
+# ----- PROFILE VIEWS & ACTIONS -----
+
+def _handle_profile_post(request, user, redirect_route):
+    """Shared POST handler for both employee and admin profile updates."""
+    action = request.GET.get('action')
+
+    if action == 'update_info':
+        email = request.POST.get('email', '').strip().lower()
+
+        if email and not is_valid_email(email):
+            messages.error(request, "Invalid email address.")
+            return redirect(redirect_route)
+
+        # Check email uniqueness (excluding current user)
+        if email and SystemUser.objects.filter(
+            personal_email__iexact=email
+        ).exclude(user_id=user.user_id).exists():
+            messages.error(request, "That email is already registered to another account.")
+            return redirect(redirect_route)
+
+        # Superadmin can update their own username
+        if user.role == 'superadmin':
+            new_username = clean_input(request.POST.get('username', ''), 50)
+            if new_username and new_username != user.username:
+                if SystemUser.objects.filter(username=new_username).exclude(user_id=user.user_id).exists():
+                    messages.error(request, "That username is already taken.")
+                    return redirect(redirect_route)
+                user.username = new_username
+
+        # Only process employee fields if the user is linked to an employee
+        if user.employee:
+            first_name     = clean_input(request.POST.get('first_name', ''))
+            last_name      = clean_input(request.POST.get('last_name', ''))
+            middle_name    = clean_input(request.POST.get('middle_name', ''))
+            contact_number = clean_input(request.POST.get('contact_number', ''))
+
+            if len(first_name) < 2 or len(last_name) < 2:
+                messages.error(request, "First and last name must be at least 2 characters.")
+                return redirect(redirect_route)
+            
+            suffix = clean_input(request.POST.get('suffix', ''))
+            date_of_birth = request.POST.get('date_of_birth', '').strip() or None
+            sex = request.POST.get('sex', '').strip()
+            address = clean_input(request.POST.get('address', ''), 500)
+
+            # Validate date of birth if provided
+            if date_of_birth:
+                try:
+                    parse_dob = parse_date(date_of_birth)
+                    age = relativedelta(date.today(), parse_dob).years
+
+                    if age < 13:
+                        messages.error(request, "User must be at least 13 years old.")
+                        return redirect(redirect_route)
+
+                    if parse_dob is None or parse_dob > date.today():
+                        messages.error(request, "Invalid date of birth.")
+                        return redirect(redirect_route)
+                    
+                    date_of_birth = parse_dob
+                except Exception:
+                    messages.error(request, "Invalid date of birth format.")
+                    return redirect(redirect_route)
+
+
+            user.employee.first_name     = first_name
+            user.employee.last_name      = last_name
+            user.employee.middle_name    = middle_name
+            user.employee.contact_number = contact_number
+            user.employee.suffix         = suffix
+            user.employee.date_of_birth  = date_of_birth
+            user.employee.sex            = sex
+            user.employee.address        = address
+            user.employee.save(update_fields=[
+                'first_name', 'last_name', 'middle_name', 'contact_number',
+                'suffix', 'date_of_birth', 'sex', 'address',
+            ])
+
+        user.personal_email = email
+        user.save(update_fields=['personal_email', 'username'])
+        messages.success(request, "Profile information updated successfully.")
+
+        try:
+            create_activity_log(
+                action='update', user=user, ip_address=get_client_ip(request),
+                description="Updated personal profile information."
+            )
+        except Exception as exc:
+            logger.error('[accounts] profile update_info activity log failed: %s', exc)
+
+        return redirect(redirect_route)
+
+    elif action == 'change_password':
+        old_pw  = request.POST.get('old_password', '')
+        new_pw1 = request.POST.get('new_password1', '')
+        new_pw2 = request.POST.get('new_password2', '')
+
+        if not user.check_password(old_pw):
+            messages.error(request, "Incorrect current password.")
+            return redirect(redirect_route)
+
+        if new_pw1 != new_pw2:
+            messages.error(request, "New passwords do not match.")
+            return redirect(redirect_route)
+
+        pw_errors = validate_password_strength(new_pw1)
+        if pw_errors:
+            for e in pw_errors:
+                messages.error(request, e)
+            return redirect(redirect_route)
+
+        try:
+            user.set_password(new_pw1)
+            user.save(update_fields=['password_hash'])
+        except Exception as exc:
+            logger.error('[accounts] profile change_password save error: %s', exc)
+            messages.error(request, "A system error occurred. Please try again.")
+            return redirect(redirect_route)
+
+        messages.success(request, "Password updated successfully. Use it on your next login.")
+
+        try:
+            create_activity_log(
+                action='password_changed', user=user, ip_address=get_client_ip(request),
+                description="Changed account password."
+            )
+        except Exception as exc:
+            logger.error('[accounts] profile change_password activity log failed: %s', exc)
+
+        return redirect(redirect_route)
+
+    elif action == 'update_avatar':
+        if not user.employee:
+            messages.error(request, "Only linked employees can upload profile pictures.")
+            return redirect(redirect_route)
+
+        if 'profile_picture' not in request.FILES:
+            messages.error(request, "No file was uploaded.")
+            return redirect(redirect_route)
+
+        profile_pic = request.FILES['profile_picture']
+
+        # 5 MB limit
+        if profile_pic.size > 5 * 1024 * 1024:
+            messages.error(request, "Profile picture is too large. Maximum size is 5 MB.")
+            return redirect(redirect_route)
+
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+        if profile_pic.content_type not in allowed_types:
+            messages.error(request, "Invalid file type. Please upload JPEG, PNG, or WebP.")
+            return redirect(redirect_route)
+
+        try:
+            img = Image.open(profile_pic)
+            if img.mode in ('RGBA', 'LA', 'P'):
+                img = img.convert('RGB')
+
+            # Resize to max 800×800 preserving aspect ratio
+            if img.width > 800 or img.height > 800:
+                img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+
+            output = BytesIO()
+            img.save(output, format='JPEG', quality=85, optimize=True)
+            output.seek(0)
+
+            # Filename: profile_<employee_id>_<timestamp>.jpg
+            filename = (
+                f"employee_profiles/"
+                f"profile_{user.employee.employee_id}_"
+                f"{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            )
+
+            # Delete old picture from storage before saving new one
+            if user.employee.profile_picture:
+                old_name = user.employee.profile_picture.name
+                try:
+                    if default_storage.exists(old_name):
+                        default_storage.delete(old_name)
+                except Exception as del_exc:
+                    logger.warning('[accounts] Failed to delete old avatar: %s', del_exc)
+
+            file_content = ContentFile(output.getvalue())
+            saved_path   = default_storage.save(filename, file_content)
+
+            user.employee.profile_picture = saved_path
+            user.employee.save(update_fields=['profile_picture'])
+
+            messages.success(request, "Profile photo updated successfully!")
+
+            try:
+                create_activity_log(
+                    action='update', user=user, ip_address=get_client_ip(request),
+                    description="Updated profile picture."
+                )
+            except Exception as exc:
+                logger.error('[accounts] profile update_avatar activity log failed: %s', exc)
+
+        except Exception as exc:
+            logger.error('[accounts] Avatar upload error: %s', exc)
+            messages.error(request, "Error processing image. Please try a different file.")
+
+        return redirect(redirect_route)
+
+    return None
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
 def profile(request):
-    return render(request, 'accounts/profile.html')
+    user = request.current_user
 
+    if request.method == 'POST':
+        response = _handle_profile_post(request, user, 'accounts:profile')
+        if response:
+            return response
+
+    from apps.audit.models import SystemUserActivityLog
+    recent_activity = (
+        SystemUserActivityLog.objects
+        .filter(user=user)
+        .order_by('-performed_at')[:20]
+    )
+
+    return render(request, 'accounts/profile.html', {
+        'recent_activity': recent_activity,
+        'user': user, # Overrides django context processor
+    })
+
+
+@login_required
+@role_required('superadmin', 'hr_admin', 'hr_staff')
+@require_http_methods(['GET', 'POST'])
 def admin_profile(request):
-    return render(request, 'accounts/admin/profile.html')
+    user = request.current_user
+
+    if request.method == 'POST':
+        response = _handle_profile_post(request, user, 'accounts:admin_profile')
+        if response:
+            return response
+
+    from apps.audit.models import SystemUserActivityLog
+    recent_activity = (
+        SystemUserActivityLog.objects
+        .filter(user=user)
+        .order_by('-performed_at')[:20]
+    )
+
+    return render(request, 'accounts/admin/profile.html', {
+        'recent_activity': recent_activity,
+        'user': user, # Same with profile view
+    })
+
+# def profile(request):
+#     return render(request, 'accounts/profile.html')
+
+# def admin_profile(request):
+#     return render(request, 'accounts/admin/profile.html')

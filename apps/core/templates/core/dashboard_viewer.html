@@ -185,22 +185,22 @@
       </div>
       <div class="dash-card-body">
         <div class="quick-actions">
-          {% comment %} <a href="{% url 'dtr:own' employee.pk %}" class="qa-btn navy">
+          <a href="{% url 'dtr:my_dtr' %}" class="qa-btn navy">
             <i class="fas fa-clock"></i>
             My DTR
           </a>
-          <a href="{% url 'payroll:own_payslips' employee.pk %}" class="qa-btn green">
+          {% comment %} <a href="{% url 'payroll:own_payslips' employee.pk %}" class="qa-btn green">
             <i class="fas fa-peso-sign"></i>
             My Payslip
           </a>
           <a href="{% url 'leaves:own' employee.pk %}" class="qa-btn purple">
             <i class="fas fa-umbrella-beach"></i>
             Leave Credits
-          </a>
+          </a> {% endcomment %}
           <a href="{% url 'accounts:profile' %}" class="qa-btn teal">
             <i class="fas fa-circle-user"></i>
             My Profile
-          </a> {% endcomment %}
+          </a>
         </div>
       </div>
     </div>

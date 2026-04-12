@@ -1,0 +1,534 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if schedule %}Edit Schedule{% else %}New Schedule{% endif %} — BFAR HRIS{% endblock %}
+{% block page_title %}{% if schedule %}Edit Schedule{% else %}New Schedule{% endif %}{% endblock %}
+
+{% block css %}
+<style>
+.form-wrap { max-width: 700px; }
+
+.form-card {
+  background: var(--white); border-radius: 12px;
+  border: 1px solid var(--gray-100); box-shadow: var(--shadow);
+  overflow: hidden; margin-bottom: 16px;
+}
+.form-card-head {
+  padding: 13px 18px; border-bottom: 1px solid var(--gray-100);
+  background: var(--gray-50);
+  display: flex; align-items: center; gap: 8px;
+}
+.form-card-title {
+  font-size: .87rem; font-weight: 700; color: var(--navy-900);
+  display: flex; align-items: center; gap: 8px;
+}
+.form-card-title .icon {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: var(--navy-50); color: var(--navy-700);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .72rem;
+}
+.form-card-body { padding: 18px; }
+
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .form-grid-2 { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .form-grid-4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 380px) { .form-grid-4 { grid-template-columns: 1fr; } }
+.span2 { grid-column: span 2; }
+@media (max-width: 640px) { .span2 { grid-column: span 1; } }
+
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-label {
+  font-size: .71rem; font-weight: 700;
+  color: var(--gray-500); text-transform: uppercase; letter-spacing: .5px;
+}
+.req { color: var(--danger); }
+.form-hint { font-size: .69rem; color: var(--gray-400); margin-top: 2px; line-height: 1.4; }
+.form-control {
+  padding: 9px 12px; width: 100%; box-sizing: border-box;
+  border: 1.5px solid var(--gray-200); border-radius: var(--radius);
+  font-size: .875rem; font-family: var(--font); color: var(--navy-900);
+  background: var(--white); transition: border-color .2s, box-shadow .2s;
+}
+.form-control:focus {
+  outline: none; border-color: var(--navy-700);
+  box-shadow: 0 0 0 3px rgba(21,101,192,.1);
+}
+
+/* Toggle */
+.toggle-wrap {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  border: 1.5px solid var(--gray-200); border-radius: var(--radius);
+  cursor: pointer; transition: border-color .2s, background .2s;
+  user-select: none;
+}
+.toggle-wrap:hover { border-color: var(--navy-700); background: var(--navy-25); }
+.toggle-wrap.on { border-color: #6A1B9A; background: #F3E5F5; }
+.toggle-track {
+  width: 36px; height: 20px; border-radius: 10px;
+  background: var(--gray-200); position: relative;
+  transition: background .2s; flex-shrink: 0;
+}
+.toggle-track.on { background: #6A1B9A; }
+.toggle-knob {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--white); position: absolute;
+  top: 2px; left: 2px; transition: left .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.toggle-track.on .toggle-knob { left: 18px; }
+.toggle-label { font-size: .83rem; font-weight: 600; color: var(--navy-900); }
+.toggle-sub   { font-size: .7rem; color: var(--gray-400); margin-top: 2px; }
+
+/* Flex panel slide */
+.flex-panel {
+  overflow: hidden; max-height: 0;
+  transition: max-height .35s ease, opacity .3s ease;
+  opacity: 0;
+}
+.flex-panel.open { max-height: 400px; opacity: 1; }
+
+/* Flex examples table */
+.flex-examples {
+  width: 100%; border-collapse: collapse;
+  font-size: .76rem; margin-top: 10px;
+}
+.flex-examples th {
+  padding: 6px 10px; text-align: left;
+  font-size: .67rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .4px;
+  color: var(--gray-500); background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+}
+.flex-examples td {
+  padding: 7px 10px; border-bottom: 1px solid var(--gray-100);
+  font-family: var(--font-mono); font-size: .75rem;
+}
+.flex-examples tr:last-child td { border-bottom: none; }
+
+/* Preview box */
+.preview-box {
+  background: var(--navy-25); border-radius: 10px;
+  border: 1px solid var(--navy-100); padding: 14px 16px; margin-top: 14px;
+}
+.preview-title {
+  font-size: .71rem; font-weight: 700; color: var(--gray-500);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px;
+}
+.preview-bar-wrap {
+  display: flex; align-items: flex-end; gap: 2px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+.preview-seg {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.preview-bar {
+  height: 10px; border-radius: 3px; min-width: 14px;
+  transition: width .3s;
+}
+.preview-seg-label { font-size: .6rem; color: var(--gray-400); white-space: nowrap; }
+.preview-seg-time  { font-size: .65rem; font-weight: 700; font-family: var(--font-mono); color: var(--navy-700); }
+.preview-stats {
+  display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px;
+}
+.preview-stat { font-size: .77rem; color: var(--gray-600); }
+.preview-stat strong { color: var(--navy-900); }
+
+/* Action bar */
+.action-bar {
+  position: sticky; bottom: 0; z-index: 50;
+  background: var(--white); border-top: 1px solid var(--gray-100);
+  padding: 13px 20px; margin-top: 6px;
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: 0 -2px 12px rgba(10,35,66,.07);
+  border-radius: 0 0 12px 12px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">{% if schedule %}Edit Schedule{% else %}New Work Schedule{% endif %}</h1>
+    <p class="page-sub">
+      {% if schedule %}Editing: <strong>{{ schedule.schedule_name }}</strong>
+      {% else %}Define time slots, working hours, and flexible window settings.{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'employees:schedule_list' %}" class="btn btn-outline btn-sm">
+    <i class="fas fa-arrow-left"></i> Back
+  </a>
+</div>
+
+<div class="form-wrap">
+<form method="post" id="sched-form">
+  {% csrf_token %}
+
+  <!-- Identity -->
+  <div class="form-card">
+    <div class="form-card-head">
+      <div class="form-card-title">
+        <div class="icon"><i class="fas fa-tag"></i></div>
+        Schedule Identity
+      </div>
+    </div>
+    <div class="form-card-body">
+      <div class="form-grid-2">
+        <div class="form-group span2">
+          <label class="form-label">Schedule Name <span class="req">*</span></label>
+          <input type="text" name="schedule_name" class="form-control"
+                 value="{{ schedule.schedule_name|default:'' }}" required
+                 placeholder="e.g. Standard 8AM–5PM, FishCore Flex, Crisis 7AM–6PM">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Working Hours / Day <span class="req">*</span></label>
+          <input type="number" name="working_hours_per_day" id="f-hrs"
+                 class="form-control" step="0.5" min="1" max="24"
+                 value="{{ schedule.working_hours_per_day|default:'8.0' }}"
+                 required oninput="updatePreview()">
+          <span class="form-hint">Standard = 8, compressed week = 10.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Time slots -->
+  <div class="form-card">
+    <div class="form-card-head">
+      <div class="form-card-title">
+        <div class="icon"><i class="fas fa-clock"></i></div>
+        Expected Scan Times
+      </div>
+    </div>
+    <div class="form-card-body">
+      <p style="font-size:.77rem;color:var(--gray-500);margin-bottom:14px;line-height:1.6;">
+        These are the reference times for DTR deduction computation.
+        Adjust freely for crisis hours, special events, or compressed weeks.
+        For flexible employees, <strong>PM Out becomes the reference ceiling</strong> —
+        the engine computes each employee's personal required out from their actual AM In scan.
+      </p>
+      <div class="form-grid-4">
+        <div class="form-group">
+          <label class="form-label">AM In <span class="req">*</span></label>
+          <input type="time" name="am_in" id="f-am-in" class="form-control"
+                 value="{{ schedule.am_in|time:'H:i'|default:'08:00' }}"
+                 required oninput="updatePreview()">
+          <span class="form-hint">Std: 08:00</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">AM Out <span class="req">*</span></label>
+          <input type="time" name="am_out" id="f-am-out" class="form-control"
+                 value="{{ schedule.am_out|time:'H:i'|default:'12:00' }}"
+                 required oninput="updatePreview()">
+          <span class="form-hint">Std: 12:00</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">PM In <span class="req">*</span></label>
+          <input type="time" name="pm_in" id="f-pm-in" class="form-control"
+                 value="{{ schedule.pm_in|time:'H:i'|default:'13:00' }}"
+                 required oninput="updatePreview()">
+          <span class="form-hint">Std: 13:00</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">PM Out <span class="req">*</span></label>
+          <input type="time" name="pm_out" id="f-pm-out" class="form-control"
+                 value="{{ schedule.pm_out|time:'H:i'|default:'17:00' }}"
+                 required oninput="updatePreview()">
+          <span class="form-hint">
+            Std: 17:00.
+            <span id="pm-out-flex-note" style="display:none;color:#6A1B9A;">
+              For flex: auto-computed per employee.
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Live preview -->
+      <div class="preview-box">
+        <div class="preview-title">Live Timeline Preview</div>
+        <div id="preview-area">
+          <span style="font-size:.77rem;color:var(--gray-400);">Fill in times above…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flexible window -->
+  <div class="form-card">
+    <div class="form-card-head">
+      <div class="form-card-title">
+        <div class="icon"><i class="fas fa-arrows-left-right"></i></div>
+        Flexible Time-In Window
+      </div>
+    </div>
+    <div class="form-card-body">
+      <div class="toggle-wrap {% if schedule.is_flexible %}on{% endif %}"
+           id="flex-toggle" onclick="toggleFlex()">
+        <input type="hidden" name="is_flexible" id="is-flex-val"
+               value="{% if schedule.is_flexible %}1{% else %}0{% endif %}">
+        <div class="toggle-track {% if schedule.is_flexible %}on{% endif %}" id="flex-track">
+          <div class="toggle-knob"></div>
+        </div>
+        <div>
+          <div class="toggle-label">Enable flexible time-in</div>
+          <div class="toggle-sub">
+            Employees arrive within a window — no late penalty inside it.
+            Their required PM Out shifts with their actual AM In.
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-panel {% if schedule.is_flexible %}open{% endif %}"
+           id="flex-panel" style="margin-top:14px;">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Earliest Allowed In <span class="req">*</span></label>
+            <input type="time" name="flex_start_earliest" id="f-flex-e"
+                   class="form-control"
+                   value="{{ schedule.flex_start_earliest|time:'H:i'|default:'07:00' }}"
+                   oninput="updatePreview()">
+            <span class="form-hint">Can arrive from this time — no penalty.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Latest On-Time Arrival <span class="req">*</span></label>
+            <input type="time" name="flex_start_latest" id="f-flex-l"
+                   class="form-control"
+                   value="{{ schedule.flex_start_latest|time:'H:i'|default:'08:00' }}"
+                   oninput="updatePreview()">
+            <span class="form-hint">After this = late, even for flex employees.</span>
+          </div>
+        </div>
+
+        <!-- Flex PM Out examples table -->
+        <div style="margin-top:14px;">
+          <div style="font-size:.71rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+            Flexible PM Out Examples
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="flex-examples" id="flex-examples-table">
+              <thead>
+                <tr>
+                  <th>AM In</th>
+                  <th>+ Work hrs</th>
+                  <th>+ Lunch</th>
+                  <th>= Required Out</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="flex-examples-body">
+                <!-- filled by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;padding:10px 13px;background:var(--navy-25);border-radius:8px;font-size:.75rem;color:var(--gray-600);line-height:1.6;">
+          <i class="fas fa-circle-info" style="color:var(--navy-700);margin-right:5px;"></i>
+          <strong>Rule:</strong> Required out = actual AM In + <span id="flex-hrs-hint">{{ schedule.working_hours_per_day|default:'8' }}</span> working hours + 1 hr lunch.
+          Any PM Out before the required time counts as undertime.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% comment %} New form for Flexible Window Card {% endcomment %}
+  <div class="form-card">
+    <div class="form-card-head">
+      <div class="form-card-title">
+        <div class="icon"><i class="fas fa-unlock"></i></div>
+        Free Schedule (No Deductions)
+      </div>
+    </div>
+    <div class="form-card-body">
+      <div class="toggle-wrap {% if schedule.is_free %}on{% endif %}"
+          id="free-toggle" onclick="toggleFree()">
+        <input type="hidden" name="is_free" id="is-free-val"
+              value="{% if schedule.is_free %}1{% else %}0{% endif %}">
+        <div class="toggle-track {% if schedule.is_free %}on{% endif %}" id="free-track">
+          <div class="toggle-knob"></div>
+        </div>
+        <div>
+          <div class="toggle-label">Enable free schedule</div>
+          <div class="toggle-sub">
+            No deductions ever computed. Employee is always Present if any scan
+            exists, regardless of what time they clock in or out.
+            Designed for FishCore and fully flexible groups.
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:10px 13px;background:#FFF8E1;
+                  border-radius:8px;font-size:.75rem;color:#E65100;
+                  line-height:1.6;display:{% if schedule.is_free %}block{% else %}none{% endif %};"
+          id="free-warning">
+        <i class="fas fa-triangle-exclamation" style="margin-right:5px;"></i>
+        <strong>Note:</strong> When free schedule is enabled, all time-slot
+        fields above are ignored for deduction purposes. They are still
+        recorded in the DTR for reference only.
+      </div>
+    </div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <a href="{% url 'employees:schedule_list' %}" class="btn btn-ghost btn-sm">Cancel</a>
+    <button type="submit" class="btn btn-primary btn-sm">
+      <i class="fas fa-floppy-disk"></i>
+      {% if schedule %}Save Changes{% else %}Create Schedule{% endif %}
+    </button>
+  </div>
+</form>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+function toggleFlex() {
+  const wrap  = document.getElementById('flex-toggle');
+  const track = document.getElementById('flex-track');
+  const val   = document.getElementById('is-flex-val');
+  const panel = document.getElementById('flex-panel');
+  const note  = document.getElementById('pm-out-flex-note');
+  const isOn  = val.value === '1';
+
+  val.value = isOn ? '0' : '1';
+  track.classList.toggle('on', !isOn);
+  wrap.classList.toggle('on', !isOn);
+  panel.classList.toggle('open', !isOn);
+  if (note) note.style.display = isOn ? 'none' : 'inline';
+  updatePreview();
+}
+
+function toMin(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function fmt12(totalMin) {
+  const h   = Math.floor(totalMin / 60) % 24;
+  const m   = totalMin % 60;
+  const sfx = h < 12 ? 'AM' : 'PM';
+  return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${sfx}`;
+}
+
+function updatePreview() {
+  const amIn  = document.getElementById('f-am-in')?.value;
+  const amOut = document.getElementById('f-am-out')?.value;
+  const pmIn  = document.getElementById('f-pm-in')?.value;
+  const pmOut = document.getElementById('f-pm-out')?.value;
+  const hrs   = parseFloat(document.getElementById('f-hrs')?.value) || 8;
+  const isFlex = document.getElementById('is-flex-val')?.value === '1';
+  const flexE  = document.getElementById('f-flex-e')?.value;
+  const flexL  = document.getElementById('f-flex-l')?.value;
+
+  // Update flex hint
+  const hintEl = document.getElementById('flex-hrs-hint');
+  if (hintEl) hintEl.textContent = hrs;
+
+  const area = document.getElementById('preview-area');
+  if (!area || !amIn || !amOut || !pmIn || !pmOut) return;
+
+  const amInM  = toMin(amIn);
+  const amOutM = toMin(amOut);
+  const pmInM  = toMin(pmIn);
+  const pmOutM = toMin(pmOut);
+
+  const amWork    = Math.max(0, amOutM - amInM);
+  const lunchMin  = Math.max(0, pmInM  - amOutM);
+  const pmWork    = Math.max(0, pmOutM - pmInM);
+  const totalWork = amWork + pmWork;
+  const onsite    = Math.max(0, pmOutM - amInM);
+
+  const scale  = onsite > 0 ? 260 / onsite : 0;
+  const amW    = Math.max(14, Math.round(amWork   * scale));
+  const lunchW = Math.max(10, Math.round(lunchMin * scale));
+  const pmW    = Math.max(14, Math.round(pmWork   * scale));
+
+  area.innerHTML = `
+    <div class="preview-bar-wrap">
+      <div class="preview-seg">
+        <div class="preview-seg-time">${fmt12(amInM)}</div>
+        <div class="preview-bar" style="width:${amW}px;background:var(--navy-700);border-radius:3px 0 0 3px;"></div>
+        <div class="preview-seg-label">AM work</div>
+      </div>
+      <div class="preview-seg">
+        <div class="preview-seg-time" style="color:var(--gray-400);">${fmt12(amOutM)}</div>
+        <div class="preview-bar" style="width:${lunchW}px;background:var(--gray-200);border-radius:0;"></div>
+        <div class="preview-seg-label">lunch</div>
+      </div>
+      <div class="preview-seg">
+        <div class="preview-seg-time" style="color:var(--gray-400);">${fmt12(pmInM)}</div>
+        <div class="preview-bar" style="width:${pmW}px;background:var(--navy-700);border-radius:0 3px 3px 0;"></div>
+        <div class="preview-seg-label">PM work</div>
+      </div>
+      <div class="preview-seg">
+        <div class="preview-seg-time">${fmt12(pmOutM)}</div>
+        <div class="preview-bar" style="width:4px;background:transparent;"></div>
+        <div class="preview-seg-label"></div>
+      </div>
+    </div>
+    <div class="preview-stats">
+      <div class="preview-stat">Work: <strong>${(totalWork/60).toFixed(1)} hrs</strong></div>
+      <div class="preview-stat">Lunch: <strong>${lunchMin} min</strong></div>
+      <div class="preview-stat">On-site: <strong>${(onsite/60).toFixed(1)} hrs</strong></div>
+    </div>`;
+
+  // Update flex examples table
+  if (isFlex && flexE && flexL) {
+    const eMin  = toMin(flexE);
+    const lMin  = toMin(flexL);
+    const step  = 15; // every 15 min
+    const rows  = [];
+
+    for (let inMin = eMin; inMin <= lMin + 15; inMin += step) {
+      const reqOut   = inMin + hrs * 60 + 60;
+      const isLate   = inMin > lMin;
+      const lateMin  = isLate ? inMin - lMin : 0;
+      rows.push(`
+        <tr>
+          <td>${fmt12(inMin)}</td>
+          <td>${hrs} hrs</td>
+          <td>60 min</td>
+          <td style="font-weight:700;color:var(--navy-700);">${fmt12(reqOut)}</td>
+          <td>${isLate
+            ? `<span style="color:var(--warning);font-weight:600;">+${lateMin} min late</span>`
+            : `<span style="color:var(--success);">on-time</span>`}</td>
+        </tr>`);
+    }
+
+    const tbody = document.getElementById('flex-examples-body');
+    if (tbody) tbody.innerHTML = rows.join('');
+    const tbl = document.getElementById('flex-examples-table');
+    if (tbl) tbl.style.display = 'table';
+  } else {
+    const tbody = document.getElementById('flex-examples-body');
+    if (tbody) tbody.innerHTML = '';
+  }
+}
+
+function toggleFree() {
+  const wrap    = document.getElementById('free-toggle');
+  const track   = document.getElementById('free-track');
+  const val     = document.getElementById('is-free-val');
+  const warning = document.getElementById('free-warning');
+  const isOn    = val.value === '1';
+
+  val.value = isOn ? '0' : '1';
+  track.classList.toggle('on', !isOn);
+  wrap.classList.toggle('on', !isOn);
+  if (warning) warning.style.display = isOn ? 'none' : 'block';
+}
+
+// Init on page load
+document.addEventListener('DOMContentLoaded', () => {
+  updatePreview();
+  const note = document.getElementById('pm-out-flex-note');
+  if (note && document.getElementById('is-flex-val')?.value === '1') {
+    note.style.display = 'inline';
+  }
+});
+</script>
+{% endblock %}

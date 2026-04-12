@@ -66,6 +66,16 @@ class Division(PhilippinesTimeMixin, models.Model):
         default='fixed',
         help_text="Fixed = 8AM-5PM | Flexible = FishCore type"
     )
+
+    default_schedule = models.ForeignKey(
+        'WorkSchedule',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='division_defaults',
+        help_text="Default work schedule for all employees in this division"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     # ----- PH Time Helpers -----
@@ -118,6 +128,16 @@ class Unit(PhilippinesTimeMixin, models.Model):
         related_name='sub_units',
         help_text="For sub-station: Baler Satellite -> Aurora Brackishwater parent"
     )
+
+    default_schedule = models.ForeignKey(
+        'WorkSchedule',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='unit_defaults',
+        help_text="Overrides division schedule for employees in this unit"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     # ----- PH Time Helpers ------
@@ -132,6 +152,19 @@ class Unit(PhilippinesTimeMixin, models.Model):
         if self.parent_unit:
             return f"{self.parent_unit.get_full_path()} > {self.unit_name}"
         return f"{self.division.division_code} > {self.unit_name}"
+    
+    def get_schedule_with_fallback(self):
+        """
+        Walk up: Sub-unit -> Unit -> Division -> None
+        Returns the first WorkSchedule found in the chain
+        """
+        if self.default_schedule:
+            return self.default_schedule
+        if self.parent_unit:
+            return self.parent_unit.get_schedule_with_fallback()
+        if self.division and self.division.default_schedule:
+            return self.division.default_schedule
+        return None
     
     def __str__(self):
         return f"{self.division.division_code} — {self.unit_name}"
@@ -284,6 +317,7 @@ class Employee(PhilippinesTimeMixin, models.Model):
     suffix = models.CharField(
         max_length=10,
         blank=True,
+        default='',
         help_text="Jr., Sr., III, etc."
     )
 
@@ -548,6 +582,29 @@ class WorkSchedule(PhilippinesTimeMixin, models.Model):
         help_text="TRUE for FishCore flexible schedule"
     )
 
+    # Added for flexible time of fishcore 
+    is_free = models.BooleanField(
+        default=False,
+        help_text=(
+            "Free schedule - no deductions ever computed."
+            "Employee is always present in any scan exists"
+            "User for FishCore or any group with fully flexible hours."
+        )
+    )
+
+    # Flexible time-in window
+    # If is_flexible=True, employees can arrive between these times
+    # without a late penalty. Any arrival after flex_start_latest is late.
+    # Para to sa nangayayaring crisis like 4 working days yung almost all of employees
+    flex_start_earliest = models.TimeField(
+        default='07:00',
+        help_text="Earliest allowed time-in for flex schedules (07:00)"
+    )
+    flex_start_latest = models.TimeField(
+        default='08:00',
+        help_text="Latest on-time arrival. After this = late, even for flex."
+    )
+
     working_hours_per_day = models.DecimalField(
         max_digits=4,
         decimal_places=2,
@@ -607,6 +664,22 @@ class EmployeeSchedule(PhilippinesTimeMixin, models.Model):
 
     effective_date = models.DateField(
         help_text="Date when this schedule assignment become active"
+    )
+
+    SOURCE_CHOICES = [
+        ('personal', 'Personal Override'), # HR set this on the employee directly
+        ('pushed', 'Pushed from Group'), # auto-pushed from division/unit assignment
+    ]
+
+    source = models.CharField(
+        max_length=10,
+        choices=SOURCE_CHOICES,
+        default='personal',
+        help_text=(
+            "personal = HR set directly on the employees."
+            "Pushed = auto-applied from division/unit schedule push."
+            "Only personal override block future group pushes."
+        )
     )
 
     # ----- PH Time Helpers -----

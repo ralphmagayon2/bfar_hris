@@ -85,9 +85,18 @@ class AuditLog(models.Model):
     )
 
     # ── Who Did It ────────────────────────────────────────────────────────────
+    # performed_by = models.ForeignKey(
+    #     'accounts.SystemUser',
+    #     on_delete=models.PROTECT,
+    #     related_name='audit_logs',
+    #     help_text="The system user who performed this action"
+    # )
+
     performed_by = models.ForeignKey(
         'accounts.SystemUser',
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='audit_logs',
         help_text="The system user who performed this action"
     )

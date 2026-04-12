@@ -35,10 +35,12 @@ class Holiday(models.Model):
         max_length=200,
         help_text="e.g. Independence Day, Holy Wednesday, Pampanga Day"
     )
+
     holiday_date = models.DateField(
         unique=True,
         help_text="The actual holiday date"
     )
+    
     holiday_type = models.CharField(
         max_length=10,
         choices=HOLIDAY_TYPE_CHOICES,

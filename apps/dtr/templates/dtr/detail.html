@@ -14,17 +14,17 @@
 <div class="dtr-hero">
   <div class="dtr-hero-left">
     <div class="dtr-avatar">
-      {# BUG FIX: Employee model has no profile_picture field — use initials only #}
+       {% comment %} BUG FIX: Employee model has no profile_picture field — use initials only  {% endcomment %}
       {{ employee.get_initials }}
     </div>
     <div>
       <div class="dtr-emp-name">{{ employee.get_full_name }}</div>
       <div class="dtr-emp-meta">
-        {# BUG FIX: PK is employee_id not id #}
+         {% comment %} BUG FIX: PK is employee_id not id  {% endcomment %}
         <span><i class="fas fa-id-badge"></i> {{ employee.id_number|default:"—" }}</span>
-        {# BUG FIX: Position field is position_title not title #}
+         {% comment %} BUG FIX: Position field is position_title not title  {% endcomment %}
         <span><i class="fas fa-briefcase"></i> {{ employee.position.position_title|default:"—" }}</span>
-        {# BUG FIX: Division field is division_name not name #}
+         {% comment %} BUG FIX: Division field is division_name not name  {% endcomment %}
         <span><i class="fas fa-building"></i> {{ employee.division.division_name|default:"—" }}</span>
         <span class="emp-type {{ employee.employment_type|lower }}" style="padding:1px 7px;border-radius:999px;font-size:.65rem;font-weight:700;text-transform:uppercase;background:var(--navy-50);color:var(--navy-700);">
           {{ employee.employment_type|upper }}
@@ -33,7 +33,10 @@
     </div>
   </div>
   <div class="dtr-hero-right">
-    {# BUG FIX: URL uses employee_id not id #}
+     {% comment %} BUG FIX: URL uses employee_id not id  {% endcomment %}
+    <a href="{% url 'dtr:manual_entry' employee.employee_id %}" class="btn btn-primary btn-sm">
+      <i class="fas fa-pen-to-square"></i> Manual Entry
+    </a>
     <a href="{% url 'dtr:print_dtr' employee.employee_id %}?month={{ selected_month|date:'Y-m' }}" class="btn btn-outline btn-sm" target="_blank">
       <i class="fas fa-print"></i> Print DTR
     </a>
@@ -84,7 +87,7 @@
     <div class="ms-label">Late</div>
   </div>
   <div class="ms-card">
-    {# BUG FIX: was undertime_hours — now correctly formatted as hours #}
+     {% comment %} BUG FIX: was undertime_hours — now correctly formatted as hours  {% endcomment %}
     <div class="ms-val" style="color:var(--gray-500);">{{ month_summary.undertime_hours|default:"0.0" }}h</div>
     <div class="ms-label">Undertime</div>
   </div>
@@ -121,28 +124,101 @@
       </thead>
       <tbody>
         {% for rec in dtr_records %}
-        {#
-          BUG FIX SUMMARY per row:
+        
+          {% comment %} BUG FIX SUMMARY per row:
             rec.date           → set by view as alias of rec.dtr_date      ✓
             rec.is_today       → compare rec.date == today                 ✓
             rec.is_late        → set by view from minutes_late > 0         ✓
             rec.late_minutes   → set by view as alias of minutes_late      ✓
             rec.undertime_minutes → set by view as hours_undertime * 60    ✓
             rec.status         → set by view from slot status logic        ✓
-        #}
-        <tr class="{% if rec.is_holiday %}is-holiday{% endif %} {% if rec.date == today %}is-today{% endif %}">
+         {% endcomment %}
+        <tr class="{% if rec.is_restday %}is-restday {% elif rec.is_holiday %}is-holiday{% endif %} {% if rec.date == today %}is-today{% endif %}">
           <td>
             <div class="day-label">
               {{ rec.date|date:"M d" }}
               <span class="dow">{{ rec.date|date:"D" }}</span>
             </div>
           </td>
-          <td class="time-cell {% if rec.is_late %}late{% endif %}">
-            {{ rec.am_in|time:"h:i A"|default:"—" }}
+          <td class="time-cell">
+              {% if rec.ph_am_in %}
+                  <div>{{ rec.ph_am_in }}</div>
+                  {% if rec.sub_am_in %}
+                      <div class="slot-sublabel
+                          {% if rec.sub_am_in == 'on-time' %}sublabel-ok
+                          {% elif rec.sub_am_in == 'missing' %}sublabel-missing
+                          {% else %}sublabel-warn{% endif %}">
+                          {{ rec.sub_am_in }}
+                      </div>
+                  {% endif %}
+              {% else %}
+                  <div class="time-cell-dash">—</div>
+                  {% if rec.sub_am_in %}
+                      <div class="slot-sublabel sublabel-missing">{{ rec.sub_am_in }}</div>
+                  {% endif %}
+              {% endif %}
           </td>
-          <td class="time-cell">{{ rec.am_out|time:"h:i A"|default:"—" }}</td>
+
+          <td class="time-cell">
+              {% if rec.ph_am_out %}
+                  <div>{{ rec.ph_am_out }}</div>
+                  {% if rec.sub_am_out %}
+                      <div class="slot-sublabel
+                          {% if rec.sub_am_out == 'on-time' %}sublabel-ok
+                          {% elif rec.sub_am_out == 'missing' %}sublabel-missing
+                          {% else %}sublabel-warn{% endif %}">
+                          {{ rec.sub_am_out }}
+                      </div>
+                  {% endif %}
+              {% else %}
+                  <div class="time-cell-dash">—</div>
+                  {% if rec.sub_am_out %}
+                      <div class="slot-sublabel sublabel-missing">{{ rec.sub_am_out }}</div>
+                  {% endif %}
+              {% endif %}
+          </td>
+
+          <td class="time-cell">
+              {% if rec.ph_pm_in %}
+                  <div>{{ rec.ph_pm_in }}</div>
+                  {% if rec.sub_pm_in %}
+                      <div class="slot-sublabel
+                          {% if rec.sub_pm_in == 'on-time' %}sublabel-ok
+                          {% elif rec.sub_pm_in == 'missing' %}sublabel-missing
+                          {% else %}sublabel-warn{% endif %}">
+                          {{ rec.sub_pm_in }}
+                      </div>
+                  {% endif %}
+              {% else %}
+                  <div class="time-cell-dash">—</div>
+                  {% if rec.sub_pm_in %}
+                      <div class="slot-sublabel sublabel-missing">{{ rec.sub_pm_in }}</div>
+                  {% endif %}
+              {% endif %}
+          </td>
+
+          <td class="time-cell">
+              {% if rec.ph_pm_out %}
+                  <div>{{ rec.ph_pm_out }}</div>
+                  {% if rec.sub_pm_out %}
+                      <div class="slot-sublabel
+                          {% if rec.sub_pm_out == 'on-time' %}sublabel-ok
+                          {% elif rec.sub_pm_out == 'missing' %}sublabel-missing
+                          {% else %}sublabel-warn{% endif %}">
+                          {{ rec.sub_pm_out }}
+                      </div>
+                  {% endif %}
+              {% else %}
+                  <div class="time-cell-dash">—</div>
+                  {% if rec.sub_pm_out %}
+                      <div class="slot-sublabel sublabel-missing">{{ rec.sub_pm_out }}</div>
+                  {% endif %}
+              {% endif %}
+          </td>
+
+          {% comment %} <td class="time-cell">{{ rec.am_out|time:"h:i A"|default:"—" }}</td>
           <td class="time-cell">{{ rec.pm_in|time:"h:i A"|default:"—" }}</td>
-          <td class="time-cell">{{ rec.pm_out|time:"h:i A"|default:"—" }}</td>
+          <td class="time-cell">{{ rec.pm_out|time:"h:i A"|default:"—" }}</td> {% endcomment %}
           <td style="text-align:center;font-family:var(--font-mono);font-size:.8rem;
                      {% if rec.late_minutes > 0 %}color:var(--warning);font-weight:700;{% endif %}">
             {{ rec.late_minutes|default:"0" }}
@@ -152,14 +228,14 @@
           </td>
           <td>
             <span class="status-badge
-              {% if rec.status == 'present' %}badge-present
-              {% elif rec.status == 'late' %}badge-late
+              {% if rec.status == 'restday' %}badge-restday
+              {% elif rec.status == 'present' %}badge-present
               {% elif rec.status == 'absent' %}badge-absent
               {% elif rec.status == 'to' %}badge-to
               {% elif rec.status == 'holiday' %}badge-holiday
               {% elif rec.status == 'leave' %}badge-leave
               {% else %}badge-halfday{% endif %}">
-              {{ rec.status|capfirst }}
+              {% if rec.status == 'restday' %}Rest Day{% else %}{{ rec.status|capfirst }}{% endif %}
             </span>
           </td>
           <td class="remarks-cell" title="{{ rec.remarks|default:'' }}">{{ rec.remarks|default:"—" }}</td>

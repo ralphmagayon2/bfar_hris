@@ -1,0 +1,361 @@
+{# templates/dtr/manual_entry.html #}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manual DTR Entry — {{ employee.get_full_name }} — BFAR HRIS{% endblock %}
+{% block page_title %}Manual DTR Entry{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/dtr_form.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div id="manual-entry-page" 
+      data-emp-id="{{ employee.employee_id }}" 
+      data-api-url="{% url 'dtr:dtr_by_date' employee.employee_id %}"
+      data-is-flexible="{{ is_flexible|yesno:'true,false' }}"
+      data-is-free="{{ is_free|yesno:'true,false' }}"
+      data-working-hours="{{ working_hours }}"
+      data-flex-latest="{{ flex_latest }}">
+
+<div style="margin-bottom:16px;">
+  <a href="{% url 'dtr:detail' employee.employee_id %}" class="btn btn-ghost btn-sm">
+    <i class="fas fa-arrow-left"></i> Back to DTR
+  </a>
+</div>
+
+<!-- Employee banner -->
+<div class="emp-banner">
+  <div class="emp-banner-avatar">{{ employee.get_initials }}</div>
+  <div>
+    <div class="emp-banner-name">{{ employee.get_full_name }}</div>
+    <div class="emp-banner-meta">
+      <span><i class="fas fa-id-badge"></i> {{ employee.id_number|default:"—" }}</span>
+      <span><i class="fas fa-briefcase"></i> {{ employee.position.position_title|default:"—" }}</span>
+      <span><i class="fas fa-building"></i> {{ employee.division.division_name|default:"—" }}</span>
+    </div>
+  </div>
+</div>
+
+{% if existing %}
+<div class="alert-warning-box">
+  <i class="fas fa-triangle-exclamation"></i>
+  A DTR record already exists for <strong>{{ initial_date|date:"F d, Y" }}</strong>.
+  Submitting will overwrite it. The original values are pre-filled below.
+</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <div class="form-grid">
+
+    <!-- ── LEFT ── -->
+    <div>
+
+      <!-- Date -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-calendar-day"></i>
+          <span class="form-card-title">Date</span>
+        </div>
+        <div class="form-card-body">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label" for="dtr_date">
+              DTR Date <span class="required">*</span>
+            </label>
+            <input type="date" name="dtr_date" id="dtr_date" class="form-input"
+                value="{{ initial_date|date:'Y-m-d' }}"
+                max="{{ today|date:'Y-m-d' }}" required>
+            <p class="field-hint">Cannot be a future date.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Day type -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-calendar-check"></i>
+          <span class="form-card-title">Day Type</span>
+        </div>
+        <div class="form-card-body" style="display:flex;gap:20px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:.83rem;cursor:pointer;">
+            <input type="checkbox" name="is_holiday" value="1" id="chk-holiday"
+                   {% if existing.is_holiday %}checked{% endif %}
+                   onchange="toggleHolidayType()">
+            <span>Holiday</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:.83rem;cursor:pointer;">
+            <input type="checkbox" name="is_restday" value="1"
+                   {% if existing.is_restday %}checked{% endif %}>
+            <span>Rest Day / Weekend</span>
+          </label>
+          <div id="holiday-type-wrap"
+               style="{% if not existing.is_holiday %}display:none;{% endif %}">
+            <select name="holiday_type" class="form-input" style="width:auto;">
+              {% for val, label in holiday_choices %}
+              <option value="{{ val }}"
+                {% if existing.holiday_type == val %}selected{% endif %}>
+                {{ label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Time inputs -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-clock"></i>
+          <span class="form-card-title">Biometric / Logbook Times</span>
+        </div>
+        <div class="form-card-body">
+          <p class="form-section-label">Leave blank if no scan was recorded for that slot.</p>
+          <div class="time-grid">
+
+            <div class="field-group">
+              <span class="time-slot-label">AM In</span>
+              <label class="field-label">Expected: 08:00</label>
+              <input type="time" name="am_in" class="form-input" id="entry-am-in"
+                     {# Use |time filter which works on aware datetimes #}
+                     value="{{ prefill.am_in }}">
+            </div>
+            <div class="field-group">
+              <span class="time-slot-label">AM Out</span>
+              <label class="field-label">Expected: 12:00</label>
+              <input type="time" name="am_out" class="form-input" id="entry-am-out"
+                     value="{{ prefill.am_out }}">
+            </div>
+            <div class="field-group">
+              <span class="time-slot-label">PM In</span>
+              <label class="field-label">Expected: 13:00</label>
+              <input type="time" name="pm_in" class="form-input" id="entry-pm-in"
+                     value="{{ prefill.pm_in }}">
+            </div>
+            <div class="field-group">
+              <span class="time-slot-label">PM Out</span>
+              <label class="field-label">Expected: 17:00</label>
+              <input type="time" name="pm_out" class="form-input" id="entry-pm-out"
+                     value="{{ prefill.pm_out }}">
+            </div>
+          </div>
+
+          <!-- Live deduction preview -->
+          <div id="deduction-preview">
+            <div class="preview-label">Live Deduction Preview</div>
+            <div id="preview-content" style="color:var(--gray-400);">
+              Enter times above to see computed deductions.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-slot status overrides -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-tag"></i>
+          <span class="form-card-title">
+            Status Override
+            <span style="font-weight:400;font-size:.72rem;color:var(--gray-400);">(optional)</span>
+          </span>
+        </div>
+        <div class="form-card-body">
+          <p class="form-section-label">
+            Override auto-computed status — use for travel orders, leave, etc.
+          </p>
+          {% comment %}           
+            slot_fields is a list of (field_name, label, current_value) tuples
+            passed by the view. Using direct comparison instead of |attr filter
+            which doesn't exist in Django.
+           {% endcomment %}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            {% for slot_field, slot_label, slot_current in slot_fields %}
+            <div class="field-group">
+              <label class="field-label">{{ slot_label }}</label>
+              <select name="{{ slot_field }}" class="form-input">
+                <option value="">Auto</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}"
+                  {% if slot_current == val %}selected{% endif %}>
+                  {{ label }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Remarks -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-comment-alt"></i>
+          <span class="form-card-title">Remarks</span>
+        </div>
+        <div class="form-card-body">
+          <textarea name="remarks" class="form-input" style="min-height:70px;resize:vertical;"
+                    placeholder="e.g. TO#26-02-1375HR, Sick Leave, No biometric scan — logbook basis">{{ existing.remarks|default:'' }}</textarea>
+          <p class="field-hint">TO code, leave type, or correction note.</p>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <div class="form-card-header">
+          <i class="fas fa-shield-alt" style="color:var(--navy-700);"></i>
+          <span class="form-card-title">Audit Trail</span>
+        </div>
+        <div class="form-card-body">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label" for="reason">
+              Reason for Correction <span style="font-weight:400;color:var(--gray-400);">(Recommended)</span>
+            </label>
+            <textarea name="reason" id="reason" class="form-input" style="min-height:70px;resize:vertical;"
+                      placeholder="Explain why this entry is being modified (e.g., biometric error, missing log)..."></textarea>
+            <p class="field-hint">This will be attached to the system audit logs for transparency.</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /LEFT -->
+
+    <!-- ── RIGHT — info sidebar ── -->
+    <div>
+
+      <!-- Active Schedule for selected date -->
+      <div class="form-card" style="margin-bottom:16px;" id="active-sched-card">
+        <div class="form-card-header">
+          <i class="fas fa-calendar-check" style="color:var(--navy-700);"></i>
+          <span class="form-card-title">Schedule on This Date</span>
+        </div>
+        <div class="form-card-body" style="font-size:.81rem;line-height:1.8;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="color:var(--gray-500);">Active schedule:</span>
+            <strong id="active-sched-name" style="color:var(--navy-900);">—</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="color:var(--gray-500);">Effective from:</span>
+            <span id="active-sched-date" style="color:var(--gray-600);">—</span>
+          </div>
+          <div id="next-sched-wrap" style="display:none;margin-top:8px;padding:8px 10px;
+              background:#FFF8E1;border-radius:6px;border:1px solid #FFE082;">
+            <div style="font-size:.69rem;font-weight:700;text-transform:uppercase;
+                        letter-spacing:.4px;color:#F57F17;margin-bottom:4px;">
+              <i class="fas fa-forward"></i> Next Scheduled Change
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span id="next-sched-name" style="color:var(--navy-900);font-weight:600;">—</span>
+              <span id="next-sched-date" style="color:var(--gray-600);font-size:.75rem;">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deduction rules reference -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-circle-info"></i>
+          <span class="form-card-title">Deduction Rules</span>
+        </div>
+        <div class="form-card-body" style="font-size:.78rem;color:var(--gray-600);line-height:1.7;">
+          <div style="margin-bottom:8px;"><strong>No grace period</strong> — any scan after 08:00 is late.</div>
+          <div style="margin-bottom:8px;">1 missing entry = <strong>4 hrs deduction</strong></div>
+          <div style="margin-bottom:8px;">AM Out + PM In both missing = <strong>4 hrs</strong> (lunch block)</div>
+          <div style="margin-bottom:8px;">3+ missing entries = <strong>full day (8 hrs)</strong></div>
+          <div>OT after 17:00 = reference only, no pay effect.</div>
+        </div>
+      </div>
+
+      <!-- DTR Scan Rules for this employee's schedule -->
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-ruler-combined"></i>
+          <span class="form-card-title">
+            DTR Scan Rules
+            <span id="manual-sched-label"
+                  style="font-weight:400;font-size:.7rem;color:var(--gray-400);margin-left:4px;">
+              — {{ employee.get_full_name }}
+            </span>
+          </span>
+        </div>
+        <div class="form-card-body" style="padding:0;">
+          <table style="width:100%;border-collapse:collapse;font-size:.76rem;" id="manual-rules-table">
+            <thead>
+              <tr>
+                <th style="padding:7px 12px;background:var(--gray-50);border-bottom:1px solid var(--gray-100);font-size:.67rem;font-weight:700;text-transform:uppercase;color:var(--gray-500);">Scan</th>
+                <th style="padding:7px 12px;background:var(--gray-50);border-bottom:1px solid var(--gray-100);font-size:.67rem;font-weight:700;text-transform:uppercase;color:var(--gray-500);">Expected</th>
+                <th style="padding:7px 12px;background:var(--gray-50);border-bottom:1px solid var(--gray-100);font-size:.67rem;font-weight:700;text-transform:uppercase;color:var(--gray-500);">Rule</th>
+              </tr>
+            </thead>
+            <tbody id="manual-rules-body">
+              {% if is_flexible %}
+              <tr><td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">AM IN</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">{{ flex_latest }} window</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">After {{ flex_latest }} = Late</td></tr>
+              <tr><td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">AM OUT</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">Variable</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">Expected break start</td></tr>
+              <tr><td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">PM IN</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">Variable</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">Expected break end</td></tr>
+              <tr><td style="padding:7px 12px;">PM OUT</td>
+                  <td style="padding:7px 12px;">AM In + {{ working_hours }} hrs + 1 hr</td>
+                  <td style="padding:7px 12px;">Required out computed per arrival</td></tr>
+              {% else %}
+              <tr><td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">AM IN</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">8:00 AM</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">After 8:00 AM = Late</td></tr>
+              <tr><td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">AM OUT</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">12:00 PM</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">Missing = Half-day</td></tr>
+              <tr><td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">PM IN</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">1:00 PM</td>
+                  <td style="padding:7px 12px;border-bottom:1px solid var(--gray-100);">Missing = Half-day absent</td></tr>
+              <tr><td style="padding:7px 12px;">PM OUT</td>
+                  <td style="padding:7px 12px;">5:00 PM</td>
+                  <td style="padding:7px 12px;">Earlier = undertime</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Current saved values (if overwriting) -->
+      {% if existing %}
+      <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+          <i class="fas fa-history"></i>
+          <span class="form-card-title">Current Saved Values</span>
+        </div>
+        <div class="form-card-body">
+          {% for label, val in current_values %}
+          <div class="original-row">
+            <span class="original-label">{{ label }}</span>
+            <span class="original-val">{{ val|default:"—" }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <a href="{% url 'dtr:detail' employee.employee_id %}" class="btn btn-ghost">
+          Cancel
+        </a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save"></i>
+          {% if existing %}Update DTR{% else %}Save DTR{% endif %}
+        </button>
+      </div>
+
+    </div><!-- /RIGHT -->
+
+  </div>
+</form>
+{% endblock %}
+
+{% block js %}
+<script src="{% static 'js/dtr_manual_entry.js' %}"></script>
+{% endblock %}

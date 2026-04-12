@@ -1,3 +1,4 @@
+// leaves/static/js/leave_list.js
 function filterLeave() {
   const q   = document.getElementById('leave-search').value.toLowerCase();
   const div = document.getElementById('div-filter').value;

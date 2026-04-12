@@ -1,3 +1,4 @@
+/* css/dtr_list.css */
 .toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
 .toolbar-left, .toolbar-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .search-wrap { position:relative; width:240px; }
@@ -27,6 +28,23 @@
 .page-btn { min-width:30px; height:30px; padding:0 7px; border-radius:var(--radius); display:flex; align-items:center; justify-content:center; font-size:.79rem; cursor:pointer; border:1px solid var(--gray-200); background:var(--white); color:var(--gray-700); text-decoration:none; transition:background .2s, color .2s; }
 .page-btn:hover { background:var(--navy-50); border-color:var(--navy-700); color:var(--navy-700); }
 .page-btn.active { background:var(--navy-700); border-color:var(--navy-700); color:var(--white); font-weight:700; }
+
+/* Per-slot sub-labels */
+.slot-sublabel {
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-top: 2px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+}
+.sublabel-ok      { color: var(--success); }       /* green: on-time */
+.sublabel-warn    { color: var(--warning); }        /* amber: late or early */
+.sublabel-missing { color: var(--danger);  }        /* red: missing scan */
+
+.time-cell-dash {
+    color: var(--gray-400);
+    font-size: 0.85rem;
+}
 
 @media (max-width: 480px) {
     .page-header {

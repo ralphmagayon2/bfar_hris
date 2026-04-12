@@ -132,7 +132,7 @@ class Command(BaseCommand):
                 montly_salary=salary,
                 pera=Decimal('2000.00'),
                 date_hired=fake.date_between(start_date='-5y', end_date='today'),
-                is_active=True
+                status='active'
                 # Note: Biometric templates omitted as they are raw binary data from devices 
             )
             employees.append(emp)

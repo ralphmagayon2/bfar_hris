@@ -654,8 +654,8 @@ img { display: block; max-width: 100%; }
 .btn-danger  { background: var(--danger);   color: var(--white); }
 .btn-outline { background: transparent; border: 1.5px solid var(--navy-700); color: var(--navy-700); }
 .btn-outline:hover { background: var(--navy-50); }
-.btn-ghost   { background: transparent; color: var(--gray-500); }
-.btn-ghost:hover { background: var(--gray-100); color: var(--navy-700); }
+.btn-ghost   { background: transparent; color: var(--gray-500); border: 1px solid var(--gray-500); }
+.btn-ghost:hover { color: var(--navy-900); border-color: var(--navy-900); }
 
 /* Tables */
 .table-wrap { overflow-x: auto; }
@@ -706,6 +706,112 @@ img { display: block; max-width: 100%; }
 .stat-icon.amber { background: var(--amber-50);       color: var(--amber-700); }
 .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--navy-900); line-height: 1; font-family: var(--font-mono); }
 .stat-label { font-size: .8rem; color: var(--gray-500); margin-top: 3px; }
+
+/* Toast Overlay Styles */
+.toast-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10,35,66,.5);
+  z-index: 1100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.toast-overlay.open {
+  display: flex;
+  animation: toastFade .2s ease;
+}
+
+.toast-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.28);
+  width: 100%;
+  max-width: 380px;
+  padding: 24px;
+  text-align: center;
+  animation: toastSlide .25s ease;
+}
+
+.toast-icon-wrap {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.toast-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--navy-900);
+  margin-bottom: 6px;
+}
+
+.toast-desc {
+  font-size: .85rem;
+  color: var(--gray-500);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.toast-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.toast-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: .85rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: background .2s;
+}
+
+.toast-cancel {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.toast-cancel:hover {
+  background: var(--gray-200);
+}
+
+.toast-confirm.success {
+  background: var(--navy-700);
+  color: #fff;
+}
+
+.toast-confirm.success:hover {
+  background: var(--navy-900);
+}
+
+@keyframes toastFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes toastSlide {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.toast-confirm.danger { background: var(--danger); color: #fff; }
+.toast-confirm.danger:hover { background: #b91c1c; } /* Darker red */
 
 /* ══════════════════════════════════════════════════════════════
    RESPONSIVE

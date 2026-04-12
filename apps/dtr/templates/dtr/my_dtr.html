@@ -1,0 +1,242 @@
+{% extends 'base_viewer.html' %}
+{% load static %}
+
+{% block title %}My DTR — {{ employee.get_full_name }} — BFAR HRIS{% endblock %}
+{% block page_title %}My Daily Time Record{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/dtr_detail.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<!-- Employee strip -->
+<div class="dtr-hero">
+  <div class="dtr-hero-left">
+    <div class="dtr-avatar">{{ employee.get_initials }}</div>
+    <div>
+      <div class="dtr-emp-name">{{ employee.get_full_name }}</div>
+      <div class="dtr-emp-meta">
+        <span><i class="fas fa-id-badge"></i> {{ employee.id_number|default:"—" }}</span>
+        <span><i class="fas fa-briefcase"></i> {{ employee.position.position_title|default:"—" }}</span>
+        <span><i class="fas fa-building"></i> {{ employee.division.division_name|default:"—" }}</span>
+        <span class="emp-type" style="padding:1px 7px;border-radius:999px;font-size:.65rem;
+              font-weight:700;text-transform:uppercase;background:var(--navy-50);color:var(--navy-700);">
+          {{ employee.employment_type|upper }}
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="dtr-hero-right">
+    {# Print button — goes to my_dtr_print with same month #}
+    <a href="{% url 'dtr:my_dtr_print' %}?month={{ selected_month|date:'Y-m' }}"
+       class="btn btn-outline btn-sm" target="_blank">
+      <i class="fas fa-print"></i> Print DTR
+    </a>
+    <a href="{% url 'core:dashboard' %}" class="btn btn-ghost btn-sm">
+      <i class="fas fa-arrow-left"></i> Dashboard
+    </a>
+  </div>
+</div>
+
+<!-- Month nav -->
+<div class="month-nav">
+  <div class="month-title">
+    <i class="fas fa-calendar-days" style="color:var(--navy-700);margin-right:6px;"></i>
+    {{ selected_month|date:"F Y" }}
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div class="month-nav-btns">
+      <a href="?month={{ prev_month }}" class="month-nav-btn" title="Previous month">
+        <i class="fas fa-chevron-left"></i>
+      </a>
+      <a href="?month={{ next_month }}" class="month-nav-btn" title="Next month">
+        <i class="fas fa-chevron-right"></i>
+      </a>
+    </div>
+    <form method="get" style="display:flex;gap:6px;">
+      <input type="month" name="month" value="{{ selected_month|date:'Y-m' }}"
+             style="padding:5px 8px;border:1.5px solid var(--gray-200);
+                    border-radius:var(--radius);font-size:.8rem;font-family:var(--font);">
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="fas fa-search"></i>
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Monthly summary -->
+<div class="month-summary">
+  <div class="ms-card">
+    <div class="ms-val" style="color:var(--success);">{{ month_summary.present|default:0 }}</div>
+    <div class="ms-label">Present</div>
+  </div>
+  <div class="ms-card">
+    <div class="ms-val" style="color:var(--danger);">{{ month_summary.absent|default:0 }}</div>
+    <div class="ms-label">Absent</div>
+  </div>
+  <div class="ms-card">
+    <div class="ms-val" style="color:var(--warning);">{{ month_summary.late|default:0 }}</div>
+    <div class="ms-label">Late</div>
+  </div>
+  <div class="ms-card">
+    <div class="ms-val" style="color:var(--gray-500);">{{ month_summary.undertime_hours|default:"0.0" }}h</div>
+    <div class="ms-label">Undertime</div>
+  </div>
+  <div class="ms-card">
+    <div class="ms-val" style="color:var(--teal-700);">{{ month_summary.on_travel|default:0 }}</div>
+    <div class="ms-label">Travel</div>
+  </div>
+  <div class="ms-card">
+    <div class="ms-val" style="color:#6A1B9A;">{{ month_summary.on_leave|default:0 }}</div>
+    <div class="ms-label">Leave</div>
+  </div>
+  <div class="ms-card">
+    <div class="ms-val" style="color:var(--amber-700);">{{ month_summary.holidays|default:0 }}</div>
+    <div class="ms-label">Holidays</div>
+  </div>
+</div>
+
+<!-- DTR table — READ ONLY, no edit/add buttons -->
+<div style="background:var(--white);border-radius:10px;border:1px solid var(--gray-100);
+            box-shadow:var(--shadow);overflow:hidden;">
+  <div class="table-wrap">
+    <table class="dtr-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;min-width:90px;">Date</th>
+          <th>AM In</th>
+          <th>AM Out</th>
+          <th>PM In</th>
+          <th>PM Out</th>
+          <th>Late (min)</th>
+          <th>Undertime</th>
+          <th>Status</th>
+          <th style="text-align:left;">Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rec in dtr_records %}
+        <tr class="{% if rec.is_restday %}is-restday {% elif rec.is_holiday %}is-holiday{% endif %} {% if rec.date == today %}is-today{% endif %}">
+          <td>
+            <div class="day-label">
+              {{ rec.date|date:"M d" }}
+              <span class="dow">{{ rec.date|date:"D" }}</span>
+            </div>
+          </td>
+
+          <td class="time-cell">
+              {% if rec.ph_am_in %}
+                  <div>{{ rec.ph_am_in }}</div>
+                  {% if rec.sub_am_in %}
+                      <div class="slot-sublabel
+                          {% if rec.sub_am_in == 'on-time' %}sublabel-ok
+                          {% elif rec.sub_am_in == 'missing' %}sublabel-missing
+                          {% else %}sublabel-warn{% endif %}">
+                          {{ rec.sub_am_in }}
+                      </div>
+                  {% endif %}
+              {% else %}
+                  <div class="time-cell-dash">—</div>
+                  {% if rec.sub_am_in %}
+                      <div class="slot-sublabel sublabel-missing">{{ rec.sub_am_in }}</div>
+                  {% endif %}
+              {% endif %}
+          </td>
+
+          <td class="time-cell">
+              {% if rec.ph_am_out %}
+                  <div>{{ rec.ph_am_out }}</div>
+                  {% if rec.sub_am_out %}
+                      <div class="slot-sublabel
+                          {% if rec.sub_am_out == 'on-time' %}sublabel-ok
+                          {% elif rec.sub_am_out == 'missing' %}sublabel-missing
+                          {% else %}sublabel-warn{% endif %}">
+                          {{ rec.sub_am_out }}
+                      </div>
+                  {% endif %}
+              {% else %}
+                  <div class="time-cell-dash">—</div>
+                  {% if rec.sub_am_out %}
+                      <div class="slot-sublabel sublabel-missing">{{ rec.sub_am_out }}</div>
+                  {% endif %}
+              {% endif %}
+          </td>
+
+          <td class="time-cell">
+              {% if rec.ph_pm_in %}
+                  <div>{{ rec.ph_pm_in }}</div>
+                  {% if rec.sub_pm_in %}
+                      <div class="slot-sublabel
+                          {% if rec.sub_pm_in == 'on-time' %}sublabel-ok
+                          {% elif rec.sub_pm_in == 'missing' %}sublabel-missing
+                          {% else %}sublabel-warn{% endif %}">
+                          {{ rec.sub_pm_in }}
+                      </div>
+                  {% endif %}
+              {% else %}
+                  <div class="time-cell-dash">—</div>
+                  {% if rec.sub_pm_in %}
+                      <div class="slot-sublabel sublabel-missing">{{ rec.sub_pm_in }}</div>
+                  {% endif %}
+              {% endif %}
+          </td>
+
+          <td class="time-cell">
+              {% if rec.ph_pm_out %}
+                  <div>{{ rec.ph_pm_out }}</div>
+                  {% if rec.sub_pm_out %}
+                      <div class="slot-sublabel
+                          {% if rec.sub_pm_out == 'on-time' %}sublabel-ok
+                          {% elif rec.sub_pm_out == 'missing' %}sublabel-missing
+                          {% else %}sublabel-warn{% endif %}">
+                          {{ rec.sub_pm_out }}
+                      </div>
+                  {% endif %}
+              {% else %}
+                  <div class="time-cell-dash">—</div>
+                  {% if rec.sub_pm_out %}
+                      <div class="slot-sublabel sublabel-missing">{{ rec.sub_pm_out }}</div>
+                  {% endif %}
+              {% endif %}
+          </td>
+
+          <td style="text-align:center;font-family:var(--font-mono);font-size:.8rem;
+                     {% if rec.late_minutes > 0 %}color:var(--warning);font-weight:700;{% endif %}">
+            {{ rec.late_minutes|default:"0" }}
+          </td>
+          
+          <td style="text-align:center;font-family:var(--font-mono);font-size:.8rem;">
+            {{ rec.undertime_minutes|default:"0" }}min
+          </td>
+          <td>
+            <span class="status-badge
+              {% if rec.status == 'restday' %}badge-restday
+              {% elif rec.status == 'present' %}badge-present
+              {% elif rec.status == 'absent' %}badge-absent
+              {% elif rec.status == 'to' %}badge-to
+              {% elif rec.status == 'holiday' %}badge-holiday
+              {% elif rec.status == 'leave' %}badge-leave
+              {% else %}badge-halfday{% endif %}">
+              {% if rec.status == 'restday' %}Rest Day{% else %}{{ rec.status|capfirst }}{% endif %}
+            </span>
+          </td>
+          <td class="remarks-cell" title="{{ rec.remarks|default:'' }}">
+            {{ rec.remarks|default:"—" }}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="9" style="text-align:center;padding:40px;color:var(--gray-400);">
+            <i class="fas fa-clock" style="font-size:2rem;display:block;
+               opacity:.2;margin-bottom:10px;"></i>
+            No records for {{ selected_month|date:"F Y" }}.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

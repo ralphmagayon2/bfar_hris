@@ -86,10 +86,38 @@
             <!-- PEOPLE -->
             <li class="nav-section-label"><span>People</span></li>
 
-            <li class="{% if 'employees' in request.resolver_match.namespace %}nav-active{% endif %}">
+            {% comment %} <li class="{% if 'employees' in request.resolver_match.namespace %}nav-active{% endif %}">
               <a href="{% url 'employees:employee_list' %}" data-tooltip="Employees">
                 <i class="fas fa-users"></i>
                 <span>Employees</span>
+              </a>
+            </li> {% endcomment %}
+
+            {% comment %} <li class="{% if request.resolver_match.url_name == 'schedule_list' or request.resolver_match.url_name == 'schedule_create' or 'schedule_edit' in request.resolver_match.url_name %}nav-active{% endif %}">
+              <a href="{% url 'employees:schedule_list' %}" data-tooltip="Schedules">
+                <i class="fas fa-calendar-week"></i>
+                <span>Schedules</span>
+              </a>
+            </li> {% endcomment %}
+
+            <li class="{% if request.resolver_match.url_name == 'employee_list' or request.resolver_match.url_name == 'form' or request.resolver_match.url_name == 'edit' or request.resolver_match.url_name == 'change_status' or request.resolver_match.url_name == 'detail' %}nav-active{% endif %}">
+              <a href="{% url 'employees:employee_list' %}" data-tooltip="Employees">
+                <i class="fas fa-users"></i>
+                <span>Employees</span>
+              </a>
+            </li>
+
+            <li class="{% if request.resolver_match.url_name == 'schedule_list' or request.resolver_match.url_name == 'schedule_create' or request.resolver_match.url_name == 'schedule_edit' or request.resolver_match.url_name == 'schedule_delete' or request.resolver_match.url_name == 'assign_division_sched' or request.resolver_match.url_name == 'assign_unit_sched' %}nav-active{% endif %}">
+              <a href="{% url 'employees:schedule_list' %}" data-tooltip="Schedules">
+                <i class="fas fa-calendar-week"></i>
+                <span>Schedules</span>
+              </a>
+            </li>
+
+            <li class="{% if request.resolver_match.url_name == 'org_structure' or request.resolver_match.url_name == 'division_create' or request.resolver_match.url_name == 'division_edit' or request.resolver_match.url_name == 'uniot_create' or request.resolver_match.url_name == 'unit_edit' %}nav-active{% endif %}">
+              <a href="{% url 'employees:org_structure' %}" data-tooltip="Org Structure">
+                <i class="fas fa-sitemap"></i>
+                <span>Org Structure</span>
               </a>
             </li>
 
@@ -279,49 +307,70 @@
 
             <!-- User menu -->
             <div class="topbar-user" id="user-trigger">
-              {% if current_user and current_user.get_profile_picture_url %}
-                <img src="{{ current_user.get_profile_picture_url }}" 
-                  class="user-avatar"
-                  alt="Profile"
-                  onerror="this.style.display='none';this.nextElementSiblings.style.display='flex'">
-                <div class="user-avatar-initials" style="display:none;">
+              
+              {% if current_user.employee and current_user.employee.profile_picture %}
+                <img src="{{ current_user.employee.profile_picture.url }}"
+                    class="user-avatar"
+                    alt="Profile"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+
+                <div class="user-avatar-initials"
+                    style="display:none; background:{% if current_user.role == 'superadmin' %}#F59E0B{% elif current_user.role == 'hr_admin' %}#1565C0{% elif current_user.role == 'hr_staff' %}#00838F{% else %}#8E24AA{% endif %};">
                   {{ current_user.get_initials }}
                 </div>
               {% else %}
-                <div class="user-avatar-initials" style="background: {% if current_user.role == 'superadmin' %}#F59E0B {% elif current_user.role == 'hr_admin' %}#1565C0 {% elif current_user.role == 'hr_staff' %}#00838F {% else %}#8E24AA{% endif %};">
+                <div class="user-avatar-initials"
+                    style="background:{% if current_user.role == 'superadmin' %}#F59E0B{% elif current_user.role == 'hr_admin' %}#1565C0{% elif current_user.role == 'hr_staff' %}#00838F{% else %}#8E24AA{% endif %};">
                   {{ current_user.get_initials }}
                 </div>
               {% endif %}
+
               <div class="user-info">
                 <span class="user-name">{{ current_user.get_full_name|default:"User" }}</span>
                 <span class="user-role">{{ current_user.get_role_display }}</span>
               </div>
+
               <i class="fas fa-chevron-down user-caret" id="user-caret"></i>
 
               <!-- User dropdown -->
               <div class="user-dropdown" id="user-dropdown">
                 <div class="user-dropdown-header">
-                  {% if current_user and current_user.get_profile_picture_url %}
-                    <img src="{{ current_user.get_profile_picture_url }}" class="dropdown-avatar" alt="Profile" />
+
+                  {% if current_user.employee and current_user.employee.profile_picture %}
+                    <img src="{{ current_user.employee.profile_picture.url }}"
+                        class="dropdown-avatar"
+                        alt="Profile"
+                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+
+                    <div class="dropdown-avatar-initials"
+                        style="display:none; background:{% if current_user.role == 'superadmin' %}#F59E0B{% elif current_user.role == 'hr_admin' %}#1565C0{% elif current_user.role == 'hr_staff' %}#00838F{% else %}#8E24AA{% endif %};">
+                      {{ current_user.get_initials }}
+                    </div>
                   {% else %}
                     <div class="dropdown-avatar-initials"
                         style="background:{% if current_user.role == 'superadmin' %}#F59E0B{% elif current_user.role == 'hr_admin' %}#1565C0{% elif current_user.role == 'hr_staff' %}#00838F{% else %}#8E24AA{% endif %};">
                       {{ current_user.get_initials }}
                     </div>
                   {% endif %}
+
                   <div>
                     <p class="dropdown-name">{{ current_user.get_display_name|default:"User" }}</p>
                     <p class="dropdown-role">{{ current_user.get_role_display }}</p>
                   </div>
+
                 </div>
+
                 <div class="user-dropdown-divider"></div>
+
                 <a href="{% url 'accounts:admin_profile' %}" class="user-dropdown-item">
                   <i class="fas fa-circle-user"></i> My Profile
                 </a>
-                <a href="#" class="user-dropdown-item">
+                {% comment %} <a href="#" class="user-dropdown-item">
                   <i class="fas fa-lock"></i> Change Password
-                </a>
+                </a> {% endcomment %}
+
                 <div class="user-dropdown-divider"></div>
+
                 <form method="post" action="{% url 'accounts:admin_logout' %}" style="margin:0;">
                   {% csrf_token %}
                   <button type="submit"

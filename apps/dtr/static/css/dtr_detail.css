@@ -1,3 +1,4 @@
+/* css/dtr_detail.css */
 /* ── Employee hero strip ─────────────────────────────────── */
 .dtr-hero {
   background: var(--white); border-radius: 10px;
@@ -39,7 +40,7 @@
   display: grid; grid-template-columns: repeat(7, 1fr);
   gap: 10px; margin-bottom: 20px;
 }
-@media (max-width: 700px) { .month-summary { grid-template-columns: repeat(4, 1fr); } }
+
 .ms-card {
   background: var(--white); border-radius: 8px;
   border: 1px solid var(--gray-100); box-shadow: var(--shadow);
@@ -69,5 +70,128 @@
 .time-cell.late { color: var(--warning); font-weight: 700; }
 .day-label { font-weight: 500; white-space: nowrap; }
 .day-label .dow { font-size: .68rem; color: var(--gray-400); font-weight: 400; }
-.remarks-cell { font-size: .73rem; color: var(--gray-500); max-width: 120px;
+.remarks-cell { font-size: .73rem; color: var(--gray-500); max-width: 180px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* dtr_detail.css */
+tr.is-restday td { color: #aaa; background: #F4F4F4; }
+.badge-restday {
+  background: #EFEFEF;
+  color: #999;
+}
+
+/* Per-slot sub-labels */
+.slot-sublabel {
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-top: 2px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+}
+.sublabel-ok      { color: var(--success); }       /* green: on-time */
+.sublabel-warn    { color: var(--warning); }        /* amber: late or early */
+.sublabel-missing { color: var(--danger);  }        /* red: missing scan */
+
+.time-cell-dash {
+    color: var(--gray-400);
+    font-size: 0.85rem;
+}
+
+.badge-holiday { background: var(--warning-light); color: #FFC81E; border: 1px solid #FFC81E; }
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.dtr-table {
+  min-width: 760px;
+}
+
+/* Responsive Style Section */
+
+/* Tablet */
+@media (max-width: 900px) {
+  .month-summary {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 700px) { 
+  .month-summary { 
+    grid-template-columns: repeat(4, 1fr); 
+  } 
+
+  .dtr-hero-left {
+    margin-bottom: 10px;
+  }
+}
+
+@media (max-width: 640px) {
+
+  .dtr-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dtr-hero-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .dtr-hero-right {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .month-nav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .month-nav > div:last-child {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .month-nav form {
+    flex: 1;
+  }
+
+  .month-nav input[type="month"] {
+    width: 100%;
+  }
+
+  .dtr-table {
+    font-size: 0.74rem;
+  }
+
+  .dtr-table thead th {
+    font-size: 0.62rem;
+    padding: 7px 8px;
+  }
+
+  .dtr-table tbody td {
+    padding: 6px 8px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 520px) {
+  .month-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 320px) {
+  .dtr-hero-left {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .dtr-emp-meta {
+    align-items: center;
+    justify-content: center;
+  }
+}

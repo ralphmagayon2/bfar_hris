@@ -201,12 +201,15 @@
   form.addEventListener('submit', function (e) {
     let valid = true;
 
-    // Role 
-    const roleChecked = document.querySelector('.role-radio[name="role"]:checked');
-    if (!roleChecked) {
-      e.preventDefault();
-      showError('role-field-error', null, 'Please select a role.');
-      valid = false;
+    // ── Role (skip entirely in bootstrap mode — role is fixed to superadmin) ──
+    const isBootstrap = form.dataset.bootstrap === 'true';
+    if (!isBootstrap) {
+        const roleChecked = document.querySelector('.role-radio[name="role"]:checked');
+        if (!roleChecked) {
+            e.preventDefault();
+            showError('role-field-error', null, 'Please select a role.');
+            valid = false;
+        }
     }
 
     // Username
@@ -251,8 +254,10 @@
     }
   });
 
-  // ── Init  
-  updateRoleCards();
-  updateStatusLabels();
+  // ── Init
+  if (!form.dataset.bootstrap) {
+      updateRoleCards();
+      updateStatusLabels();
+  }
 
 })();

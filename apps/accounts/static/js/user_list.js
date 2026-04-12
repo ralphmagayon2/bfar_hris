@@ -442,6 +442,51 @@ function _executeToggle(btn) {
   });
 }
 
+/* ─── Unlock User ─────────────────────────────────────────── */
+function confirmUnlock(btn) {
+  const userId   = btn.dataset.userId;
+  const username = btn.dataset.username;
+
+  _openToast({
+    iconClass:       'fas fa-lock-open',
+    iconWrapClass:   'success',
+    title:           `Unlock "${username}"?`,
+    desc:            'This will clear the failed login attempts and allow the user to log in again.',
+    confirmLabel:    'Unlock',
+    confirmBtnClass: 'success',
+    onConfirm:       () => _executeUnlock(btn),
+  });
+}
+
+function _executeUnlock(btn) {
+  dismissToast();
+  btn.disabled = true;
+
+  const userId = btn.dataset.userId;
+  const url    = TOGGLE_BASE_URL + userId + '/unlock/';
+
+  fetch(url, {
+    method:  'POST',
+    headers: {
+      'X-CSRFToken':      CSRF_TOKEN,
+      'Content-Type':     'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+    if (!data.ok) { showInlineToast(data.error || 'Action failed.', 'error'); return; }
+    showInlineToast(data.message, 'success');
+    setTimeout(() => window.location.reload(), 900);
+  })
+  .catch(err => {
+    btn.disabled = false;
+    console.error('[user_list] unlock error:', err);
+    showInlineToast('Network error. Please try again.', 'error');
+  });
+}
+
 /* ─── 7. Single delete ───────────────────────────────────────────────────── */
 function confirmDelete(btn) {
   const userId   = btn.dataset.userId;
@@ -498,16 +543,19 @@ function confirmBulkAction() {
 
   const isDelete   = action === 'delete';
   const isActivate = action === 'activate';
-
-  const iconClass  = isActivate ? 'fas fa-check' : isDelete ? 'fas fa-trash' : 'fas fa-ban';
-  const wrapClass  = isActivate ? 'success'      : 'danger';
-  const btnClass   = isActivate ? 'success'      : 'danger';
-  const verbLabel  = isActivate ? 'Activate'     : isDelete ? 'Delete' : 'Deactivate';
+  const isUnlock   = action === 'unlock';
+  
+  const iconClass  = isActivate ? 'fas fa-check' : isUnlock ? 'fas fa-lock-open' : isDelete ? 'fas fa-trash' : 'fas fa-ban';
+  const wrapClass  = (isActivate || isUnlock) ? 'success' : 'danger';
+  const btnClass   = (isActivate || isUnlock) ? 'success' : 'danger';
+  const verbLabel  = isActivate ? 'Activate' : isUnlock ? 'Unlock' : isDelete ? 'Delete' : 'Deactivate';
   const descText   = isActivate
     ? `${count} account${count !== 1 ? 's' : ''} will be reactivated and can log in again.`
+    : isUnlock
+    ? `${count} account${count !== 1 ? 's' : ''} will be unlocked. Unlocked accounts will be skipped.`
     : isDelete
     ? `${count} account${count !== 1 ? 's' : ''} will be soft-deleted and deactivated.`
-    : `${count} account${count !== 1 ? 's' : ''} will be deactivated. Already-inactive users will be reported.`;
+    : `${count} account${count !== 1 ? 's' : ''} will be deactivated. Already-inactive users will be skipped.`;
 
   _openToast({
     iconClass:       iconClass,

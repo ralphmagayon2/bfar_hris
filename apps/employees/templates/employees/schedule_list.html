@@ -1,0 +1,590 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Schedule Management — BFAR HRIS{% endblock %}
+{% block page_title %}Schedule Management{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{% static 'css/schedule_list.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Schedule Management</h1>
+    <p class="page-sub">Define work schedules and assign them to divisions, units, or individual employees.</p>
+  </div>
+  <a href="{% url 'employees:schedule_create' %}" class="btn btn-primary btn-sm">
+    <i class="fas fa-plus"></i> New Schedule
+  </a>
+</div>
+
+<div class="sched-grid">
+
+  <!-- LEFT -->
+  <div>
+    <div class="sched-card">
+      <div class="sched-card-head">
+        <div class="sched-card-title">
+          <div class="icon"><i class="fas fa-clock"></i></div>
+          Work Schedules
+        </div>
+        <span style="font-size:.71rem;color:var(--gray-400);">{{ schedules.count }} defined</span>
+      </div>
+      {% for sched in schedules %}
+      <div class="sched-item">
+        <div class="sched-item-name">
+          {{ sched.schedule_name }}
+          <span class="type-badge {% if sched.is_flexible %}flexible{% else %}fixed{% endif %}">
+            {% if sched.is_flexible %}Flex{% else %}Fixed{% endif %}
+          </span>
+        </div>
+        <div style="font-size:.7rem;color:var(--gray-400);margin-bottom:3px;">
+          {{ sched.working_hours_per_day }} hrs/day
+          {% if sched.is_flexible %}&nbsp;·&nbsp; {{ sched.flex_start_earliest|time:"g:i A" }}–{{ sched.flex_start_latest|time:"g:i A" }} window{% endif %}
+        </div>
+        <div class="sched-times">
+          <span class="sched-time-pill">{{ sched.am_in|time:"g:i A" }}</span>
+          <span class="sched-time-pill">{{ sched.am_out|time:"g:i A" }}</span>
+          <span class="sched-time-pill">{{ sched.pm_in|time:"g:i A" }}</span>
+          <span class="sched-time-pill">{{ sched.pm_out|time:"g:i A" }}</span>
+          {% if sched.is_flexible %}
+          <span class="sched-time-pill flex-pill">
+            <i class="fas fa-arrows-left-right" style="font-size:.57rem;"></i>
+            flex
+          </span>
+          {% endif %}
+        </div>
+        <div class="sched-item-actions">
+          <a href="{% url 'employees:schedule_edit' sched.schedule_id %}"
+            class="btn btn-ghost btn-sm sched-action-btn">
+            <i class="fas fa-pen"></i>
+            <span>Edit</span>
+          </a>
+
+          <button type="button"
+                  class="btn btn-ghost btn-sm sched-action-btn sched-delete-btn"
+                  onclick="confirmScheduleDelete('{{ sched.schedule_id }}', '{{ sched.schedule_name|escapejs }}')">
+            <i class="fas fa-trash"></i>
+            <span>Delete</span>
+          </button>
+
+          <form id="delete-schedule-form-{{ sched.schedule_id }}"
+                method="post"
+                action="{% url 'employees:schedule_delete' sched.schedule_id %}"
+                style="display:none;">
+            {% csrf_token %}
+          </form>
+        </div>
+      </div>
+      {% empty %}
+      <div class="empty-state">
+        <i class="fas fa-clock"></i>
+        No schedules yet.
+        <br>
+        <a href="{% url 'employees:schedule_create' %}" style="color:var(--navy-700);font-weight:600;">Create the first one.</a>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Priority guide -->
+    <div class="sched-card">
+      <div class="sched-card-head">
+        <div class="sched-card-title">
+          <div class="icon"><i class="fas fa-layer-group"></i></div>
+          Priority Chain
+        </div>
+      </div>
+      <div style="padding:14px 18px;">
+        <p style="font-size:.76rem;color:var(--gray-600);margin-bottom:12px;line-height:1.6;">
+          Most specific assignment always wins.
+        </p>
+        <div class="priority-step" style="background:var(--navy-25);border:1px solid var(--navy-100);">
+          <div class="priority-num" style="background:var(--navy-700);color:#fff;">4</div>
+          <div><div class="p-title" style="color:var(--navy-900);">Employee override</div><div class="p-sub">Set via employee profile — highest priority</div></div>
+          <i class="fas fa-crown" style="color:var(--navy-700);margin-left:auto;font-size:.76rem;align-self:center;"></i>
+        </div>
+        <div class="priority-step" style="background:#E8F5E9;border:1px solid #C8E6C9;">
+          <div class="priority-num" style="background:#2E7D32;color:#fff;">3</div>
+          <div><div class="p-title" style="color:#1B5E20;">Sub-unit default</div><div class="p-sub">Overrides parent unit for this sub-unit</div></div>
+        </div>
+        <div class="priority-step" style="background:#E1F5EE;border:1px solid #9FE1CB;">
+          <div class="priority-num" style="background:var(--teal-700);color:#fff;">2</div>
+          <div><div class="p-title" style="color:var(--teal-700);">Unit default</div><div class="p-sub">Overrides division for all in this unit</div></div>
+        </div>
+        <div class="priority-step" style="background:var(--gray-50);border:1px solid var(--gray-200);">
+          <div class="priority-num" style="background:var(--gray-400);color:#fff;">1</div>
+          <div><div class="p-title" style="color:var(--gray-700);">Division default</div><div class="p-sub">Baseline for everyone in this division</div></div>
+        </div>
+        <div class="priority-step" style="background:var(--gray-100);border:1px solid var(--gray-200);margin-bottom:0;">
+          <div class="priority-num" style="background:var(--gray-300);color:#fff;">0</div>
+          <div><div class="p-title" style="color:var(--gray-500);">System default</div><div class="p-sub">8AM–5PM fixed if nothing assigned</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+    <div class="sched-card">
+      <div class="sched-card-head">
+        <div class="sched-card-title">
+          <div class="icon"><i class="fas fa-building-user"></i></div>
+          Assign Schedules
+        </div>
+      </div>
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('divisions',this)">
+          <i class="fas fa-building" style="margin-right:5px;"></i>Divisions
+        </button>
+        <button class="tab-btn" onclick="switchTab('units',this)">
+          <i class="fas fa-sitemap" style="margin-right:5px;"></i>Units &amp; Sub-units
+        </button>
+      </div>
+
+      <!-- Divisions -->
+      <div class="tab-pane active" id="tab-divisions">
+        <div class="table-wrap">
+          <table class="assign-table">
+            <thead>
+              <tr>
+                <th>Division</th>
+                <th class="col-current">Current Schedule</th>
+                <th>Assign</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for div in divisions %}
+              <tr>
+                <td>
+                  <div class="assign-name">{{ div.division_name }}</div>
+                  <div class="assign-sub">{{ div.division_code }}</div>
+                </td>
+                <td class="col-current">
+                  {% if div.default_schedule %}
+                    <span class="cur-pill set"><i class="fas fa-circle-check" style="font-size:.57rem;"></i> {{ div.default_schedule.schedule_name }}</span>
+                  {% else %}
+                    <span class="cur-pill none"><i class="fas fa-circle-minus" style="font-size:.57rem;"></i> Not set</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="post" action="{% url 'employees:assign_division_sched' %}" class="assign-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="division_id" value="{{ div.division_id }}">
+                    <input type="hidden" name="push_to_employees" value="1">
+                    
+                    <select name="schedule_id" class="assign-select">
+                      <option value="">— System default —</option>
+                      {% for s in schedules %}
+                      <option value="{{ s.schedule_id }}" 
+                        {% if div.default_schedule_id == s.schedule_id %}selected{% endif %}>
+                        {{ s.schedule_name }}
+                      </option>
+                      {% endfor %}
+                    </select>
+                    
+                    {% comment %} <button type="button" class="btn btn-primary btn-sm" style="font-size:.71rem;padding:6px 12px;white-space:nowrap;margin-left:5px;" onclick="confirmPush(this, '{{ div.division_name|escapejs }}')">
+                      <i class="fas fa-users"></i> Push
+                    </button> {% endcomment %}
+
+                    <div class="date-group">
+                      <input type="date" name="push_effective_date" 
+                            value="{% now 'Y-m-d' %}"
+                            min="{% now 'Y-m-d' %}"
+                            class="assign-date"
+                            title="Schedule takes effect starting from this date (cannot be in the past)">
+                      <span class="date-help">Effective date</span>
+                    </div>
+
+                    {% comment %} Force button to push this schedule to division {% endcomment %}
+                    <label class="push-label" style="margin-left:4px;" title="Override even personal schedules">
+                      <input type="checkbox" name="force_push" value="1" style="width:13px;height:13px;">
+                      Force
+                    </label>
+
+                    <button type="button" class="btn btn-primary btn-sm"
+                            style="font-size:.71rem;padding:6px 12px;white-space:nowrap;margin-left:5px;"
+                            onclick="confirmPush(this, '{{ div.division_name|escapejs }}')">
+                      <i class="fas fa-users"></i> Push
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="empty-state">No divisions found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Units -->
+      <div class="tab-pane" id="tab-units">
+        <div class="table-wrap">
+          <table class="assign-table">
+            <thead>
+              <tr>
+                <th>Unit / Sub-unit</th>
+                <th class="col-current">Current Schedule</th>
+                <th>Assign</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for unit in units %}
+              <tr>
+                <td>
+                  <div class="assign-name">
+                    {% if unit.parent_unit %}<span style="color:var(--gray-300);margin-right:3px;">↳</span>{% endif %}
+                    {{ unit.unit_name }}
+                  </div>
+                  <div class="assign-sub">
+                    {{ unit.division.division_code }}{% if unit.parent_unit %} · {{ unit.parent_unit.unit_name }}{% endif %}
+                  </div>
+                </td>
+                <td class="col-current">
+                  {% if unit.default_schedule %}
+                    <span class="cur-pill set"><i class="fas fa-circle-check" style="font-size:.57rem;"></i> {{ unit.default_schedule.schedule_name }}</span>
+                  {% elif unit.division.default_schedule %}
+                    <span class="cur-pill inherited"><i class="fas fa-arrow-up" style="font-size:.57rem;"></i> {{ unit.division.default_schedule.schedule_name }}</span>
+                  {% else %}
+                    <span class="cur-pill none"><i class="fas fa-circle-minus" style="font-size:.57rem;"></i> Not set</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="post" action="{% url 'employees:assign_unit_sched' %}" class="assign-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="unit_id" value="{{ unit.unit_id }}">
+                    <input type="hidden" name="push_to_employees" value="1">
+                    
+                    <select name="schedule_id" class="assign-select">
+                      <option value="">— Division default —</option>
+                      {% for s in schedules %}
+                      <option value="{{ s.schedule_id }}" 
+                        {% if unit.default_schedule_id == s.schedule_id %}selected{% endif %}>
+                        {{ s.schedule_name }}
+                      </option>
+                      {% endfor %}
+                    </select>
+                    
+                    {% comment %} <button type="button" class="btn btn-primary btn-sm" style="font-size:.71rem;padding:6px 12px;white-space:nowrap;margin-left:5px;" onclick="confirmPush(this, '{{ unit.unit_name|escapejs }}')">
+                      <i class="fas fa-users"></i> Push
+                    </button> {% endcomment %}
+
+                    <div class="date-group">
+                      <input type="date" name="push_effective_date" 
+                            value="{% now 'Y-m-d' %}"
+                            min="{% now 'Y-m-d' %}"
+                            class="assign-date"
+                            title="Schedule takes effect from this date (cannot be in the past)">
+                      <span class="date-help">Effective date</span>
+                    </div>
+
+                    {% comment %} Force button to push this schedule to unit/sub-unit {% endcomment %}
+                    <label class="push-label" style="margin-left:4px;" title="Override even personal schedules">
+                      <input type="checkbox" name="force_push" value="1" style="width:13px;height:13px;">
+                      Force
+                    </label>
+
+                    <button type="button" class="btn btn-primary btn-sm"
+                            style="font-size:.71rem;padding:6px 12px;white-space:nowrap;margin-left:5px;"
+                            onclick="confirmPush(this, '{{ unit.unit_name|escapejs }}')">
+                      <i class="fas fa-users"></i> Push
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="empty-state">No units found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Schedule Assignment History -->
+    <div class="sched-card" id="history-panel">
+      <div class="sched-card-head">
+        <div class="sched-card-title">
+          <div class="icon"><i class="fas fa-history"></i></div>
+          Pushed Schedule History
+        </div>
+        <span style="font-size:.71rem;color:var(--gray-400);">Select a division to view</span>
+      </div>
+
+      <!-- Division picker -->
+      <div style="padding:12px 16px;border-bottom:1px solid var(--gray-100);">
+        <select id="history-div-sel" class="assign-select" style="width:100%;min-width:unset;"
+                onchange="loadHistory(this.value)">
+          <option value="">— Select Division —</option>
+          {% for div in divisions %}
+          <option value="{{ div.division_id }}">{{ div.division_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div id="history-body">
+        <div class="empty-state">
+          <i class="fas fa-building"></i>
+          Select a division above to view its pushed schedule history.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast-confirm-overlay" class="toast-overlay" aria-hidden="true">
+  <div class="toast-card" role="dialog" aria-modal="true">
+    <div class="toast-icon-wrap" id="toast-icon-wrap" style="background:var(--navy-50);color:var(--navy-700);">
+      <i class="fas fa-users" id="toast-icon"></i>
+    </div>
+    <div class="toast-body">
+      <p class="toast-title" id="toast-title">Update Schedule?</p>
+      <p class="toast-desc" id="toast-desc"></p>
+    </div>
+    <div class="toast-actions">
+      <button class="toast-btn toast-cancel" type="button" onclick="dismissToast()">Cancel</button>
+      <button class="toast-btn toast-confirm success" id="toast-confirm-btn" type="button" onclick="executeToastAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block js %}
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+let toastActionFn = null;
+
+function confirmPush(btnElement, targetName) {
+  const form = btnElement.closest('form');
+  const select = form.querySelector('.assign-select');
+  const forceCheck = form.querySelector('input[name="force_push"]');
+  const dateInput  = form.querySelector('input[name="push_effective_date"]');
+
+  const isForce = forceCheck && forceCheck.checked;
+  const effDate = dateInput ? dateInput.value : 'today';
+
+  let actionText = select.value
+    ? `assign the selected schedule (effective ${effDate}) to`
+    : 'clear the assigned schedule for';
+
+  if (isForce) actionText = `⚠️ FORCE override all schedules (effective ${effDate}) for`;
+
+  document.getElementById('toast-title').textContent = 'Update Schedule?';
+  document.getElementById('toast-desc').innerHTML = `This will <strong>${actionText}</strong> all active employees in <strong>${targetName}</strong> who do not have a personal override.`;
+  document.getElementById('toast-icon').className = 'fas fa-users';
+  document.getElementById('toast-icon-wrap').style.background = 'var(--navy-50)';
+  document.getElementById('toast-icon-wrap').style.color = 'var(--navy-700)';
+
+  const confirmBtn = document.getElementById('toast-confirm-btn');
+  confirmBtn.textContent = 'Push';
+  confirmBtn.className = 'toast-btn toast-confirm success';
+
+  toastActionFn = () => { form.submit(); };
+
+  const overlay = document.getElementById('toast-confirm-overlay');
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function confirmScheduleDelete(scheduleId, scheduleName) {
+  const overlay = document.getElementById('toast-confirm-overlay');
+  const title = document.getElementById('toast-title');
+  const desc = document.getElementById('toast-desc');
+  const icon = document.getElementById('toast-icon');
+  const iconWrap = document.getElementById('toast-icon-wrap');
+  const confirmBtn = document.getElementById('toast-confirm-btn');
+
+  title.textContent = 'Delete Schedule?';
+  desc.innerHTML = `This will permanently delete <strong>${scheduleName}</strong>. This action cannot be undone.`;
+
+  icon.className = 'fas fa-trash';
+  iconWrap.style.background = 'rgba(220, 38, 38, 0.12)';
+  iconWrap.style.color = 'var(--danger)';
+
+  confirmBtn.textContent = 'Delete';
+  confirmBtn.classList.remove('success');
+  confirmBtn.classList.add('danger');
+
+  toastActionFn = () => {
+    document.getElementById(`delete-schedule-form-${scheduleId}`).submit();
+  };
+
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function dismissToast() {
+  const overlay = document.getElementById('toast-confirm-overlay');
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+  toastActionFn = null;
+}
+
+function executeToastAction() {
+  if (toastActionFn) toastActionFn();
+}
+
+function showInlineToast(message, type = 'success') {
+  // Remove any existing toast first
+  const existing = document.getElementById('inline-toast-el');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'inline-toast-el';
+  toast.className = `inline-toast ${type}`;
+  toast.innerHTML = `
+    <i class="fas ${type === 'success' ? 'fa-circle-check' : 'fa-circle-xmark'}"
+       style="color:${type === 'success' ? 'var(--success)' : 'var(--danger)'}"></i>
+    ${message}
+  `;
+  document.body.appendChild(toast);
+
+  // Animate in
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add('show'));
+  });
+
+  // Auto-remove after 3.5s
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3500);
+}
+
+function executeDeletePushed(ids) {
+  dismissToast();
+  fetch(DELETE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+    body: JSON.stringify({ emp_schedule_ids: ids }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.deleted !== undefined) {
+      showInlineToast(`Successfully removed schedule from ${data.deleted} employee(s).`, 'success');
+      const sel = document.getElementById('history-div-sel');
+      loadHistory(sel.value);
+    }
+  })
+  .catch(() => showInlineToast('Failed to delete. Please try again.', 'error'));
+}
+
+const HISTORY_URL      = "{% url 'employees:division_schedule_history' %}";
+const DELETE_URL       = "{% url 'employees:delete_pushed_schedule' %}";
+const UPDATE_DATE_URL  = "{% url 'employees:update_pushed_date' %}";
+const CSRF_TOKEN       = "{{ csrf_token }}";
+
+function loadHistory(divId) {
+  const body = document.getElementById('history-body');
+  if (!divId) {
+    body.innerHTML = '<div class="empty-state"><i class="fas fa-building"></i>Select a division above.</div>';
+    return;
+  }
+
+  body.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+
+  fetch(`${HISTORY_URL}?division_id=${divId}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.rows || data.rows.length === 0) {
+        body.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i> No pushed schedules found for this division.</div>';
+        return;
+      }
+
+      let html = '<div class="table-wrap"><table class="assign-table"><thead><tr>'
+        + '<th>Schedule</th><th>Effective</th><th>Employees</th><th>Actions</th>'
+        + '</tr></thead><tbody>';
+
+      data.rows.forEach(row => {
+        const idsJson = JSON.stringify(row.emp_schedule_ids);
+        html += `
+          <tr>
+            <td>
+              <div class="assign-name">${row.schedule_name}</div>
+              <div class="assign-sub">Pushed · ${row.count} employee(s)</div>
+            </td>
+            <td>
+              <input type="date"
+                    class="assign-date"
+                    style="min-width:110px;"
+                    value="${row.effective_date}"
+                    min="${new Date().toISOString().split('T')[0]}"
+                    data-ids='${JSON.stringify(row.emp_schedule_ids)}'
+                    onchange="updatePushedDate(this)">
+            </td>
+            <td style="font-weight:600;color:var(--navy-900);text-align:center;">${row.count}</td>
+            <td>
+              <button class="btn btn-ghost btn-sm btn-remove"
+                      style="color:var(--danger);font-size:.71rem;padding:3px 8px;"
+                      onclick='confirmDeletePushed(${JSON.stringify(row.emp_schedule_ids)}, ${JSON.stringify(row.schedule_name)}, ${JSON.stringify(row.effective_date_disp)})'>
+                <i class="fas fa-trash"></i> Remove
+              </button>
+            </td>
+          </tr>`;
+      });
+
+      html += '</tbody></table></div>';
+      body.innerHTML = html;
+    })
+    .catch(() => {
+      body.innerHTML = '<div class="empty-state" style="color:var(--danger);">Failed to load history.</div>';
+    });
+}
+
+function confirmDeletePushed(ids, schedName, dateStr) {
+  // ids is already an array here — no JSON.parse needed
+  document.getElementById('toast-title').textContent = 'Remove Assigned Schedule?';
+  document.getElementById('toast-desc').innerHTML = `Remove pushed schedule "<strong>${schedName}</strong>" (effective ${dateStr}) from <strong>${ids.length}</strong> employee(s)?<br><br><small style="color:var(--gray-400);">Past DTR records are not affected.</small>`;
+  document.getElementById('toast-icon').className = 'fas fa-trash';
+  document.getElementById('toast-icon-wrap').style.background = '#FEE2E2';
+  document.getElementById('toast-icon-wrap').style.color = 'var(--danger)';
+
+  const confirmBtn = document.getElementById('toast-confirm-btn');
+  confirmBtn.textContent = 'Remove';
+  confirmBtn.className = 'toast-btn toast-confirm danger';
+
+  toastActionFn = () => { executeDeletePushed(ids); };
+
+  const overlay = document.getElementById('toast-confirm-overlay');
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function updatePushedDate(inputEl) {
+  const ids     = JSON.parse(inputEl.dataset.ids);
+  const newDate = inputEl.value;
+  if (!newDate) return;
+
+  fetch(UPDATE_DATE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+    body: JSON.stringify({ emp_schedule_ids: ids, new_date: newDate }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) {
+      showInlineToast(data.error, 'error');
+      // Reset to original value — reload history
+      loadHistory(document.getElementById('history-div-sel').value);
+    } else {
+      // Visual confirmation
+      inputEl.style.borderColor = 'var(--success)';
+      showInlineToast(`Effective date updated successfully.`, 'success');
+      setTimeout(() => inputEl.style.borderColor = '', 2000);
+    }
+  })
+  .catch(() => showInlineToast('Failed to update date.'));
+}
+</script>
+{% endblock %}

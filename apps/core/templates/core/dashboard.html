@@ -433,40 +433,40 @@
         <div class="quick-actions">
 
           {% if can_approve %}
-          <a href="{% url 'employees:form' %}" class="qa-btn navy">
+          <a href="{% url 'employees:form' %}" class="qa-btn navy" target="_blank">
             <i class="fas fa-user-plus"></i>
             Add Employee
           </a>
           {% endif %}
 
-          <a href="{% url 'travel_orders:create' %}" class="qa-btn teal">
+          <a href="{% url 'travel_orders:create' %}" class="qa-btn teal" target="_blank">
             <i class="fas fa-route"></i>
             New Travel Order
           </a>
 
           {% if can_approve %}
-          <a href="{% url 'payroll:periods' %}" class="qa-btn green">
+          <a href="{% url 'payroll:periods' %}" class="qa-btn green" target="_blank">
             <i class="fas fa-peso-sign"></i>
             Payroll
           </a>
           {% endif %}
 
-          <a href="{% url 'holidays:holiday_list' %}" class="qa-btn amber">
+          <a href="{% url 'holidays:holiday_list' %}" class="qa-btn amber" target="_blank">
             <i class="fas fa-calendar-days"></i>
             Holidays
           </a>
 
-          <a href="{% url 'leaves:leave_list' %}" class="qa-btn purple">
+          <a href="{% url 'leaves:leave_list' %}" class="qa-btn purple" target="_blank">
             <i class="fas fa-umbrella-beach"></i>
             Leave Credits
           </a>
 
-          <a href="{% url 'biometrics:devices' %}" class="qa-btn teal">
+          <a href="{% url 'biometrics:devices' %}" class="qa-btn teal" target="_blank">
             <i class="fas fa-fingerprint"></i>
             Biometrics
           </a>
 
-          <a href="{% url 'dtr:dtr_list' %}" class="qa-btn teal">
+          <a href="{% url 'dtr:dtr_list' %}" class="qa-btn teal" target="_blank">
             <i class="fas fa-clock"></i>
             DTR
           </a>
@@ -483,24 +483,22 @@
           <i class="fas fa-calendar-days amber"></i>
           Upcoming Holidays
         </div>
-        <a href="{% url 'holidays:holiday_list' %}" class="btn btn-ghost btn-sm">Manage</a>
       </div>
       <div class="dash-card-body" style="padding-top:4px;padding-bottom:4px;">
         {% if upcoming_holidays %}
         <div class="holiday-list">
-          {% for holiday in upcoming_holidays|slice:"5" %}
+          {% for holiday in upcoming_holidays %}
           <div class="holiday-item">
             <div class="holiday-date-block">
-              <span class="hday-day">{{ holiday.date|date:"d" }}</span>
-              <span class="hday-mon">{{ holiday.date|date:"M" }}</span>
+              <span class="hday-day">{{ holiday.holiday_date|date:"d" }}</span>
+              <span class="hday-mon">{{ holiday.holiday_date|date:"M" }}</span>
             </div>
             <div class="holiday-info">
-              <div class="holiday-name">{{ holiday.name }}</div>
-              <div class="holiday-days-left">{{ holiday.date|timeuntil }} from now</div>
+              <div class="holiday-name">{{ holiday.holiday_name }}</div>
+              <div class="holiday-days-left">{{ holiday.holiday_date|timeuntil }} from now</div>
             </div>
-            <span class="holiday-type-chip
-              {% if holiday.holiday_type == 'regular' %}regular{% else %}special{% endif %}">
-              {% if holiday.holiday_type == 'regular' %}Regular{% else %}Special{% endif %}
+            <span class="holiday-type-chip {% if holiday.is_regular %}regular{% else %}special{% endif %}">
+              {{ holiday.get_holiday_type_display }}
             </span>
           </div>
           {% endfor %}

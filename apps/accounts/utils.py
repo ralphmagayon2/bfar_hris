@@ -26,6 +26,8 @@ import secrets
 import string
 
 from django.core.cache import cache
+from django.utils import timezone
+from datetime import timedelta
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 
@@ -51,19 +53,39 @@ def get_attempts(username: str) -> int:
 def increment_attempts(username: str) -> int:
     """Increment failure counter; returns new count."""
     key = _attempt_key(username)
-    try:
-        return cache.incr(key)
-    except ValueError:
-        cache.set(key, 1, ATTEMPT_WINDOW)
-        return 1
+    current = cache.get(key, 0)
+    new_count = current + 1
+    cache.set(key, new_count, ATTEMPT_WINDOW)
+    return new_count
     
 def lock_account(username: str) -> None:
     """Lock the account and clear the attempt counter."""
+
+    expiry = timezone.now() + timedelta(minutes=LOCKOUT_MINUTES)
     cache.set(_lockout_key(username), True, LOCKOUT_MINUTES * 60)
+    cache.set(
+        f"bfar:login_locked_expiry:{username.lower().strip()}",
+        expiry,
+        LOCKOUT_MINUTES * 60
+    )
     cache.delete(_attempt_key(username))
 
 def is_locked(username: str) -> bool:
     return bool(cache.get(_lockout_key(username)))
+
+def get_lockout_remaining(username: str) -> int:
+    """
+    Returns seconds remaining in the lockout window.
+    Returns 0 if not locked or already expired.
+    Reads the expiry timestamp stored by lock_account().
+    """
+    expiry = cache.get(f"bfar:login_locked_expiry:{username.lower().strip()}")
+    if not expiry:
+        return 0
+    from django.utils import timezone
+    remaining = (expiry - timezone.now()).total_seconds()
+    return max(0, int(remaining))
+
 
 def clear_attempts(username: str) -> None:
     """Call on successful login to wipe both counter and lock."""

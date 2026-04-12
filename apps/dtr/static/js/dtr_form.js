@@ -1,34 +1,59 @@
-// Highlight changed fields relative to their original values
-document.addEventListener('DOMContentLoaded', () => {
-  const originals = {
-    am_in:  '{{ dtr.am_in|time:"H:i"|default:"" }}',
-    am_out: '{{ dtr.am_out|time:"H:i"|default:"" }}',
-    pm_in:  '{{ dtr.pm_in|time:"H:i"|default:"" }}',
-    pm_out: '{{ dtr.pm_out|time:"H:i"|default:"" }}',
-  };
+/**
+ * static/js/dtr_form.js
+ *
+ * DTR correction form (dtr/form.html).
+ *
+ *   - Highlights time fields that have been changed vs their saved DB value.
+ *   - Warns the user before leaving with unsaved changes (beforeunload).
+ *
+ * The template injects original values as a global object:
+ *   window.DTR_ORIGINALS = { am_in: 'HH:MM', am_out: 'HH:MM', ... }
+ * (Set in a <script> block at the bottom of form.html — see guide below.)
+ */
 
-  Object.entries(originals).forEach(([field, original]) => {
-    const input = document.getElementById(field);
-    if (!input) return;
+(function() {
+  'use strict';
 
-    const markChanged = () => {
-      const changed = input.value !== original;
-      input.style.borderColor = changed ? 'var(--warning)' : '';
-      input.style.background  = changed ? '#FFFDE7'        : '';
-    };
+  document.addEventListener('DOMContentLoaded', function () {
 
-    input.addEventListener('input', markChanged);
-    markChanged(); // run on load
-  });
+    // Highlight changed fields
+    var originals = window.DTR_ORIGINALS || {};
 
-  // Warn before leaving with unsaved changes
-  let isDirty = false;
-  document.querySelectorAll('input, textarea, select').forEach(el => {
-    el.addEventListener('change', () => isDirty = true);
-    el.addEventListener('input',  () => isDirty = true);
-  });
-  document.querySelector('form').addEventListener('submit', () => isDirty = false);
-  window.addEventListener('beforeunload', e => {
-    if (isDirty) { e.preventDefault(); e.returnValue = ''; }
-  });
-});
+    Object.keys(originals).forEach(function (field) {
+      var input = document.getElementById(field);
+      if (!input) return;
+
+      var original = originals[field];
+
+      function markChanged() {
+        var changed = input.value !== original;
+        input.style.borderColor = changed ? 'var(--warning)' : '';
+        input.style.background  = changed ? '#FFFDE7' : '';
+      }
+
+      input.addEventListener('input', markChanged);
+      markChanged(); // run immediately on page load
+    });
+
+    // Unsaved-changes warning
+    var isDirty = false;
+
+    document.querySelectorAll('input, textarea, select').forEach(function (el) {
+      el.addEventListener('change', function () { isDirty = true; });
+      el.addEventListener('input', function () { isDirty = true; });
+    });
+
+    var frm = document.querySelector('form');
+    if (frm) {
+      frm.addEventListener('submit', function () { isDirty = false; });
+    }
+
+    window.addEventListener('beforeunload', function (e) {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    })
+  })
+
+}());

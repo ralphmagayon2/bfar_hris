@@ -440,6 +440,65 @@ body::before {
     font-family: var(--font-mono); margin-top: 20px;
 }
 
+/* ── Bootstrap / First-Time Setup Mode ─────────────────────────────────────
+   Amber-gold accent replaces the default blue theme.
+   Applied via .bootstrap-mode on .page-layout.
+─────────────────────────────────────────────────────────────────────────── */
+
+.bootstrap-mode .form-card::before {
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(245,158,11,.9),
+        rgba(249,115,22,.7),
+        transparent
+    );
+}
+
+.bootstrap-mode .admin-badge,
+.admin-badge--bootstrap {
+    background:    rgba(245,158,11,.12) !important;
+    border-color:  rgba(245,158,11,.35) !important;
+    color:         #FCD34D !important;
+}
+
+.bootstrap-mode .subheading-box,
+.subheading-box--bootstrap {
+    border-color: rgba(245,158,11,.4) !important;
+    background:   rgba(245,158,11,.06) !important;
+}
+
+.bootstrap-mode .subheading-box .card-subheading {
+    color: rgba(252,211,77,.75) !important;
+}
+
+.bootstrap-mode .section-label {
+    color: #FCD34D;
+}
+
+.bootstrap-mode .field-wrap input:focus,
+.bootstrap-mode .field-wrap select:focus {
+    border-color: rgba(245,158,11,.55);
+    background:   rgba(245,158,11,.05);
+    box-shadow:   0 0 0 3px rgba(245,158,11,.1);
+}
+
+.bootstrap-mode .btn-submit,
+.btn-submit--bootstrap {
+    background: linear-gradient(135deg, #92400E, #D97706, #F59E0B) !important;
+    box-shadow: 0 4px 20px rgba(245,158,11,.3) !important;
+}
+
+.bootstrap-mode .btn-submit:hover,
+.btn-submit--bootstrap:hover {
+    box-shadow: 0 8px 28px rgba(245,158,11,.5) !important;
+}
+
+/* Left panel accent in bootstrap mode */
+.bootstrap-mode .info-panel {
+    border-right-color: rgba(245,158,11,.15);
+}
+
 /* ── Responsive ─────────────────────────────────── */
 @media (max-width: 900px) {
     .info-panel { display: none; }

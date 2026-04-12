@@ -226,11 +226,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 if DEBUG:
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'bfar-hris-cache',
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': 'redis://127.0.0.1:6379/1',
         }
     }
-    print("Cache: LocMemCache (dev)")
+    print("Cache: Redis (dev)")
 else:
     _REDIS_BASE = os.getenv('REDIS_URL', 'redis://localhost:6379').rstrip('/')
     CACHES = {

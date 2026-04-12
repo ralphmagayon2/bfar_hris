@@ -89,7 +89,7 @@
           {# These URLs will be built when dtr/leaves/payroll viewer views are ready. #}
           {# Until then they point to the list views which redirects or shows own records. #}
           <li class="{% if 'dtr' in request.resolver_match.namespace %}nav-active{% endif %}">
-            <a href="{% url 'dtr:dtr_list' %}" data-tooltip="My DTR">
+            <a href="{% url 'dtr:my_dtr' %}" data-tooltip="My DTR">
               <i class="fas fa-clock"></i>
               <span>My DTR</span>
             </a>
@@ -180,34 +180,66 @@
 
           <!-- User chip + dropdown -->
           <div class="topbar-user" id="user-trigger">
-            {# Avatar: shows initials always (no profile picture for viewer yet) #}
-            <div class="user-avatar-initials"
-                 style="background:{% if current_user.role == 'viewer' %}#8E24AA{% else %}#1565C0{% endif %};">
-              {{ current_user.get_initials }}
-            </div>
+            
+            {% if current_user.employee and current_user.employee.profile_picture %}
+              <img src="{{ current_user.employee.profile_picture.url }}"
+                  class="user-avatar"
+                  alt="Profile"
+                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+
+              <div class="user-avatar-initials"
+                  style="display:none; background:#8E24AA;">
+                {{ current_user.get_initials }}
+              </div>
+            {% else %}
+              <div class="user-avatar-initials" style="background:#8E24AA;">
+                {{ current_user.get_initials }}
+              </div>
+            {% endif %}
+
             <div class="user-info">
               <span class="user-name">{{ current_user.get_display_name|default:"Employee" }}</span>
               <span class="user-role">Employee</span>
             </div>
+
             <i class="fas fa-chevron-down user-caret" id="user-caret"></i>
 
             <!-- Dropdown -->
             <div class="user-dropdown" id="user-dropdown">
+              
               <div class="user-dropdown-header">
-                <div class="dropdown-avatar-initials"
-                     style="background:{% if current_user.role == 'viewer' %}#8E24AA{% else %}#1565C0{% endif %};">
-                  {{ current_user.get_initials }}
-                </div>
+
+                {% if current_user.employee and current_user.employee.profile_picture %}
+                    <img src="{{ current_user.employee.profile_picture.url }}"
+                      class="dropdown-avatar"
+                      alt="Profile"
+                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+
+                  <div class="dropdown-avatar-initials"
+                      style="display:none; background:#8E24AA;">
+                    {{ current_user.get_initials }}
+                  </div>
+                {% else %}
+                  <div class="dropdown-avatar-initials" style="background:#8E24AA;">
+                    {{ current_user.get_initials }}
+                  </div>
+                {% endif %}
+
+
                 <div>
                   <p class="dropdown-name">{{ current_user.get_display_name|default:"Employee" }}</p>
                   <p class="dropdown-role">Employee Self-Service</p>
                 </div>
               </div>
+
               <div class="user-dropdown-divider"></div>
+
               <a href="{% url 'accounts:profile' %}" class="user-dropdown-item">
                 <i class="fas fa-circle-user"></i> My Profile
               </a>
+
               <div class="user-dropdown-divider"></div>
+
               <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;">
                 {% csrf_token %}
                 <button type="submit"

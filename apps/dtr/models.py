@@ -251,6 +251,24 @@ class DTRRecord(models.Model):
             self.pm_out is not None
         )
 
+    # Since django template don't support ternary assignment in printing
+    # I will create this function to get the data to print
+    def get_row_class(self):
+        """Return the CSS row class for DTR print/display."""
+        if self.is_restday:
+            return 'row-weekend'
+        if self.is_holiday:
+            return 'row-holiday'
+        if self.am_in_status in ('leave',) or self.pm_in_status in ('leave',):
+            return 'row-leave'
+        if self.am_in_status in ('to', 'tt'):
+            return 'row-travel'
+        if self.am_in is None:
+            return 'row-absent'
+        if self.minutes_late and self.minutes_late > 0:
+            return 'row-late'
+        return ''
+
     def __str__(self):
         return (
             f"{self.employee.get_full_name()} — "
